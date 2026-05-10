@@ -66,6 +66,7 @@ function NavItem({
 }
 
 export function Sidebar({ markets = [], live = false, regime }: SidebarProps) {
+  const [devMode, setDevMode] = useDeveloperMode();
   return (
     <aside className="fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-[var(--color-border)] bg-[var(--color-sidebar)]">
       {/* Logo */}
@@ -74,7 +75,7 @@ export function Sidebar({ markets = [], live = false, regime }: SidebarProps) {
           <div className="h-2.5 w-2.5 rounded-full bg-[var(--color-bull)]" />
         </div>
         <div>
-          <div className="text-sm font-semibold leading-none tracking-tight">Momentum</div>
+          <div className="text-sm font-semibold leading-none tracking-tight">Momentum AI</div>
           <div className="mt-0.5 text-[10px] text-[var(--color-muted-foreground)]">Options Scanner</div>
         </div>
       </div>
@@ -86,6 +87,16 @@ export function Sidebar({ markets = [], live = false, regime }: SidebarProps) {
             <NavItem key={item.to} {...item} />
           ))}
         </div>
+        {devMode && (
+          <div className="mt-4">
+            <div className="mb-1 px-3 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Developer</div>
+            <div className="space-y-0.5">
+              {NAV_DEV.map((item) => (
+                <NavItem key={item.to} {...item} />
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Market snapshot */}
