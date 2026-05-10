@@ -14,6 +14,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ScannerRouteImport } from './routes/scanner'
 import { Route as PerformanceRouteImport } from './routes/performance'
 import { Route as PatternsRouteImport } from './routes/patterns'
+import { Route as LiveRouteImport } from './routes/live'
 import { Route as IoDataRouteImport } from './routes/io-data'
 import { Route as ApiHealthRouteImport } from './routes/api-health'
 import { Route as IndexRouteImport } from './routes/index'
@@ -43,6 +44,11 @@ const PerformanceRoute = PerformanceRouteImport.update({
 const PatternsRoute = PatternsRouteImport.update({
   id: '/patterns',
   path: '/patterns',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveRoute = LiveRouteImport.update({
+  id: '/live',
+  path: '/live',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IoDataRoute = IoDataRouteImport.update({
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api-health': typeof ApiHealthRoute
   '/io-data': typeof IoDataRoute
+  '/live': typeof LiveRoute
   '/patterns': typeof PatternsRoute
   '/performance': typeof PerformanceRoute
   '/scanner': typeof ScannerRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api-health': typeof ApiHealthRoute
   '/io-data': typeof IoDataRoute
+  '/live': typeof LiveRoute
   '/patterns': typeof PatternsRoute
   '/performance': typeof PerformanceRoute
   '/scanner': typeof ScannerRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api-health': typeof ApiHealthRoute
   '/io-data': typeof IoDataRoute
+  '/live': typeof LiveRoute
   '/patterns': typeof PatternsRoute
   '/performance': typeof PerformanceRoute
   '/scanner': typeof ScannerRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api-health'
     | '/io-data'
+    | '/live'
     | '/patterns'
     | '/performance'
     | '/scanner'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api-health'
     | '/io-data'
+    | '/live'
     | '/patterns'
     | '/performance'
     | '/scanner'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api-health'
     | '/io-data'
+    | '/live'
     | '/patterns'
     | '/performance'
     | '/scanner'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiHealthRoute: typeof ApiHealthRoute
   IoDataRoute: typeof IoDataRoute
+  LiveRoute: typeof LiveRoute
   PatternsRoute: typeof PatternsRoute
   PerformanceRoute: typeof PerformanceRoute
   ScannerRoute: typeof ScannerRoute
@@ -198,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PatternsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/live': {
+      id: '/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof LiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/io-data': {
       id: '/io-data'
       path: '/io-data'
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiHealthRoute: ApiHealthRoute,
   IoDataRoute: IoDataRoute,
+  LiveRoute: LiveRoute,
   PatternsRoute: PatternsRoute,
   PerformanceRoute: PerformanceRoute,
   ScannerRoute: ScannerRoute,
