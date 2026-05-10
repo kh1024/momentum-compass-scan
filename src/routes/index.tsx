@@ -12,7 +12,7 @@ import { RefreshBar } from "@/components/RefreshBar";
 import { StatusPill } from "@/components/trust/StatusPill";
 import { deriveLiveState, LIVE_STATE_EXPLAIN, formatAgo } from "@/lib/liveStatus";
 import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
-import { loadSnapshotModule } from "@/lib/scanSnapshot";
+import { loadScanSnapshot, saveScanSnapshot } from "@/lib/scanSnapshot";
 import { loadRegimeSnapshot, saveRegimeSnapshot } from "@/lib/marketSnapshots";
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { Direction, TradeCandidate } from "@/lib/types";
@@ -235,24 +235,18 @@ function Dashboard() {
     () => picks.map((p) => `${p.ticker}:${p.direction}`).join(","),
     [picks],
   );
-  // Hydrate cached scan snapshot only on the client. The snapshot module is
-  // dynamically imported inside an effect so SSR never touches localStorage
-  // and the `.client.ts` module stays out of the server bundle.
-  type CachedScan = { result: EnrichmentResult; savedAt: number } | null;
-  const [cachedSnapshot, setCachedSnapshot] = useState<CachedScan>(null);
-
+  // Hydrate cached scan snapshot. `loadScanSnapshot` is wrapped with
+  // `createIsomorphicFn`: server returns `null`, client reads localStorage.
+  // A `mounted` flag keeps SSR and the first client paint identical to avoid
+  // hydration mismatches.
+  const [snapshotMounted, setSnapshotMounted] = useState(false);
   useEffect(() => {
-    let cancelled = false;
-    loadSnapshotModule().then((mod) => {
-      if (cancelled || !mod) return;
-      const snap = mod.loadScanSnapshot(pickKey);
-      if (snap) setCachedSnapshot({ result: snap.result, savedAt: snap.savedAt });
-      else setCachedSnapshot(null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [pickKey]);
+    setSnapshotMounted(true);
+  }, []);
+  const cachedSnapshot = useMemo(
+    () => (snapshotMounted ? loadScanSnapshot(pickKey) : null),
+    [pickKey, snapshotMounted],
+  );
 
   const {
     data: chainData,
@@ -277,18 +271,11 @@ function Dashboard() {
 
   // Persist verified snapshots only. saveScanSnapshot refuses to overwrite
   // a good snapshot with empty/rate-limited/broken results internally.
-  // Dynamic-imported so SSR never invokes localStorage.
+  // Server branch of the isomorphic wrapper is a no-op.
   useEffect(() => {
-    if (!chainData) return;
-    let cancelled = false;
-    loadSnapshotModule().then((mod) => {
-      if (cancelled || !mod) return;
-      mod.saveScanSnapshot(pickKey, chainData);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [chainData, pickKey]);
+    if (!snapshotMounted || !chainData) return;
+    saveScanSnapshot(pickKey, chainData);
+  }, [chainData, pickKey, snapshotMounted]);
 
 
   useEffect(() => {

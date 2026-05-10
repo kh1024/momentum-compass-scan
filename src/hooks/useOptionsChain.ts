@@ -20,7 +20,7 @@ import {
   type DataStatus,
   type TrustEnvelope,
 } from "@/services/trust";
-import { loadSnapshotModule } from "@/lib/scanSnapshot";
+import { loadOptionsSnapshot, saveOptionsSnapshot } from "@/lib/scanSnapshot";
 
 export interface UseOptionsChainResult {
   envelopes: Record<string, TrustEnvelope<EnrichedContract>>;
@@ -55,30 +55,25 @@ export function useOptionsChain(
     [picks],
   );
 
-  // Hydrate snapshot only on the client. The snapshot module is dynamically
-  // imported inside an effect so the server bundle never touches localStorage
-  // and TanStack's import-protection plugin keeps `.client.ts` out of SSR.
-  type CachedSnap = { result: OptionsChainResult; savedAt: number } | null;
-  const [cachedSnapshot, setCachedSnapshot] = useState<CachedSnap>(null);
-
+  // Hydrate snapshot on the client only. `loadOptionsSnapshot` is wrapped
+  // with `createIsomorphicFn`: server returns `null`, client reads
+  // localStorage. We still gate behind a `mounted` flag so SSR and the first
+  // client paint render identical HTML (no hydration mismatch).
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    let cancelled = false;
-    loadSnapshotModule().then((mod) => {
-      if (cancelled || !mod) return;
-      const snap = mod.loadOptionsSnapshot<OptionsChainResult>(queryKey);
-      if (snap) setCachedSnapshot({ result: snap.result, savedAt: snap.savedAt });
-      else setCachedSnapshot(null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [queryKey]);
+    setMounted(true);
+  }, []);
+
+  const cachedSnapshot = useMemo(
+    () => (mounted ? loadOptionsSnapshot(queryKey) : null),
+    [queryKey, mounted],
+  );
 
   const q = useQuery({
     queryKey: ["options-chain", queryKey],
     queryFn: () => fetchOptionsChainEnvelopes(picks),
     enabled: enabled && picks.length > 0,
-    initialData: cachedSnapshot?.result,
+    initialData: cachedSnapshot?.result as OptionsChainResult | undefined,
     initialDataUpdatedAt: cachedSnapshot?.savedAt,
     refetchInterval,
     refetchIntervalInBackground: false,
@@ -87,23 +82,17 @@ export function useOptionsChain(
     // Stale-while-revalidate: keep showing the previous payload (or the
     // disk-cached snapshot) while a fresh fetch is in flight so the scanner
     // table never wipes mid-refresh.
-    placeholderData: (prev) => prev ?? cachedSnapshot?.result,
+    placeholderData: (prev) =>
+      prev ?? (cachedSnapshot?.result as OptionsChainResult | undefined),
   });
 
   // Persist verified results only. saveOptionsSnapshot internally rejects
   // empty / rate-limited payloads so a broken refresh can never overwrite
-  // the last good snapshot. Dynamic-imported so SSR never sees localStorage.
+  // the last good snapshot. Server branch is a no-op.
   useEffect(() => {
-    if (!q.data) return;
-    let cancelled = false;
-    loadSnapshotModule().then((mod) => {
-      if (cancelled || !mod) return;
-      mod.saveOptionsSnapshot<OptionsChainResult>(queryKey, q.data);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [q.data, queryKey]);
+    if (!mounted || !q.data) return;
+    saveOptionsSnapshot(queryKey, q.data);
+  }, [q.data, queryKey, mounted]);
 
   const envelopes = q.data?.envelopes ?? {};
   const status = rollupStatus(Object.values(envelopes));
