@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Sidebar } from "@/components/Sidebar";
 import { MOCK_REGIME } from "@/lib/mockData";
 import { getQuotes } from "@/lib/quote.functions";
+import { aiInsights } from "@/lib/aiCommentary";
 
 function trendOf(pct: number): "Up" | "Down" | "Flat" {
   if (pct > 0.1) return "Up";
