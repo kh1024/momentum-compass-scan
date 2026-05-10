@@ -97,13 +97,13 @@ function deriveBias(spy: RegimeQuote | null, qqq: RegimeQuote | null, smh: Regim
 }
 
 function RegimeCard({
-  spy, qqq, smh, updatedAt, live,
+  spy, qqq, smh, updatedAt, isFetching,
 }: {
   spy: RegimeQuote | null;
   qqq: RegimeQuote | null;
   smh: RegimeQuote | null;
   updatedAt: number | null;
-  live: boolean;
+  isFetching: boolean;
 }) {
   const bias = deriveBias(spy, qqq, smh);
   const plain = bias === "Unknown" ? "Unknown" : regimePlainLabel(bias);
@@ -113,6 +113,7 @@ function RegimeCard({
     : plain === "Unknown" ? "text-muted-foreground bg-muted/40 border-border"
     : "text-amber-500 bg-amber-500/10 border-amber-500/30";
   const haveAny = !!(spy || qqq || smh);
+  const liveState = deriveLiveState({ updatedAt, isFetching });
   const aiLine = haveAny
     ? marketCommentary({
         spy: spy ? { symbol: "SPY", changePct: spy.changePct } : undefined,
@@ -120,7 +121,7 @@ function RegimeCard({
         smh: smh ? { symbol: "SMH", changePct: smh.changePct } : undefined,
         bias,
       })
-    : "Live market data unavailable — waiting on quote provider.";
+    : LIVE_STATE_EXPLAIN[liveState];
   const tickerCell = (sym: string, q: RegimeQuote | null) => (
     <div className="flex items-baseline justify-between gap-2 text-[11px]">
       <span className="font-semibold text-muted-foreground">{sym}</span>
@@ -138,7 +139,7 @@ function RegimeCard({
         </>
       ) : (
         <span className="mono w-full text-right tabular-nums text-[10px] uppercase tracking-wider text-muted-foreground/60">
-          unavailable
+          {liveState === "connecting" ? "connecting…" : "waiting for quote"}
         </span>
       )}
     </div>
@@ -160,26 +161,11 @@ function RegimeCard({
       </div>
       <p className="mt-3 text-[11px] leading-snug text-foreground/80">{aiLine}</p>
       <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-wider text-muted-foreground/70">
-        <span className={cn("flex items-center gap-1", live ? "text-[var(--color-bull)]" : "text-muted-foreground/60")}>
-          <Radio className={cn("h-2.5 w-2.5", live && "animate-pulse-dot")} />
-          {live ? "Live" : haveAny ? "Delayed" : "Offline"}
-        </span>
-        <FreshnessLabel ts={updatedAt} />
+        <StatusPill state={liveState} updatedAt={updatedAt} showAge={false} />
+        <span>{updatedAt ? `Updated ${formatAgo(updatedAt)}` : "No successful refresh yet"}</span>
       </div>
     </div>
   );
-}
-
-/** Self-ticking freshness label — re-renders only itself, not the parent tree. */
-function FreshnessLabel({ ts }: { ts: number | null }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!ts) return;
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, [ts]);
-  if (!ts) return <span>—</span>;
-  return <span>Updated {freshness(ts, now)}</span>;
 }
 
 function Stat({ label, value, tone }: { label: string; value: number | string; tone?: "bull" | "watch" | "warn" }) {
