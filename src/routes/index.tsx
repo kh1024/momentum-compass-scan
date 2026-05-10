@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { scanIntervalMs, isMarketOpen } from "@/lib/marketHours";
-import { MOCK_CANDIDATES, MOCK_REGIME } from "@/lib/mockData";
+import { MOCK_CANDIDATES } from "@/lib/mockData";
 import { freshness, marketCommentary } from "@/lib/aiCommentary";
 import { Radio } from "lucide-react";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
@@ -41,39 +41,60 @@ function regimePlainLabel(bias: string): "Risk On" | "Neutral" | "Risk Off" {
 type RegimeQuote = { price: number; changePct: number; ts?: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
 
 
+function deriveBias(spy: RegimeQuote | null, qqq: RegimeQuote | null, smh: RegimeQuote | null): string {
+  const xs = [spy, qqq, smh].filter((x): x is RegimeQuote => !!x);
+  if (xs.length === 0) return "Unknown";
+  const avg = xs.reduce((a, b) => a + b.changePct, 0) / xs.length;
+  if (avg > 0.3) return "Risk On";
+  if (avg < -0.3) return "Risk Off";
+  return "Neutral";
+}
+
 function RegimeCard({
-  bias, spy, qqq, smh, updatedAt, live,
+  spy, qqq, smh, updatedAt, live,
 }: {
-  bias: string;
-  spy: RegimeQuote;
-  qqq: RegimeQuote;
-  smh: RegimeQuote;
+  spy: RegimeQuote | null;
+  qqq: RegimeQuote | null;
+  smh: RegimeQuote | null;
   updatedAt: number | null;
   live: boolean;
 }) {
-  const plain = regimePlainLabel(bias);
+  const bias = deriveBias(spy, qqq, smh);
+  const plain = bias === "Unknown" ? "Unknown" : regimePlainLabel(bias);
   const biasCls =
     plain === "Risk On" ? "text-[var(--color-bull)] bg-[var(--color-bull)]/10 border-[var(--color-bull)]/30"
     : plain === "Risk Off" ? "text-[var(--color-bear)] bg-[var(--color-bear)]/10 border-[var(--color-bear)]/30"
+    : plain === "Unknown" ? "text-muted-foreground bg-muted/40 border-border"
     : "text-amber-500 bg-amber-500/10 border-amber-500/30";
-  const aiLine = marketCommentary({
-    spy: { symbol: "SPY", changePct: spy.changePct },
-    qqq: { symbol: "QQQ", changePct: qqq.changePct },
-    smh: { symbol: "SMH", changePct: smh.changePct },
-    bias,
-  });
-  const tickerCell = (sym: string, q: RegimeQuote) => (
+  const haveAny = !!(spy || qqq || smh);
+  const aiLine = haveAny
+    ? marketCommentary({
+        spy: spy ? { symbol: "SPY", changePct: spy.changePct } : undefined,
+        qqq: qqq ? { symbol: "QQQ", changePct: qqq.changePct } : undefined,
+        smh: smh ? { symbol: "SMH", changePct: smh.changePct } : undefined,
+        bias,
+      })
+    : "Live market data unavailable — waiting on quote provider.";
+  const tickerCell = (sym: string, q: RegimeQuote | null) => (
     <div className="flex items-baseline justify-between gap-2 text-[11px]">
       <span className="font-semibold text-muted-foreground">{sym}</span>
-      <span className="mono tabular-nums text-foreground/90">${q.price.toFixed(2)}</span>
-      <span className={cn(
-        "mono w-14 text-right tabular-nums",
-        q.changePct > 0 ? "text-[var(--color-bull)]"
-        : q.changePct < 0 ? "text-[var(--color-bear)]"
-        : "text-muted-foreground",
-      )}>
-        {q.changePct >= 0 ? "+" : ""}{q.changePct.toFixed(2)}%
-      </span>
+      {q ? (
+        <>
+          <span className="mono tabular-nums text-foreground/90">${q.price.toFixed(2)}</span>
+          <span className={cn(
+            "mono w-14 text-right tabular-nums",
+            q.changePct > 0 ? "text-[var(--color-bull)]"
+            : q.changePct < 0 ? "text-[var(--color-bear)]"
+            : "text-muted-foreground",
+          )}>
+            {q.changePct >= 0 ? "+" : ""}{q.changePct.toFixed(2)}%
+          </span>
+        </>
+      ) : (
+        <span className="mono w-full text-right tabular-nums text-[10px] uppercase tracking-wider text-muted-foreground/60">
+          unavailable
+        </span>
+      )}
     </div>
   );
   return (
@@ -95,7 +116,7 @@ function RegimeCard({
       <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-wider text-muted-foreground/70">
         <span className={cn("flex items-center gap-1", live ? "text-[var(--color-bull)]" : "text-muted-foreground/60")}>
           <Radio className={cn("h-2.5 w-2.5", live && "animate-pulse-dot")} />
-          {live ? "Live" : "Loading"}
+          {live ? "Live" : haveAny ? "Delayed" : "Offline"}
         </span>
         <FreshnessLabel ts={updatedAt} />
       </div>
@@ -312,9 +333,9 @@ function Dashboard() {
   const spyLive = getLive("SPY");
   const qqqLive = getLive("QQQ");
   const smhLive = getLive("SMH");
-  const spyQ = spyLive ?? MOCK_REGIME.spy;
-  const qqqQ = qqqLive ?? MOCK_REGIME.qqq;
-  const smhQ = smhLive ?? MOCK_REGIME.smh;
+  const spyQ: RegimeQuote | null = spyLive ?? null;
+  const qqqQ: RegimeQuote | null = qqqLive ?? null;
+  const smhQ: RegimeQuote | null = smhLive ?? null;
   const regimeUpdatedAt =
     Math.max(
       spyLive?.ts ?? 0,
@@ -404,7 +425,7 @@ function Dashboard() {
             </span>
           </div>
         </div>
-        <RegimeCard bias={MOCK_REGIME.bias} spy={spyQ} qqq={qqqQ} smh={smhQ} updatedAt={regimeUpdatedAt} live={regimeLive} />
+        <RegimeCard spy={spyQ} qqq={qqqQ} smh={smhQ} updatedAt={regimeUpdatedAt} live={regimeLive} />
       </div>
 
       <RefreshBar
@@ -419,6 +440,24 @@ function Dashboard() {
         onRefreshQuotesOnly={onRefreshQuotesOnly}
         onToggleAutoRefresh={() => setAutoRefresh((v) => !v)}
       />
+
+      {!regimeLive && !anyLive && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.04] px-4 py-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse-dot" />
+            <span className="font-semibold uppercase tracking-wider text-amber-500">Live market data unavailable</span>
+            <span className="text-muted-foreground">
+              {isMarketOpen() ? "Quote provider is not responding — retrying." : "Market closed — last verified scan shown below once available."}
+            </span>
+          </div>
+          <button
+            onClick={onRefreshQuotesOnly}
+            className="rounded-md border border-border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-foreground/80 hover:bg-muted"
+          >
+            Retry quotes
+          </button>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
