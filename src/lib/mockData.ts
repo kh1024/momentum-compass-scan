@@ -3,7 +3,7 @@ import type {
   Direction, CapBucket, SetupType, Sentiment, Label,
 } from "./types";
 import { computeLevels, entryTriggerFromLevels, invalidationFromLevels } from "./supportResistanceEngine";
-import { monthlyExpirationFromDte, dteFromExpiration } from "./expirationDates";
+import { weeklyExpirationFromDte, dteFromExpiration } from "./expirationDates";
 
 const bars = (price: number) =>
   Array.from({ length: 30 }, (_, i) => {
@@ -66,7 +66,7 @@ function build(a: BuildArgs): TradeCandidate {
     target1: a.direction === "CALL" ? levels.r1 : levels.s1,
     target2: a.direction === "CALL" ? levels.r2 : levels.s2,
     contract: (() => {
-      const expiration = monthlyExpirationFromDte(a.dte);
+      const expiration = weeklyExpirationFromDte(a.dte);
       const dte = dteFromExpiration(expiration);
       return {
         expiration,

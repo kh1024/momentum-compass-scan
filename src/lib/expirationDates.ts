@@ -59,6 +59,37 @@ export function monthlyExpirationFromDte(dteHint: number): string {
   return candidates[0].iso;
 }
 
+/**
+ * Find the nearest upcoming Friday to `dteHint` days from today.
+ * Unlike `monthlyExpirationFromDte` this considers ALL Fridays (weekly
+ * expirations), so the actual DTE stays very close to the hint.
+ */
+export function weeklyExpirationFromDte(dteHint: number): string {
+  const today = startOfUtcDayMs();
+  const targetMs = today + Math.max(1, dteHint) * 86_400_000;
+  const maxDays = Math.max(Math.ceil(dteHint * 2.5), 90);
+
+  let bestIso = "";
+  let bestDist = Infinity;
+
+  for (let d = 1; d <= maxDays; d++) {
+    const ms = today + d * 86_400_000;
+    const date = new Date(ms);
+    if (date.getUTCDay() === 5) { // Friday
+      const dist = Math.abs(ms - targetMs);
+      if (dist < bestDist) {
+        bestDist = dist;
+        const y = date.getUTCFullYear().toString();
+        const mo = (date.getUTCMonth() + 1).toString().padStart(2, "0");
+        const dy = date.getUTCDate().toString().padStart(2, "0");
+        bestIso = `${y}-${mo}-${dy}`;
+      }
+    }
+  }
+
+  return bestIso || monthlyExpirationFromDte(dteHint);
+}
+
 /** Days between today (UTC) and the given YYYY-MM-DD expiration. */
 export function dteFromExpiration(expiration: string): number {
   const expMs = Date.parse(`${expiration}T00:00:00Z`);
