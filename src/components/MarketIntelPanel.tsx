@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getMarketNews, type MarketNewsItem } from "@/lib/marketNews.functions";
 import { cn } from "@/lib/utils";
 import { ExternalLink, Newspaper, RefreshCw, SlidersHorizontal, TrendingUp } from "lucide-react";
+import { HeadlineAiSummary } from "@/components/HeadlineAiSummary";
 
 function timeAgo(ts: number): string {
   const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
@@ -391,6 +392,12 @@ export function MarketIntelPanel() {
                       })}
                     </div>
                   )}
+                  <HeadlineAiSummary
+                    url={it.url}
+                    title={it.title}
+                    snippet={it.snippet}
+                    source={it.source}
+                  />
                 </a>
               </li>
             ))}
