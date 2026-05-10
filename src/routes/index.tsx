@@ -134,10 +134,10 @@ function Dashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [devMode] = useDeveloperMode();
 
-  // Tick once per second so refresh-bar labels update.
-  const [, setNowTick] = useState(0);
+  // Tick once per second so refresh-bar / freshness labels update.
+  const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNowTick((n) => n + 1), 1_000);
+    const id = setInterval(() => setNowTick(Date.now()), 1_000);
     return () => clearInterval(id);
   }, []);
 
