@@ -115,6 +115,28 @@ export function applyLiveChain(
   const baseline = c.score;
   const nonChainEstimate = Math.max(0, baseline - 30);
   const nextScore = Math.max(0, Math.min(100, Math.round(nonChainEstimate + live.scoreDelta)));
+  // Price reconciliation: the multi-source consensus quote (applied by
+  // applyLiveQuote BEFORE this step) is authoritative because it's verified
+  // across providers. The option-chain's `underlying_asset.price` is a single
+  // snapshot from one vendor and frequently lags. Prefer the consensus
+  // price; only fall back to the chain underlying when we have no quote at
+  // all. If both exist and disagree noticeably, log so we can debug.
+  const consensusPrice = isFinite(c.price) && c.price > 0 ? c.price : null;
+  const chainPrice = isFinite(live.underlyingPrice ?? NaN) && (live.underlyingPrice ?? 0) > 0
+    ? (live.underlyingPrice as number)
+    : null;
+  let resolvedPrice = consensusPrice ?? chainPrice ?? c.price;
+  if (consensusPrice && chainPrice) {
+    const diffPct = Math.abs(consensusPrice - chainPrice) / consensusPrice;
+    if (diffPct > 0.005) {
+      // Trust the multi-source consensus, but surface the disagreement.
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[price-reconcile] ${c.ticker}: consensus $${consensusPrice.toFixed(2)} vs chain $${chainPrice.toFixed(2)} (Δ ${(diffPct * 100).toFixed(2)}%) — using consensus.`,
+      );
+    }
+    resolvedPrice = consensusPrice;
+  }
   return {
     ...c,
     contract: {
@@ -128,7 +150,7 @@ export function applyLiveChain(
       brokerConfirmRequired: live.contract.brokerConfirmRequired ?? false,
       missingFields: live.contract.missingFields ?? [],
     },
-    price: live.underlyingPrice || c.price,
+    price: resolvedPrice,
     score: nextScore,
     isDemo: false,
     liveState: liveStateFor(c.ticker),
