@@ -7,6 +7,7 @@ import { entryTriggerFromLevels, invalidationFromLevels } from "./supportResista
 import { applyEntryAndTrigger, strikeIsBreakoutOnlyBeforeTrigger } from "./entryMode";
 import { disciplinePenalties, applyPenalties, scoreContractQuality, assignLabel } from "./scoringEngine";
 import { costValidationStatus, dteBucketFor } from "./optionQualityValidator";
+import { validateQuote, type QuoteValidation } from "./quoteValidation";
 
 function rebuildPlanStrings(c: TradeCandidate, levels: Levels) {
   return {
