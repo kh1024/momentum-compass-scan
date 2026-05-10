@@ -6,6 +6,7 @@ import type { SectorStrength } from "@/lib/aiCommentary";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
+import { derivedMoneyness } from "@/lib/derivedMoneyness";
 
 const displayLabel = (label: Label): Label | "Watchlist" => (label === "Waiting on Trigger" ? "Watchlist" : label);
 
