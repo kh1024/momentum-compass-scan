@@ -9,7 +9,7 @@ import { fetchPublicQuote, publicConfigured, getPublicCooldownStatus, type Publi
 import { fetchWithRetry } from "./fetchRetry.server";
 import { normalizeTickers } from "./scannerQueue";
 
-export type SourceName = "massive" | "public" | "finnhub" | "yahoo" | "stooq";
+export type SourceName = "massive" | "public" | "finnhub" | "yahoo" | "stooq" | "coingecko";
 
 export interface SourceQuote {
   source: SourceName;
@@ -78,29 +78,39 @@ async function getYahooCrumb(force = false): Promise<{ crumb: string; cookie: st
   }
 }
 
-// ── Yahoo (free, chart endpoint — requires crumb + cookie since 2024) ──
+// ── Yahoo (free) ──
+// Strategy:
+//   1) Try the crumb-free `query1` chart endpoint first. From Cloudflare
+//      Workers the crumb/cookie flow on `query2` is unreliable (set-cookie
+//      isn't always echoed), but `query1` returns chart data anonymously.
+//   2) Fall back to `query2` with a fresh crumb only if `query1` blocks.
 async function fetchYahoo(symbol: string): Promise<SourceQuote | null> {
   const sym = symbol.toUpperCase();
-  const doFetch = async (session: { crumb: string; cookie: string } | null) => {
+  // Anonymous query1 path (works without crumb in most regions).
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=5d`;
+    const r = await fetchWithRetry(url, {
+      headers: { "User-Agent": YAHOO_UA, Accept: "application/json" },
+    });
+    if (r.ok) {
+      const parsed = parseYahooChart(await r.json(), sym);
+      if (parsed) return parsed;
+    }
+  } catch (e) {
+    console.warn(`[yahoo q1] ${sym}`, e);
+  }
+  // Crumb fallback path.
+  try {
+    const session = await getYahooCrumb(true);
     const qs = `interval=1d&range=5d${session?.crumb ? `&crumb=${encodeURIComponent(session.crumb)}` : ""}`;
     const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?${qs}`;
     const headers: Record<string, string> = { "User-Agent": YAHOO_UA, Accept: "application/json" };
     if (session?.cookie) headers["Cookie"] = session.cookie;
-    return fetchWithRetry(url, { headers });
-  };
-  try {
-    let session = await getYahooCrumb();
-    let r = await doFetch(session);
-    if (r.status === 401 || r.status === 403) {
-      // Stale crumb — invalidate and retry once with a fresh session.
-      yahooCrumbCache = null;
-      session = await getYahooCrumb(true);
-      r = await doFetch(session);
-    }
+    const r = await fetchWithRetry(url, { headers });
     if (!r.ok) return null;
     return parseYahooChart(await r.json(), sym);
   } catch (e) {
-    console.warn(`[yahoo] ${sym}`, e);
+    console.warn(`[yahoo q2] ${sym}`, e);
     return null;
   }
 }
