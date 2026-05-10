@@ -28,6 +28,7 @@ import {
 import { loadScannerMode, saveScannerMode, type ScannerMode } from "@/lib/scannerMode";
 import type { ExpirationBucket } from "@/lib/types";
 import { useRiskFilters } from "@/hooks/useRiskFilters";
+import { useAdaptiveIntervals } from "@/hooks/useAdaptiveIntervals";
 import { applyRiskFilters } from "@/lib/riskFilters";
 
 export const Route = createFileRoute("/scanner")({

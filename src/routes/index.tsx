@@ -27,6 +27,7 @@ import { useRiskFilters } from "@/hooks/useRiskFilters";
 import { applyRiskFilters } from "@/lib/riskFilters";
 import { sectionFor, SECTION_TITLES, type SectionKey } from "@/lib/uiVocabulary";
 import { useDeveloperMode } from "@/hooks/useDeveloperMode";
+import { useAdaptiveIntervals } from "@/hooks/useAdaptiveIntervals";
 import { MarketIntelPanel } from "@/components/MarketIntelPanel";
 
 export const Route = createFileRoute("/")({
