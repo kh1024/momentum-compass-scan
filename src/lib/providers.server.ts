@@ -159,6 +159,32 @@ async function fetchStooq(symbol: string): Promise<SourceQuote | null> {
   }
 }
 
+// ── Finnhub (free tier — 60 req/min; needs FINNHUB_API_KEY) ──
+function finnhubConfigured(): boolean {
+  return Boolean(process.env.FINNHUB_API_KEY);
+}
+
+async function fetchFinnhub(symbol: string): Promise<SourceQuote | null> {
+  const key = process.env.FINNHUB_API_KEY;
+  if (!key) return null;
+  const sym = symbol.toUpperCase();
+  try {
+    const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${key}`;
+    const r = await fetchWithRetry(url, { headers: { Accept: "application/json" } });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { c?: number; d?: number; dp?: number; pc?: number; t?: number };
+    const price = Number(j.c);
+    if (!isFinite(price) || price <= 0) return null;
+    const change = isFinite(Number(j.d)) ? Number(j.d) : 0;
+    const changePct = isFinite(Number(j.dp)) ? Number(j.dp) : 0;
+    const ts = Number(j.t) > 0 ? Number(j.t) * 1000 : Date.now();
+    return { source: "finnhub", symbol: sym, price, change, changePct, volume: 0, ts };
+  } catch (e) {
+    console.warn(`[finnhub] ${sym}`, e);
+    return null;
+  }
+}
+
 function massiveAdapter(q: MassiveQuote): SourceQuote {
   return {
     source: "massive", symbol: q.symbol, price: q.price,
