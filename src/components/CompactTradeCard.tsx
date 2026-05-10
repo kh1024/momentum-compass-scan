@@ -33,9 +33,17 @@ export function CompactTradeCard({
   })();
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onOpenDetails}
-      className="group relative w-full overflow-hidden rounded-lg border border-border bg-card text-left transition-all hover:border-foreground/30 hover:bg-card/80"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenDetails();
+        }
+      }}
+      className="group relative w-full cursor-pointer overflow-hidden rounded-lg border border-border bg-card text-left transition-all hover:border-foreground/30 hover:bg-card/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
     >
       {/* Left accent bar */}
       <div className={cn("absolute inset-y-0 left-0 w-[3px]", styles.bar)} />
