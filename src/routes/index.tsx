@@ -166,7 +166,7 @@ function RegimeCard({
       <p className="mt-3 text-[11px] leading-snug text-foreground/80">{aiLine}</p>
       <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-wider text-muted-foreground/70">
         <StatusPill state={liveState} updatedAt={updatedAt} showAge={false} />
-        <span>{updatedAt ? `Updated ${formatAgo(updatedAt)}` : "No successful refresh yet"}</span>
+        <span>{updatedAt ? `Updated ${formatAgo(updatedAt)}` : "Initializing market feed"}</span>
       </div>
     </div>
   );
@@ -503,42 +503,31 @@ function Dashboard() {
       />
 
       {(() => {
-        // Calm, market-aware banner. Only show the amber "needs attention"
-        // variant when the market is OPEN and quotes are genuinely missing.
+        // Only surface a banner for ACTIONABLE degraded states during market
+        // hours. Routine lifecycle (connecting / awaiting / market-closed) is
+        // already communicated by the unified health badge in RefreshBar.
         const open = isMarketOpen();
         const showAttention = open && (quoteState === "unavailable" || quoteState === "error" || quoteState === "stale");
-        const showInfo = !open || quoteState === "connecting" || quoteState === "awaiting" || quoteState === "market-closed";
-        if (!showAttention && !showInfo) return null;
-        const tone = showAttention
-          ? "border-amber-500/30 bg-amber-500/[0.04]"
-          : "border-border bg-muted/20";
-        const dotTone = showAttention ? "bg-amber-500 animate-pulse-dot" : "bg-muted-foreground/50";
-        const titleTone = showAttention ? "text-amber-500" : "text-muted-foreground";
-        const title = showAttention
-          ? quoteState === "stale" ? "Awaiting fresh quotes"
-            : quoteState === "error" ? "Quote provider reconnecting"
-            : "Waiting for live quote provider"
-          : !open ? "Tomorrow Preparation Mode"
-            : quoteState === "connecting" ? "Loading latest verified data"
-            : "Awaiting next refresh";
-        const detail = !open
-          ? "Market closed — showing latest verified scan · Live refresh paused outside market hours"
-          : LIVE_STATE_EXPLAIN[quoteState] + (marketDataUpdatedAt ? ` · Last refresh ${formatAgo(marketDataUpdatedAt)}` : "");
+        if (!showAttention) return null;
+        const title =
+          quoteState === "stale" ? "Refreshing market data"
+          : quoteState === "error" ? "Reconnecting market feed"
+          : "Restoring live market feed";
         return (
-          <div className={cn("flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs", tone)}>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.04] px-4 py-3 text-xs">
             <div className="flex items-center gap-2">
-              <span className={cn("h-2 w-2 rounded-full", dotTone)} />
-              <span className={cn("font-semibold uppercase tracking-wider", titleTone)}>{title}</span>
-              <span className="text-muted-foreground">{detail}</span>
+              <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse-dot" />
+              <span className="font-semibold uppercase tracking-wider text-amber-500">{title}</span>
+              <span className="text-muted-foreground">
+                Latest verified data is still being displayed.
+              </span>
             </div>
-            {open && (
-              <button
-                onClick={onRefreshQuotesOnly}
-                className="rounded-md border border-border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-foreground/80 hover:bg-muted"
-              >
-                Retry quotes
-              </button>
-            )}
+            <button
+              onClick={onRefreshQuotesOnly}
+              className="rounded-md border border-border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-foreground/80 hover:bg-muted"
+            >
+              Retry
+            </button>
           </div>
         );
       })()}

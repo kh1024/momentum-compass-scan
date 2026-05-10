@@ -1,12 +1,7 @@
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { StatusPill } from "@/components/trust/StatusPill";
-import {
-  deriveLiveState,
-  type LiveState,
-  LIVE_STATE_EXPLAIN,
-  formatAgo,
-} from "@/lib/liveStatus";
+import { type LiveState, formatAgo } from "@/lib/liveStatus";
+import { isMarketOpen } from "@/lib/marketHours";
 
 export interface RefreshBarProps {
   lastFullScanAt: number | null;
@@ -15,7 +10,7 @@ export interface RefreshBarProps {
   optionQuoteUpdatedAt: number | null;
   /** Backwards-compatible coarse mode. */
   dataMode: "live" | "cached" | "delayed" | "demo";
-  /** Truthful per-stream state — preferred. Falls back to dataMode if absent. */
+  /** Truthful per-stream state. */
   quoteState?: LiveState;
   chainState?: LiveState;
   autoRefresh: boolean;
@@ -25,118 +20,145 @@ export interface RefreshBarProps {
   onToggleAutoRefresh: () => void;
 }
 
-function fmtTime(ts: number | null): string {
-  if (!ts) return "—";
-  return new Date(ts).toLocaleTimeString(undefined, { hour12: false });
+/** Single unified product-facing health classification. */
+type Health = "live" | "healthy" | "delayed" | "market-closed" | "limited" | "offline";
+
+const HEALTH_TONE: Record<Health, { pill: string; dot: string }> = {
+  live:            { pill: "border-[var(--color-bull)]/40 bg-[var(--color-bull)]/10 text-[var(--color-bull)]",       dot: "bg-[var(--color-bull)] animate-pulse-dot" },
+  healthy:         { pill: "border-[var(--color-bull)]/30 bg-[var(--color-bull)]/5 text-[var(--color-bull)]/90",     dot: "bg-[var(--color-bull)]/80" },
+  delayed:         { pill: "border-amber-500/40 bg-amber-500/10 text-amber-500",                                      dot: "bg-amber-500" },
+  "market-closed": { pill: "border-border bg-muted/30 text-muted-foreground",                                         dot: "bg-muted-foreground/60" },
+  limited:         { pill: "border-border bg-muted/30 text-muted-foreground",                                         dot: "bg-muted-foreground/60" },
+  offline:         { pill: "border-[var(--color-bear)]/40 bg-[var(--color-bear)]/10 text-[var(--color-bear)]",       dot: "bg-[var(--color-bear)] animate-pulse-dot" },
+};
+
+const HEALTH_LABEL: Record<Health, string> = {
+  live: "Live",
+  healthy: "Healthy",
+  delayed: "Delayed",
+  "market-closed": "Market Closed",
+  limited: "Limited Data",
+  offline: "Offline",
+};
+
+/** Pick the calmer/worse of the two stream states and project onto Health. */
+function deriveHealth(q: LiveState | undefined, c: LiveState | undefined, marketOpen: boolean): Health {
+  const states: LiveState[] = [q, c].filter(Boolean) as LiveState[];
+  if (states.length === 0) return marketOpen ? "healthy" : "market-closed";
+
+  const has = (s: LiveState) => states.includes(s);
+
+  if (has("error")) return "offline";
+  if (has("unavailable")) return "limited";
+  if (!marketOpen && (has("market-closed") || has("awaiting"))) return "market-closed";
+  if (has("rate-limited") || has("stale") || has("delayed")) return "delayed";
+  if (states.every((s) => s === "live")) return "live";
+  // refreshing / recent / connecting / others — all "healthy"
+  return "healthy";
 }
 
-function fmtIn(ts: number | null): string {
-  if (!ts) return "manual";
-  const s = Math.round((ts - Date.now()) / 1000);
-  if (s <= 0) return "due";
-  if (s < 60) return `in ${s}s`;
-  const m = Math.round(s / 60);
-  return `in ${m}m`;
+function scanLabel(isScanning: boolean, lastFullScanAt: number | null, autoRefresh: boolean, marketOpen: boolean): string {
+  if (isScanning) return "AI ranking opportunities";
+  if (!lastFullScanAt) return marketOpen ? "Preparing first market scan" : "Standing by for next session";
+  if (!marketOpen) return "After-hours mode — monitoring overnight momentum";
+  return autoRefresh ? "Live market intelligence active" : "On-demand scanning enabled";
 }
 
 export function RefreshBar(props: RefreshBarProps) {
   const {
-    lastFullScanAt, nextFullScanAt, marketDataUpdatedAt, optionQuoteUpdatedAt,
-    dataMode, quoteState, chainState, autoRefresh, isScanning,
-    onRunScanNow, onRefreshQuotesOnly, onToggleAutoRefresh,
+    lastFullScanAt, nextFullScanAt, marketDataUpdatedAt,
+    quoteState, chainState, autoRefresh, isScanning,
+    onRunScanNow, onToggleAutoRefresh,
   } = props;
 
   // Self-tick so "Xm ago" stays fresh without re-rendering the dashboard.
-  const [, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
 
-  // Derive truthful states if caller didn't pass them.
-  const qs: LiveState =
-    quoteState ??
-    deriveLiveState({
-      updatedAt: marketDataUpdatedAt,
-      rateLimited: dataMode === "delayed",
-      kind: "quote",
-    });
-  const cs: LiveState =
-    chainState ??
-    deriveLiveState({
-      updatedAt: optionQuoteUpdatedAt,
-      isFetching: isScanning,
-      rateLimited: dataMode === "delayed",
-      kind: "chain",
-    });
+  const marketOpen = isMarketOpen();
+  const health = deriveHealth(quoteState, chainState, marketOpen);
+  const tone = HEALTH_TONE[health];
+
+  const lastVerified = lastFullScanAt
+    ? `Verified ${formatAgo(lastFullScanAt, now)}`
+    : "Latest verified scan loading";
+
+  const nextRefresh = !autoRefresh
+    ? null
+    : nextFullScanAt
+      ? `Next refresh ${formatAgo(nextFullScanAt, now).replace(" ago", "")}`
+      : null;
+
+  const tooltip = [
+    marketDataUpdatedAt ? `Market data: ${new Date(marketDataUpdatedAt).toLocaleTimeString()}` : null,
+    lastFullScanAt ? `Last scan: ${new Date(lastFullScanAt).toLocaleTimeString()}` : null,
+    `Auto refresh: ${autoRefresh ? "on" : "off"}`,
+  ].filter(Boolean).join(" · ");
 
   return (
-    <div className="rounded-xl border border-border bg-card p-3">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
-        <Field k="Last full scan" v={fmtTime(lastFullScanAt)} sub={lastFullScanAt ? formatAgo(lastFullScanAt) : "No scan yet"} />
-        <Field k="Next full scan" v={autoRefresh ? fmtTime(nextFullScanAt) : "Manual"} sub={autoRefresh ? fmtIn(nextFullScanAt) : "—"} />
-
-        <span className="flex items-baseline gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Market data</span>
-          <StatusPill state={qs} updatedAt={marketDataUpdatedAt} showAge={false} />
-          <span className="text-[10px] text-muted-foreground">
-            {qs === "live" || qs === "refreshing"
-              ? formatAgo(marketDataUpdatedAt)
-              : LIVE_STATE_EXPLAIN[qs]}
+    <div className="rounded-xl border border-border bg-card px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        {/* LEFT: market + last verified scan */}
+        <div className="flex flex-col">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            {marketOpen ? "Market Open" : "Market Closed"}
           </span>
-        </span>
-
-        <span className="flex items-baseline gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Option chain</span>
-          <StatusPill state={cs} updatedAt={optionQuoteUpdatedAt} showAge={false} />
-          <span className="text-[10px] text-muted-foreground">
-            {cs === "live" || cs === "refreshing"
-              ? formatAgo(optionQuoteUpdatedAt)
-              : cs === "unavailable"
-                ? "Option chain temporarily unavailable"
-                : LIVE_STATE_EXPLAIN[cs]}
+          <span className="text-xs text-foreground/80 transition-opacity duration-500">
+            {lastVerified}
           </span>
-        </span>
+        </div>
 
-        <span className={cn(
-          "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-          autoRefresh ? "border-[var(--color-bull)]/40 text-[var(--color-bull)]" : "border-border text-muted-foreground",
-        )}>
-          {autoRefresh ? "● Auto-refresh on" : "○ Auto-refresh paused"}
-        </span>
+        {/* CENTER: AI scan activity */}
+        <div className="flex flex-1 items-center justify-center">
+          <div className="flex items-center gap-2 text-xs text-foreground/80">
+            <span className={cn(
+              "h-1.5 w-1.5 rounded-full transition-colors duration-500",
+              isScanning ? "bg-sky-400 animate-pulse-dot" : "bg-[var(--color-bull)]/70",
+            )} />
+            <span className="transition-opacity duration-500">
+              {scanLabel(isScanning, lastFullScanAt, autoRefresh, marketOpen)}
+            </span>
+          </div>
+        </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={onRefreshQuotesOnly}
-            className="rounded-md border border-border bg-background px-2.5 py-1 text-[11px] font-semibold hover:bg-muted"
+        {/* RIGHT: unified health + controls */}
+        <div className="flex items-center gap-2">
+          <span
+            title={tooltip}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition-colors duration-500",
+              tone.pill,
+            )}
           >
-            Refresh quotes
-          </button>
+            <span className={cn("h-1.5 w-1.5 rounded-full", tone.dot)} />
+            {HEALTH_LABEL[health]}
+          </span>
+
+          {nextRefresh && (
+            <span className="hidden text-[10px] uppercase tracking-wider text-muted-foreground/70 sm:inline">
+              {nextRefresh}
+            </span>
+          )}
+
           <button
             onClick={onToggleAutoRefresh}
-            className="rounded-md border border-border bg-background px-2.5 py-1 text-[11px] font-semibold hover:bg-muted"
+            className="rounded-md border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-foreground/80 hover:bg-muted"
+            title={autoRefresh ? "Pause automatic refresh" : "Resume automatic refresh"}
           >
-            {autoRefresh ? "Pause auto" : "Resume auto"}
+            {autoRefresh ? "Auto" : "Manual"}
           </button>
           <button
             onClick={onRunScanNow}
             disabled={isScanning}
-            className="rounded-md border border-[var(--color-bull)] bg-[var(--color-bull)]/10 px-3 py-1 text-[11px] font-semibold text-[var(--color-bull)] hover:bg-[var(--color-bull)]/20 disabled:opacity-50"
+            className="rounded-md border border-[var(--color-bull)]/60 bg-[var(--color-bull)]/10 px-3 py-1 text-[11px] font-semibold text-[var(--color-bull)] hover:bg-[var(--color-bull)]/20 disabled:opacity-50"
           >
-            {isScanning ? "Scanning…" : "Run scan now"}
+            {isScanning ? "Refreshing…" : "Refresh"}
           </button>
         </div>
       </div>
     </div>
-  );
-}
-
-function Field({ k, v, sub }: { k: string; v: string; sub?: string }) {
-  return (
-    <span className="flex items-baseline gap-1.5">
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</span>
-      <span className="mono font-semibold text-foreground">{v}</span>
-      {sub && <span className="text-[10px] text-muted-foreground">{sub}</span>}
-    </span>
   );
 }
