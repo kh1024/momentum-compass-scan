@@ -1,4 +1,5 @@
 import { getScannerSettings } from "./scannerQueue";
+import { getThrottleAdjustment, type ThrottleChannel } from "./dynamicThrottle";
 
 export class RateLimitRetryExhaustedError extends Error {
   rateLimited = true as const;
