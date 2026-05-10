@@ -266,6 +266,8 @@ export const enrichWithPublicChain = createServerFn({ method: "POST" })
           entryMode: p.entryMode,
           targetStrike: p.targetStrike,
           selectedExpiration: p.selectedExpiration,
+          preferenceMode: data.preferenceMode,
+          maxContractCost: data.maxContractCost,
         });
         const picked = sel.contract;
         if (!picked || chain.underlyingPrice <= 0) {
