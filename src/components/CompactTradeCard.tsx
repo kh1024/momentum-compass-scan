@@ -135,15 +135,17 @@ export function CompactTradeCard({
         </div>
 
         {/* ── Targets + trigger ── */}
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px]">
           {/* Trigger status */}
           <span className={cn(
-            "flex items-center gap-1 font-medium",
-            triggerActive ? "text-[var(--color-bull)]" : "text-muted-foreground",
+            "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium",
+            triggerActive
+              ? "bg-[var(--color-bull)]/12 text-[var(--color-bull)]"
+              : "bg-muted/60 text-muted-foreground",
           )}>
             <span className={cn(
               "inline-block h-1.5 w-1.5 rounded-full",
-              triggerActive ? "bg-[var(--color-bull)]" : "bg-muted-foreground",
+              triggerActive ? "bg-[var(--color-bull)] animate-pulse" : "bg-muted-foreground/60",
             )} />
             {triggerActive ? "Trigger Active" : (t.triggerStatus ?? "Not Active")}
           </span>
@@ -151,18 +153,18 @@ export function CompactTradeCard({
           {/* Targets */}
           {t.target1 > 0 && (
             <span className="text-muted-foreground">
-              T1 <span className="mono font-medium text-foreground">${t.target1.toFixed(0)}</span>
+              T1 <span className="mono font-semibold text-foreground">${t.target1.toFixed(0)}</span>
             </span>
           )}
           {t.target2 > 0 && (
             <span className="text-muted-foreground">
-              T2 <span className="mono font-medium text-foreground">${t.target2.toFixed(0)}</span>
+              T2 <span className="mono font-semibold text-foreground">${t.target2.toFixed(0)}</span>
             </span>
           )}
 
           {/* Top warning */}
           {warnings[0] && (
-            <span className="ml-auto text-[var(--color-bear)]/80 truncate max-w-[12rem]">
+            <span className="ml-auto truncate max-w-[12rem] text-[var(--color-bear)]/85">
               ⚠ {warnings[0]}
             </span>
           )}
@@ -172,18 +174,12 @@ export function CompactTradeCard({
         </div>
 
         {/* ── Action row ── */}
-        <div className="mt-2 flex items-center justify-end border-t border-border/50 pt-1.5">
+        <div className="mt-2.5 flex items-center justify-end border-t border-border/40 pt-2">
           <button
             onClick={onOpenDetails}
-            className="rounded border border-border bg-background px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
+            className="rounded-md border border-border bg-background px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition-all hover:border-foreground/40 hover:bg-muted hover:text-foreground"
           >
             Details →
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function Cell({ k, v }: { k: string; v: string }) {
   return (
