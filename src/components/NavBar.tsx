@@ -183,40 +183,36 @@ export function NavBar() {
   const smhQ = getLive("SMH");
 
   const markets = [
-    {
-      symbol: "SPY",
-      price: spyQ?.price ?? MOCK_REGIME.spy.price,
-      changePct: spyQ?.changePct ?? MOCK_REGIME.spy.changePct,
-      trend: spyQ ? trendOf(spyQ.changePct) : MOCK_REGIME.spy.trend,
-    },
-    {
-      symbol: "QQQ",
-      price: qqqQ?.price ?? MOCK_REGIME.qqq.price,
-      changePct: qqqQ?.changePct ?? MOCK_REGIME.qqq.changePct,
-      trend: qqqQ ? trendOf(qqqQ.changePct) : MOCK_REGIME.qqq.trend,
-    },
-    {
-      symbol: "SMH",
-      price: smhQ?.price ?? MOCK_REGIME.smh.price,
-      changePct: smhQ?.changePct ?? MOCK_REGIME.smh.changePct,
-      trend: smhQ ? trendOf(smhQ.changePct) : MOCK_REGIME.smh.trend,
-    },
-  ];
+    spyQ ? { symbol: "SPY", price: spyQ.price, changePct: spyQ.changePct, trend: trendOf(spyQ.changePct) } : null,
+    qqqQ ? { symbol: "QQQ", price: qqqQ.price, changePct: qqqQ.changePct, trend: trendOf(qqqQ.changePct) } : null,
+    smhQ ? { symbol: "SMH", price: smhQ.price, changePct: smhQ.changePct, trend: trendOf(smhQ.changePct) } : null,
+  ].filter((m): m is NonNullable<typeof m> => m !== null);
 
   const updatedAt = Math.max(spyQ?.ts ?? 0, qqqQ?.ts ?? 0, smhQ?.ts ?? 0) || null;
-  const insights = aiInsights({
-    spy: spyQ ? { symbol: "SPY", changePct: spyQ.changePct } : undefined,
-    qqq: qqqQ ? { symbol: "QQQ", changePct: qqqQ.changePct } : undefined,
-    smh: smhQ ? { symbol: "SMH", changePct: smhQ.changePct } : undefined,
-    bias: MOCK_REGIME.bias,
-  });
+
+  // Derive bias from live data only — never fall back to mock.
+  const live = [spyQ, qqqQ, smhQ].filter((q): q is NonNullable<typeof q> => !!q);
+  const avgChange = live.length > 0 ? live.reduce((a, b) => a + b.changePct, 0) / live.length : 0;
+  const bias = live.length === 0 ? undefined
+    : avgChange > 0.3 ? "Risk-on"
+    : avgChange < -0.3 ? "Risk-off"
+    : "Neutral";
+
+  const insights = live.length > 0
+    ? aiInsights({
+        spy: spyQ ? { symbol: "SPY", changePct: spyQ.changePct } : undefined,
+        qqq: qqqQ ? { symbol: "QQQ", changePct: qqqQ.changePct } : undefined,
+        smh: smhQ ? { symbol: "SMH", changePct: smhQ.changePct } : undefined,
+        bias,
+      })
+    : ["Waiting for live market data…"];
 
   return (
     <Sidebar
       markets={markets}
       live={anyLive}
       updatedAt={updatedAt}
-      regime={MOCK_REGIME.bias}
+      regime={bias}
       insights={insights}
     />
   );
