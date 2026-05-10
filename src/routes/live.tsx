@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Sparkles, TrendingUp, TrendingDown, Activity, Zap, Radio } from "lucide-react";
 import { MOCK_CANDIDATES, MOCK_REGIME } from "@/lib/mockData";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
@@ -16,25 +16,16 @@ import { chainPickKey } from "@/lib/chainKeys";
 import { runDisciplineGate, type DisciplineGateResult } from "@/lib/disciplineGate";
 import { aiInsights, freshness, marketCommentary, sectorStrength } from "@/lib/aiCommentary";
 import { cn } from "@/lib/utils";
+import { isMarketOpen } from "@/lib/marketHours";
 
 export const Route = createFileRoute("/live")({
   head: () => ({ meta: [{ title: "Live Opportunities — Momentum Options Scanner" }] }),
   component: LiveOpportunities,
 });
 
-type RQ = { price: number; changePct: number; ts?: number };
-
 function LiveOpportunities() {
   const [openId, setOpenId] = useState<string | null>(null);
   const enrichFn = useServerFn(enrichWithPublicChain);
-  const qc = useQueryClient();
-
-  // Tick for "Xs ago" labels & rotating insights.
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 1_000);
-    return () => clearInterval(id);
-  }, []);
 
   const picks = useMemo(
     () =>
@@ -57,8 +48,9 @@ function LiveOpportunities() {
   });
 
   const symbols = useMemo(() => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.ticker))), []);
-  const { get: getLive, anyLive } = useLiveQuotes(symbols);
-  const { get: getReddit } = useRedditSentiment(symbols);
+  const quoteRefreshIntervalMs = isMarketOpen() ? 30_000 : 24 * 60 * 60_000;
+  const { get: getLive, anyLive } = useLiveQuotes(symbols, { refetchIntervalMs: quoteRefreshIntervalMs });
+  const { get: getReddit } = useRedditSentiment(symbols, { refetchIntervalMs: quoteRefreshIntervalMs });
 
   const traces = useMemo(() => {
     const enriched = chainData?.enriched ?? {};
@@ -104,14 +96,13 @@ function LiveOpportunities() {
   const open = openId ? traceById.get(openId) ?? null : null;
 
   // ── Sidebar feeds ────────────────────────────────────────────────────────
-  const regimeData = qc.getQueryData<{ live: boolean; quotes?: { SPY?: RQ; QQQ?: RQ; SMH?: RQ } }>(["regime-quotes"]);
-  const spyQ = regimeData?.quotes?.SPY ?? MOCK_REGIME.spy;
-  const qqqQ = regimeData?.quotes?.QQQ ?? MOCK_REGIME.qqq;
-  const smhQ = regimeData?.quotes?.SMH ?? MOCK_REGIME.smh;
+  const spyQ = getLive("SPY") ?? MOCK_REGIME.spy;
+  const qqqQ = getLive("QQQ") ?? MOCK_REGIME.qqq;
+  const smhQ = getLive("SMH") ?? MOCK_REGIME.smh;
   const updatedAt = Math.max(
-    (regimeData?.quotes?.SPY?.ts ?? 0),
-    (regimeData?.quotes?.QQQ?.ts ?? 0),
-    (regimeData?.quotes?.SMH?.ts ?? 0),
+    getLive("SPY")?.ts ?? 0,
+    getLive("QQQ")?.ts ?? 0,
+    getLive("SMH")?.ts ?? 0,
   ) || null;
 
   const commentaryInput = {
