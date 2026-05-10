@@ -738,16 +738,16 @@ function IOData() {
                   <tbody className="divide-y divide-border/40">
                     {events.slice(-100).reverse().map((e, i) => (
                       <tr key={i} className="hover:bg-muted/10">
-                        <td className="px-2 py-1 whitespace-nowrap text-muted-foreground">{e.ts ? new Date(e.ts).toLocaleTimeString() : "—"}</td>
+                        <td className="px-2 py-1 whitespace-nowrap text-muted-foreground">{e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : "—"}</td>
                         <td className="px-2 py-1 max-w-[14rem] truncate">{e.endpoint ?? "—"}</td>
                         <td className="px-2 py-1 font-bold">{e.ticker ?? "—"}</td>
-                        <td className={cn("px-2 py-1 font-bold", e.status >= 400 ? "text-[var(--color-bear)]" : e.status >= 200 ? "text-[var(--color-bull)]" : "text-muted-foreground")}>
-                          {e.status}
+                        <td className={cn("px-2 py-1 font-bold", (e.statusCode ?? 0) >= 400 ? "text-[var(--color-bear)]" : (e.statusCode ?? 0) >= 200 ? "text-[var(--color-bull)]" : "text-muted-foreground")}>
+                          {e.statusCode ?? "—"}
                         </td>
-                        <td className="px-2 py-1">{e.durationMs ?? "—"}</td>
+                        <td className="px-2 py-1">{e.responseTimeMs ?? "—"}</td>
                         <td className="px-2 py-1">{e.cached ? <Badge kind="cached" label="HIT" /> : "—"}</td>
                         <td className="px-2 py-1">{e.retryCount ?? 0}</td>
-                        <td className="px-2 py-1 max-w-[16rem] truncate text-[var(--color-bear)]/80">{e.error ?? "—"}</td>
+                        <td className="px-2 py-1 max-w-[16rem] truncate text-[var(--color-bear)]/80">{e.errorMessage ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>
