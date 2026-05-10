@@ -7,12 +7,16 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 import { freshness, sectorStrength, sentimentScore, type CommentaryInput } from "@/lib/aiCommentary";
+import { isMarketOpen } from "@/lib/marketHours";
 
+// Primary nav focuses on next-day prep + swing tracking. /live is a
+// secondary surface, only shown when the market is open or dev mode is on.
 const NAV = [
-  { to: "/", icon: LayoutDashboard, label: "Daily Picks" },
-  { to: "/live", icon: Zap, label: "Live" },
+  { to: "/", icon: LayoutDashboard, label: "Next-Day & Swing" },
   { to: "/watchlist", icon: Star, label: "Watchlist" },
 ] as const;
+
+const NAV_LIVE = { to: "/live", icon: Zap, label: "Live (market hours)" } as const;
 
 const NAV_DEV = [
   { to: "/scanner", icon: ScanSearch, label: "Scanner" },
@@ -110,8 +114,15 @@ export function Sidebar({
   // re-renders this whole sidebar every second and (via the parent) was
   // contributing to the trade-card flicker on the dashboard.
   const [, setTick] = useState(0);
+  // Market-open state is computed client-side after mount to keep SSR and
+  // first-render output identical (no hydration mismatch).
+  const [marketOpen, setMarketOpen] = useState(false);
   useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    setMarketOpen(isMarketOpen());
+    const id = setInterval(() => {
+      setTick((n) => n + 1);
+      setMarketOpen(isMarketOpen());
+    }, 30_000);
     return () => clearInterval(id);
   }, []);
 
@@ -158,6 +169,7 @@ export function Sidebar({
           {NAV.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
+          {(marketOpen || devMode) && <NavItem {...NAV_LIVE} />}
         </div>
 
         {/* AI insight panel */}
