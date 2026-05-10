@@ -47,10 +47,28 @@ export function scoreContractQuality(c: OptionContract, opts: QualityOpts = {}):
   if (!num(c.delta)) missing.push("delta");
   if (!num(c.theta)) missing.push("theta");
   if (!num(c.iv) || c.iv <= 0) missing.push("iv");
-  if (!num(c.bid) || c.bid < 0) missing.push("bid");
+  if (!num(c.bid) || c.bid <= 0) missing.push("bid (zero/missing — unsellable)");
   if (!num(c.ask) || c.ask <= 0) missing.push("ask");
+  if (num(c.bid) && num(c.ask) && c.ask < c.bid) missing.push("ask<bid (crossed quote)");
+  if (num(c.bid) && num(c.ask) && c.bid > 0 && c.ask > c.bid * 50) {
+    missing.push("quote unrealistic (ask ≫ bid)");
+  }
   if (!num(c.openInterest)) missing.push("openInterest");
   if (!num(c.volume)) missing.push("volume");
+  // Expiration sanity — must parse and not be in the past.
+  if (!c.expiration || typeof c.expiration !== "string") {
+    missing.push("expiration");
+  } else {
+    const t = Date.parse(c.expiration);
+    if (!Number.isFinite(t)) missing.push("expiration unparseable");
+    else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (t < today.getTime()) missing.push("expiration in past");
+    }
+  }
+  // Strike sanity.
+  if (!num(c.strike) || c.strike <= 0) missing.push("strike");
   if (missing.length > 0) {
     for (const m of missing) blockers.push(`Missing ${m}`);
     downgradeTier("avoid");
