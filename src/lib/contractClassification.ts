@@ -50,10 +50,16 @@ export interface ContractClassification extends MoneynessResult {
   explanation: string;
   /** Quality floor verdict and reasons (if any). */
   qualityFloor: { passes: boolean; warnings: string[] };
-  /** Whether this contract's moneyness is acceptable for the active entry mode. */
+  /** Whether this contract's moneyness is acceptable for the active entry mode / preference. */
   fitsEntryMode: boolean;
-  /** When fitsEntryMode === false, the reason (e.g. "Far OTM unrealistic for High Conviction"). */
+  /** When fitsEntryMode === false, the reason. */
   fitsEntryModeReason?: string;
+  /** True when premium > user max budget. */
+  premiumHeavy?: boolean;
+  /** True when break-even move exceeds the realistic ceiling for the DTE/mode. */
+  breakevenUnrealistic?: boolean;
+  /** Active preference mode at the time of selection. */
+  preferenceMode?: PreferenceMode;
 }
 
 export type ContractStyleTag =
@@ -65,7 +71,8 @@ export type ContractStyleTag =
   | "Swing-Friendly"
   | "Premium Heavy"
   | "Low Probability"
-  | "Momentum Contract";
+  | "Momentum Contract"
+  | "Break-even Too Far";
 
 // ---------- Moneyness classification ----------
 
