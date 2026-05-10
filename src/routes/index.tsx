@@ -259,7 +259,7 @@ function Dashboard() {
     dataUpdatedAt,
   } = useQuery<EnrichmentResult>({
     queryKey: ["dashboard-chain", pickKey],
-    queryFn: () => enrichFn({ data: { picks } }),
+    queryFn: () => enrichFn({ data: { picks, preferenceMode, maxContractCost } }),
     enabled: picks.length > 0,
     initialData: cachedSnapshot?.result,
     initialDataUpdatedAt: cachedSnapshot?.savedAt,
