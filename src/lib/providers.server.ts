@@ -9,7 +9,7 @@ import { fetchPublicQuote, publicConfigured, getPublicCooldownStatus, type Publi
 import { fetchWithRetry } from "./fetchRetry.server";
 import { normalizeTickers } from "./scannerQueue";
 
-export type SourceName = "massive" | "public" | "yahoo" | "stooq";
+export type SourceName = "massive" | "public" | "finnhub" | "yahoo" | "stooq";
 
 export interface SourceQuote {
   source: SourceName;
@@ -159,6 +159,32 @@ async function fetchStooq(symbol: string): Promise<SourceQuote | null> {
   }
 }
 
+// ── Finnhub (free tier — 60 req/min; needs FINNHUB_API_KEY) ──
+function finnhubConfigured(): boolean {
+  return Boolean(process.env.FINNHUB_API_KEY);
+}
+
+async function fetchFinnhub(symbol: string): Promise<SourceQuote | null> {
+  const key = process.env.FINNHUB_API_KEY;
+  if (!key) return null;
+  const sym = symbol.toUpperCase();
+  try {
+    const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${key}`;
+    const r = await fetchWithRetry(url, { headers: { Accept: "application/json" } });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { c?: number; d?: number; dp?: number; pc?: number; t?: number };
+    const price = Number(j.c);
+    if (!isFinite(price) || price <= 0) return null;
+    const change = isFinite(Number(j.d)) ? Number(j.d) : 0;
+    const changePct = isFinite(Number(j.dp)) ? Number(j.dp) : 0;
+    const ts = Number(j.t) > 0 ? Number(j.t) * 1000 : Date.now();
+    return { source: "finnhub", symbol: sym, price, change, changePct, volume: 0, ts };
+  } catch (e) {
+    console.warn(`[finnhub] ${sym}`, e);
+    return null;
+  }
+}
+
 function massiveAdapter(q: MassiveQuote): SourceQuote {
   return {
     source: "massive", symbol: q.symbol, price: q.price,
@@ -185,6 +211,10 @@ async function fetchAllSources(symbol: string): Promise<SourceQuote[]> {
     fetchYahoo(symbol).catch(() => null),
     fetchStooq(symbol).catch(() => null),
   ];
+
+  if (finnhubConfigured()) {
+    tasks.push(fetchFinnhub(symbol).catch(() => null));
+  }
 
   const massiveCooldown = getMassiveCooldownStatus();
   const massiveAvailable =
@@ -298,6 +328,7 @@ export async function probeAllProviders(): Promise<ProviderHealth[]> {
       massiveConfigured(), "Real-time quotes — MASSIVE_API_KEY", getMassiveCooldownStatus()),
     probe("public", () => fetchPublicQuote("SPY").then(q => q ? publicAdapter(q) : null),
       publicConfigured(), "Brokerage quotes — PUBLIC_COM_API_KEY", getPublicCooldownStatus()),
+    probe("finnhub", () => fetchFinnhub("SPY"), finnhubConfigured(), "Real-time quotes — FINNHUB_API_KEY"),
     probe("yahoo", () => fetchYahoo("SPY"), true, "Quotes feed — free, no key required"),
     probe("stooq", () => fetchStooq("SPY"), true, "EOD quotes — free, no key required"),
   ]);
