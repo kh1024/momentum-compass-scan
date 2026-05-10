@@ -160,6 +160,16 @@ function loadAtClient<T>(
     purge(key, "envelope not an object");
     return null;
   }
+  // Schema-version gate: invalidate (and purge) snapshots written by an
+  // older code path. This runs BEFORE other checks so an incompatible
+  // payload can't trip the validators and confuse the logs.
+  if ((parsed as { schemaVersion?: unknown }).schemaVersion !== SNAPSHOT_SCHEMA_VERSION) {
+    purge(
+      key,
+      `schema version mismatch (got ${(parsed as { schemaVersion?: unknown }).schemaVersion ?? "none"}, expected ${SNAPSHOT_SCHEMA_VERSION})`,
+    );
+    return null;
+  }
   if (
     typeof parsed.savedAt !== "number" ||
     !Number.isFinite(parsed.savedAt)
