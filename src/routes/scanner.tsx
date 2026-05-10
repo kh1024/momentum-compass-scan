@@ -207,20 +207,19 @@ function Scanner() {
 
   const lastRateLimitedRef = useRef(false);
   useEffect(() => {
-    if (!chainData) return;
-    const now = chainData.rateLimited;
+    const now = chainRateLimited;
     if (now && !lastRateLimitedRef.current) {
       toast.warning("Public.com rate limit hit", {
         description:
-          chainData.message ??
-          `Backing off for ${Math.ceil(chainData.retryInMs / 1000)}s. Showing demo data meanwhile.`,
+          chainMessage ??
+          `Backing off for ${Math.ceil(chainRetryInMs / 1000)}s. Showing demo data meanwhile.`,
         duration: 6000,
       });
     } else if (!now && lastRateLimitedRef.current) {
       toast.success("Public.com live data restored");
     }
     lastRateLimitedRef.current = now;
-  }, [chainData]);
+  }, [chainRateLimited, chainMessage, chainRetryInMs]);
 
   const symbols = useMemo(
     () => Array.from(new Set(allMockCandidates.map((c) => c.ticker))),
