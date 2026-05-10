@@ -13,12 +13,17 @@
  * working while every quote read is funneled through the trust layer.
  */
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useMarketQuotes } from "./useMarketQuotes";
 import type { Quote } from "@/services/marketDataService";
 import type { ConsensusQuote } from "@/lib/providers.server";
 import type { DataStatus, TrustEnvelope } from "@/services/trust";
 import type { SourceName } from "@/lib/providers.server";
+import {
+  inferQuoteScope,
+  loadQuoteSnapshot,
+  saveQuoteSnapshot,
+} from "@/lib/marketSnapshots";
 
 function toConsensus(q: Quote): ConsensusQuote {
   return {
@@ -62,16 +67,33 @@ export function useMarketQuotesCompat(
     opts,
   );
 
-  // Sticky last-good cache so a single empty refetch doesn't flip the UI.
-  const lastGood = useRef<Record<string, ConsensusQuote>>({});
-  const everLive = useRef(false);
+  const scope = useMemo(() => inferQuoteScope(unique), [unique]);
 
+  // Seed last-good from persisted snapshot so cold-start renders cached prices
+  // INSTANTLY while a fresh fetch hydrates in the background.
+  const lastGood = useRef<Record<string, ConsensusQuote>>(
+    (() => {
+      const snap = loadQuoteSnapshot(scope);
+      return snap?.quotes ?? {};
+    })(),
+  );
+  const everLive = useRef(Object.keys(lastGood.current).length > 0);
+
+  // Merge fresh verified quotes into the sticky cache.
+  let mergedAny = false;
   for (const [sym, env] of Object.entries(quotes)) {
-    if (env.value && env.validated) {
+    if (env.value && env.validated && Number.isFinite(env.value.price) && env.value.price > 0) {
       lastGood.current[sym.toUpperCase()] = toConsensus(env.value);
       everLive.current = true;
+      mergedAny = true;
     }
   }
+
+  // Persist on every successful merge so the next cold start is instant.
+  useEffect(() => {
+    if (!mergedAny) return;
+    saveQuoteSnapshot(scope, lastGood.current);
+  }, [mergedAny, scope, quotes]);
 
   const get = useCallback((sym: string): ConsensusQuote | null => {
     return lastGood.current[sym.toUpperCase()] ?? null;
