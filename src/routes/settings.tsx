@@ -325,28 +325,41 @@ function Settings() {
 }
 
 function RiskFiltersPanel() {
-  const { filters, setFilter, reset } = useRiskFilters();
+  const { filters, setFilter, reset, auto, setAuto } = useRiskFilters();
+  const dim = auto ? "opacity-50 pointer-events-none select-none" : "";
 
   return (
     <section className="rounded-xl border border-border bg-card p-5">
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold">Risk Filters</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            These thresholds filter every list across the app — dashboard, scanner, and live trades.
-            The AI auto-tunes these for you; fine-tune below if you want manual control.
+            {auto
+              ? "Auto mode is on — the AI picks contracts using its scoring layer. Manual thresholds below are disabled."
+              : "Manual thresholds filter every list across the app — dashboard, scanner, and live trades."}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={reset}
-          className="rounded-md border border-border bg-background px-2.5 py-1 text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
-        >
-          Reset
-        </button>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1 text-[11px] uppercase tracking-wider">
+            <span className={auto ? "text-[var(--color-bull)]" : "text-muted-foreground"}>Auto · AI picks</span>
+            <input
+              type="checkbox"
+              checked={auto}
+              onChange={(e) => setAuto(e.target.checked)}
+              className="h-4 w-4 accent-[var(--color-bull)]"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={reset}
+            className="rounded-md border border-border bg-background px-2.5 py-1 text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          >
+            Reset
+          </button>
+        </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className={`mt-4 grid grid-cols-2 gap-3 ${dim}`}>
         <SettingNumber label="Max contract cost ($)" value={filters.maxContractCost} min={50} max={10000}
           onChange={(v) => setFilter("maxContractCost", v)} />
         <SettingNumber label="Min |delta|" value={filters.minDelta} min={0} max={1}
@@ -367,7 +380,7 @@ function RiskFiltersPanel() {
           onChange={(v) => setFilter("maxSpreadPct", v)} />
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className={`mt-4 grid grid-cols-2 gap-2 ${dim}`}>
         <ToggleRow label="Reddit layer" value={filters.allowReddit} onChange={(v) => setFilter("allowReddit", v)} />
         <ToggleRow label="LEAPS" value={filters.allowLeaps} onChange={(v) => setFilter("allowLeaps", v)} />
         <ToggleRow label="Puts" value={filters.allowPuts} onChange={(v) => setFilter("allowPuts", v)} />
