@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, ScanSearch, Star, TrendingUp,
-  Activity, Settings, Wifi, ChevronRight,
+  Activity, Settings, Wifi, ChevronRight, FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ const NAV = [
   { to: "/watchlist", icon: Star, label: "Watchlist" },
   { to: "/performance", icon: TrendingUp, label: "Performance" },
   { to: "/patterns", icon: Activity, label: "Patterns" },
+  { to: "/io-data", icon: FlaskConical, label: "Data Inspector" },
 ] as const;
 
 const NAV_BOTTOM = [
