@@ -23,6 +23,8 @@ import { expirationBucketFor } from "@/lib/optionQualityValidator";
 import { entryModeFromSetup } from "@/lib/entryMode";
 import { chainPickKey } from "@/lib/chainKeys";
 import { runDisciplineGate, type DisciplineGateResult } from "@/lib/disciplineGate";
+import { useRiskFilters } from "@/hooks/useRiskFilters";
+import { applyRiskFilters } from "@/lib/riskFilters";
 import { sectionFor, SECTION_TITLES, type SectionKey } from "@/lib/uiVocabulary";
 import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 
