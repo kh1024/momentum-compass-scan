@@ -363,11 +363,19 @@ function Scanner() {
         </div>
       </div>
 
+      <BackendHealthPanel />
+
       <ScanBar
         lastScanAt={lastFullScanAt}
         dataMode={dataMode}
-        isScanning={isScanning}
-        onRunScan={runScan}
+        isScanning={isScanning || backendOffline}
+        onRunScan={() => {
+          if (backendOffline) {
+            toast.warning("Backend offline", { description: "No data providers reachable — try again in a moment." });
+            return;
+          }
+          runScan();
+        }}
       />
 
       {/* ---- Stat bar ------------------------------------------------------ */}
