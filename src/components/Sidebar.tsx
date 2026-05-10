@@ -29,6 +29,8 @@ interface SidebarMarket {
   price: number;
   changePct: number;
   trend: "Up" | "Down" | "Flat";
+  sources?: string[];
+  agreement?: "verified" | "close" | "mismatch" | "single";
 }
 
 interface SidebarProps {
