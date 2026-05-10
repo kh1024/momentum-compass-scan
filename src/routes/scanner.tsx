@@ -49,18 +49,15 @@ function Scanner() {
   const [view, setView] = useState<ViewMode>("table");
   const [persona, setPersona] = useState<Persona>("trader");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [autoSync, setAutoSync] = useState(true);
-  const AUTO_SYNC_MS = 30_000;
-  // Tick every 1s so the "updated Ns ago" / last-sync clock re-renders.
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  // Tick every 1s so the "updated Ns ago" / next-scan clock re-renders.
   const [, setNowTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setNowTick((n) => n + 1), 1_000);
     return () => clearInterval(id);
   }, []);
-  const STALE_MS = 120_000;
 
-  // Live option-chain enrichment — auto-syncs on mount and on a fast interval
-  // so strikes/Greeks come from the real chain, not synthetic rescaled mocks.
+  const qc = useQueryClient();
   const enrichFn = useServerFn(enrichWithPublicChain);
   const fetchScannerSettings = useServerFn(getScannerSettingsFn);
   const { data: scannerSettings } = useQuery({
@@ -68,6 +65,7 @@ function Scanner() {
     queryFn: () => fetchScannerSettings(),
     staleTime: 60_000,
   });
+  const fullScanIntervalMs = scannerSettings?.fullScanIntervalMs ?? 10 * 60_000;
   const picks = useMemo(
     () =>
       MOCK_CANDIDATES.map((c) => ({
@@ -92,12 +90,18 @@ function Scanner() {
     queryKey: ["scanner-chain", scanPicks.map((p) => `${p.ticker}:${p.direction}:${p.isLeaps?1:0}:${p.isYolo?1:0}:${p.entryMode ?? ""}:${p.targetStrike ?? ""}`).join(",")],
     queryFn: () => enrichFn({ data: { picks: scanPicks } }),
     enabled: scanPicks.length > 0,
-    refetchInterval: autoSync ? AUTO_SYNC_MS : false,
+    refetchInterval: autoRefresh && fullScanIntervalMs > 0 ? fullScanIntervalMs : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
-    staleTime: 60_000,
+    // Stability: keep selected contracts steady between full scans.
+    staleTime: fullScanIntervalMs > 0 ? Math.max(fullScanIntervalMs - 10_000, 60_000) : 24 * 60 * 60_000,
     placeholderData: (previousData) => previousData,
   });
+  const lastFullScanAt = dataUpdatedAt || null;
+  const nextFullScanAt =
+    autoRefresh && fullScanIntervalMs > 0 && lastFullScanAt
+      ? lastFullScanAt + fullScanIntervalMs
+      : null;
   const ageMs = dataUpdatedAt ? Date.now() - dataUpdatedAt : null;
   const isStale = ageMs != null && ageMs > STALE_MS;
   const lastSyncLabel = dataUpdatedAt
