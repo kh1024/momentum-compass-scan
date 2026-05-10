@@ -271,11 +271,10 @@ function Dashboard() {
       ? lastFullScanAt + fullScanIntervalMs
       : null;
 
-  const dataMode: "live" | "cached" | "delayed" | "demo" =
+  const dataMode: "live" | "cached" | "delayed" =
     chainData?.rateLimited ? "delayed"
     : anyLive && (chainData?.enriched && Object.values(chainData.enriched).some((v) => v !== null)) ? "live"
-    : anyLive ? "cached"
-    : "demo";
+    : "cached";
 
   type RQ = { price: number; changePct: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
   const regimeData = qc.getQueryData<{ live: boolean; quotes?: { SPY?: RQ; QQQ?: RQ; SMH?: RQ } }>(["regime-quotes"]);
