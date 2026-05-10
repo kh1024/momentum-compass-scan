@@ -40,37 +40,39 @@
 }
 
 :root {
-  --radius: 0.75rem;
-  /* Dark by default */
-  --background: oklch(0.16 0.012 260);
-  --foreground: oklch(0.96 0.005 260);
-  --card: oklch(0.20 0.014 260);
-  --card-foreground: oklch(0.96 0.005 260);
-  --popover: oklch(0.20 0.014 260);
-  --popover-foreground: oklch(0.96 0.005 260);
-  --primary: oklch(0.74 0.16 155);
-  --primary-foreground: oklch(0.14 0.01 260);
-  --secondary: oklch(0.26 0.014 260);
-  --secondary-foreground: oklch(0.96 0.005 260);
-  --muted: oklch(0.24 0.012 260);
-  --muted-foreground: oklch(0.68 0.02 260);
-  --accent: oklch(0.28 0.02 260);
-  --accent-foreground: oklch(0.96 0.005 260);
-  --destructive: oklch(0.62 0.22 25);
-  --destructive-foreground: oklch(0.98 0.005 260);
-  --border: oklch(0.28 0.014 260);
-  --input: oklch(0.26 0.014 260);
-  --ring: oklch(0.74 0.16 155);
+  /* Bloomberg terminal — sharp, deep, professional */
+  --radius: 0.125rem; /* 2px — near-square corners */
+
+  /* Backgrounds: true near-black with subtle cool tint */
+  --background:        #080b10;
+  --foreground:        #c9d1d9;
+  --card:              #0d1117;
+  --card-foreground:   #c9d1d9;
+  --popover:           #0d1117;
+  --popover-foreground: #c9d1d9;
+  --primary:           #00d97e;
+  --primary-foreground: #000;
+  --secondary:         #161b22;
+  --secondary-foreground: #c9d1d9;
+  --muted:             #161b22;
+  --muted-foreground:  #484f58;
+  --accent:            #1c2128;
+  --accent-foreground: #c9d1d9;
+  --destructive:       #f85149;
+  --destructive-foreground: #fff;
+  --border:            #21262d;
+  --input:             #161b22;
+  --ring:              #00d97e;
 
   /* Trading semantic tokens */
-  --bull: oklch(0.74 0.18 150);
-  --bear: oklch(0.65 0.22 25);
-  --watch: oklch(0.78 0.16 75);
-  --avoid: oklch(0.55 0.012 260);
-  --lotto: oklch(0.72 0.18 50);
-  --buy-now: oklch(0.74 0.18 150);
-  --aggressive: oklch(0.72 0.18 50);
-  --demo: oklch(0.78 0.16 75);
+  --bull:       #00d97e;   /* bright terminal green */
+  --bear:       #f85149;   /* bright terminal red */
+  --watch:      #e3b341;   /* amber / warning */
+  --avoid:      #484f58;   /* muted gray */
+  --lotto:      #bc8cff;   /* purple */
+  --buy-now:    #00d97e;
+  --aggressive: #e3b341;
+  --demo:       #e3b341;
 }
 
 @layer base {
@@ -79,6 +81,19 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    /* Use Inter for UI, monospace for numbers */
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .mono {
+    font-variant-numeric: tabular-nums;
+    font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  /* Scrollbar terminal style */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--background); }
+  ::-webkit-scrollbar-thumb { background: #21262d; border-radius: 0; }
+  ::-webkit-scrollbar-thumb:hover { background: #30363d; }
 }

@@ -177,7 +177,7 @@ function Dashboard() {
       .filter((c) => dir === "ALL" || c.direction === dir)
       .filter((c) => labelF === "ALL" || c.label === labelF)
       .filter((c) => setupF === "ALL" || c.setupType === setupF)
-      .filter((c) => !hideAvoids || c.label !== "Avoid");
+      .filter((c) => !hideAvoids || c.label !== "Avoid Ticker");
     return rows.sort((a, b) => {
       const dl = (LABEL_ORDER[a.label] ?? 9) - (LABEL_ORDER[b.label] ?? 9);
       if (dl !== 0) return dl;
@@ -189,7 +189,7 @@ function Dashboard() {
   }, [candidates, dir, labelF, setupF, hideAvoids]);
 
   const labelCounts = useMemo(() => {
-    const out = { "Buy Now": 0, "Watchlist": 0, "Aggressive": 0, "Lotto": 0, "Find Better Strike": 0, "Avoid": 0 } as Record<Label, number>;
+    const out: Partial<Record<Label, number>> = {};
     for (const c of candidates) out[c.label] = (out[c.label] ?? 0) + 1;
     return out;
   }, [candidates]);
@@ -266,13 +266,16 @@ function Dashboard() {
       />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-9">
         <Stat label="Total" value={candidates.length} />
-        <Stat label="Buy Now" value={labelCounts["Buy Now"]} tone="bull" />
-        <Stat label="Watchlist" value={labelCounts.Watchlist} tone="watch" />
-        <Stat label="Aggressive" value={labelCounts.Aggressive} tone="warn" />
-        <Stat label="Lotto" value={labelCounts.Lotto} tone="warn" />
-        <Stat label="Avoid" value={labelCounts.Avoid} tone="bear" />
+        <Stat label="Buy Now" value={labelCounts["Buy Now"] ?? 0} tone="bull" />
+        <Stat label="Watchlist" value={labelCounts["Watchlist"] ?? 0} tone="watch" />
+        <Stat label="On Trigger" value={labelCounts["Waiting on Trigger"] ?? 0} tone="watch" />
+        <Stat label="Aggressive" value={labelCounts["Aggressive"] ?? 0} tone="warn" />
+        <Stat label="Lotto" value={labelCounts["Lotto"] ?? 0} tone="warn" />
+        <Stat label="Near Miss" value={labelCounts["Near Miss"] ?? 0} tone="warn" />
+        <Stat label="Avoid Contract" value={labelCounts["Avoid Contract"] ?? 0} tone="bear" />
+        <Stat label="Avoid Ticker" value={labelCounts["Avoid Ticker"] ?? 0} tone="bear" />
       </div>
 
       {/* Filter row */}
@@ -285,7 +288,7 @@ function Dashboard() {
         </div>
         <div className="flex items-center gap-1">
           <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Label</span>
-          {(["ALL", "Buy Now", "Watchlist", "Aggressive", "Lotto"] as const).map((l) => (
+          {(["ALL", "Buy Now", "Watchlist", "Waiting on Trigger", "Aggressive", "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract"] as const).map((l) => (
             <Pill key={l} active={labelF === l} onClick={() => setLabelF(l as Label | "ALL")}>{l}</Pill>
           ))}
         </div>
@@ -302,7 +305,7 @@ function Dashboard() {
         </div>
         <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
           <input type="checkbox" checked={hideAvoids} onChange={(e) => setHideAvoids(e.target.checked)} className="h-3.5 w-3.5 accent-[var(--color-bull)]" />
-          Hide Avoid
+          Hide Ticker Avoids
         </label>
       </div>
 

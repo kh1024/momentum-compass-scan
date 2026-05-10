@@ -3,7 +3,7 @@ import type {
   Direction, CapBucket, SetupType, Sentiment, Label,
 } from "./types";
 import { computeLevels, entryTriggerFromLevels, invalidationFromLevels } from "./supportResistanceEngine";
-import { monthlyExpirationFromDte, dteFromExpiration } from "./expirationDates";
+import { weeklyExpirationFromDte, dteFromExpiration } from "./expirationDates";
 
 const bars = (price: number) =>
   Array.from({ length: 30 }, (_, i) => {
@@ -66,7 +66,7 @@ function build(a: BuildArgs): TradeCandidate {
     target1: a.direction === "CALL" ? levels.r1 : levels.s1,
     target2: a.direction === "CALL" ? levels.r2 : levels.s2,
     contract: (() => {
-      const expiration = monthlyExpirationFromDte(a.dte);
+      const expiration = weeklyExpirationFromDte(a.dte);
       const dte = dteFromExpiration(expiration);
       return {
         expiration,
@@ -131,6 +131,121 @@ export const MOCK_CANDIDATES: TradeCandidate[] = [
   build({ ticker: "MSFT", direction: "CALL", price: 482.15, cap: "Mega", setupType: "LEAPS", score: 81, label: "Buy Now", trend: "Steady uptrend", sector: "Cloud strong", sentiment: "Bullish", iv: 0.26, delta: 0.65, ask: 42.00, dte: 410, oi: 3_100, vol: 180, spread: 0.05, isLeaps: true, thesis: "Azure + Copilot monetization, durable cloud share gains." }),
   build({ ticker: "TSLA", direction: "PUT", price: 358.20, cap: "Mega", setupType: "LEAPS", score: 72, label: "Watchlist", trend: "Bearish thesis on margins", sector: "EV pricing pressure", sentiment: "Mixed", iv: 0.55, delta: 0.55, ask: 38.20, dte: 365, oi: 2_400, vol: 140, spread: 0.07, isLeaps: true, thesis: "Auto margin compression, robotaxi deferral risk, China competition." }),
 ];
+
+// ---------------------------------------------------------------------------
+// Universe-based candidate generation
+// ---------------------------------------------------------------------------
+
+interface UniverseSeed {
+  price: number;
+  direction: Direction;
+  cap: CapBucket;
+  setupType: SetupType;
+  score: number;
+  label: Label;
+  trend: string;
+  sector: string;
+  iv: number;
+  delta: number;
+  ask: number;
+  dte: number;
+  oi: number;
+  vol: number;
+  spread: number;
+  sentiment?: Sentiment;
+  isYolo?: boolean;
+  whyExplode?: string;
+  whyZero?: string;
+}
+
+const UNIVERSE_SEEDS: Record<string, UniverseSeed> = {
+  // ---- Mega/Large -----------------------------------------------------------
+  AAPL:  { price: 205.40, direction: "CALL", cap: "Mega",  setupType: "Pullback-to-Support",  score: 78, label: "Watchlist",  trend: "Bouncing off 50DMA support",              sector: "Tech",          iv: 0.25, delta: 0.42, ask: 3.80,  dte: 21, oi: 12000, vol: 3200, spread: 0.04 },
+  GOOGL: { price: 195.20, direction: "CALL", cap: "Mega",  setupType: "Pivot/Base Breakout",  score: 82, label: "Watchlist",  trend: "Breaking above pivot on volume",          sector: "Tech",          iv: 0.30, delta: 0.44, ask: 4.20,  dte: 24, oi:  5800, vol: 1200, spread: 0.05 },
+  META:  { price: 620.10, direction: "CALL", cap: "Mega",  setupType: "Short-Term Momentum",  score: 80, label: "Watchlist",  trend: "Above all DMAs, momentum intact",         sector: "Tech",          iv: 0.32, delta: 0.45, ask: 11.50, dte: 21, oi:  4200, vol:  980, spread: 0.05 },
+  AMZN:  { price: 225.80, direction: "CALL", cap: "Mega",  setupType: "Pullback-to-Support",  score: 79, label: "Watchlist",  trend: "Reclaiming 20DMA",                        sector: "Consumer",      iv: 0.28, delta: 0.43, ask: 4.60,  dte: 21, oi:  6500, vol: 1800, spread: 0.04 },
+  NFLX:  { price: 1180.50, direction: "CALL", cap: "Large", setupType: "Pivot/Base Retest",   score: 75, label: "Watchlist",  trend: "Retesting breakout level",                sector: "Streaming",     iv: 0.35, delta: 0.41, ask: 18.20, dte: 18, oi:  1800, vol:  420, spread: 0.06 },
+  CRM:   { price: 312.40, direction: "CALL", cap: "Large", setupType: "Pullback-to-Support",  score: 72, label: "Watchlist",  trend: "50DMA support bounce",                    sector: "Software",      iv: 0.30, delta: 0.40, ask: 5.40,  dte: 21, oi:  2100, vol:  580, spread: 0.06 },
+  ORCL:  { price: 185.20, direction: "CALL", cap: "Large", setupType: "Pivot/Base Breakout",  score: 74, label: "Watchlist",  trend: "Breaking multi-week resistance",           sector: "Software",      iv: 0.28, delta: 0.42, ask: 4.10,  dte: 21, oi:  1900, vol:  460, spread: 0.06 },
+  ADBE:  { price: 488.30, direction: "PUT",  cap: "Large", setupType: "Failed Breakout",      score: 70, label: "Watchlist",  trend: "Failed pivot, now below 20DMA",           sector: "Software",      iv: 0.32, delta: 0.40, ask: 8.80,  dte: 18, oi:  1600, vol:  380, spread: 0.07 },
+  QCOM:  { price: 178.90, direction: "CALL", cap: "Large", setupType: "Short-Term Momentum",  score: 71, label: "Watchlist",  trend: "Momentum from chip cycle",                sector: "Semis",         iv: 0.34, delta: 0.40, ask: 4.20,  dte: 18, oi:  2800, vol:  620, spread: 0.07 },
+  // ---- ETFs -----------------------------------------------------------------
+  SPY:   { price: 612.45, direction: "CALL", cap: "Large", setupType: "Short-Term Momentum",  score: 76, label: "Watchlist",  trend: "Trend intact, above 20DMA",               sector: "Broad market",  iv: 0.14, delta: 0.50, ask: 5.80,  dte: 14, oi: 45000, vol: 12000, spread: 0.02 },
+  QQQ:   { price: 548.22, direction: "CALL", cap: "Large", setupType: "Short-Term Momentum",  score: 75, label: "Watchlist",  trend: "Tech leadership holding",                 sector: "Tech ETF",      iv: 0.16, delta: 0.48, ask: 5.20,  dte: 14, oi: 38000, vol:  9800, spread: 0.02 },
+  IWM:   { price: 198.40, direction: "CALL", cap: "Small", setupType: "Pullback-to-Support",  score: 66, label: "Aggressive", trend: "Testing 50DMA support",                   sector: "Small cap",     iv: 0.20, delta: 0.42, ask: 2.80,  dte: 14, oi:  8200, vol:  2100, spread: 0.04 },
+  GLD:   { price: 310.20, direction: "CALL", cap: "Large", setupType: "Pullback-to-Support",  score: 68, label: "Watchlist",  trend: "Gold holding above 50DMA",                sector: "Commodities",   iv: 0.15, delta: 0.45, ask: 3.40,  dte: 21, oi:  4800, vol:   920, spread: 0.04 },
+  XLK:   { price: 242.10, direction: "CALL", cap: "Large", setupType: "Short-Term Momentum",  score: 73, label: "Watchlist",  trend: "Sector leader outperforming",             sector: "Tech sector",   iv: 0.18, delta: 0.46, ask: 3.20,  dte: 14, oi:  3200, vol:   780, spread: 0.04 },
+  TLT:   { price:  95.40, direction: "PUT",  cap: "Large", setupType: "Breakdown",            score: 65, label: "Aggressive", trend: "Below 200DMA, rate pressure persisting",  sector: "Bonds",         iv: 0.18, delta: 0.42, ask: 1.80,  dte: 21, oi:  5200, vol:  1100, spread: 0.05 },
+  XLE:   { price:  92.30, direction: "CALL", cap: "Large", setupType: "Pullback-to-Support",  score: 64, label: "Aggressive", trend: "Energy 50DMA bounce attempt",             sector: "Energy",        iv: 0.22, delta: 0.40, ask: 1.60,  dte: 14, oi:  4100, vol:   840, spread: 0.05 },
+  XLF:   { price:  48.20, direction: "CALL", cap: "Large", setupType: "Short-Term Momentum",  score: 70, label: "Watchlist",  trend: "Financial sector strength",               sector: "Financials",    iv: 0.18, delta: 0.44, ask: 0.90,  dte: 14, oi:  8800, vol:  2200, spread: 0.04 },
+  XBI:   { price:  88.40, direction: "CALL", cap: "Mid",   setupType: "Pivot/Base Retest",    score: 62, label: "Aggressive", trend: "Biotech retest of breakout level",        sector: "Biotech",       iv: 0.28, delta: 0.38, ask: 2.10,  dte: 21, oi:  2200, vol:   520, spread: 0.08 },
+  // ---- Mid Momentum ---------------------------------------------------------
+  CRWD:  { price: 380.20, direction: "CALL", cap: "Large", setupType: "Pivot/Base Breakout",  score: 81, label: "Watchlist",  trend: "Security sector leader breakout",         sector: "Cybersecurity", iv: 0.40, delta: 0.44, ask: 8.40,  dte: 21, oi:  2800, vol:   720, spread: 0.06 },
+  SNOW:  { price: 158.40, direction: "CALL", cap: "Mid",   setupType: "Pivot/Base Retest",    score: 68, label: "Aggressive", trend: "Retest of breakout, volume fading",       sector: "Cloud",         iv: 0.52, delta: 0.38, ask: 4.80,  dte: 18, oi:  1800, vol:   380, spread: 0.09 },
+  DDOG:  { price: 118.20, direction: "CALL", cap: "Mid",   setupType: "Short-Term Momentum",  score: 70, label: "Aggressive", trend: "Momentum above 20DMA",                    sector: "Cloud",         iv: 0.48, delta: 0.40, ask: 3.40,  dte: 18, oi:  1600, vol:   420, spread: 0.08 },
+  NET:   { price: 145.80, direction: "CALL", cap: "Mid",   setupType: "Pullback-to-Support",  score: 69, label: "Watchlist",  trend: "50DMA support bounce",                    sector: "Cloud",         iv: 0.46, delta: 0.40, ask: 4.20,  dte: 21, oi:  1900, vol:   460, spread: 0.08 },
+  MSTR:  { price: 380.40, direction: "CALL", cap: "Mid",   setupType: "Short-Term Momentum",  score: 62, label: "Aggressive", trend: "Bitcoin proxy momentum",                  sector: "BTC proxy",     iv: 0.80, delta: 0.35, ask: 9.80,  dte: 14, oi:  3200, vol:   820, spread: 0.10 },
+  HOOD:  { price:  48.20, direction: "CALL", cap: "Mid",   setupType: "Pivot/Base Breakout",  score: 66, label: "Aggressive", trend: "Breaking pivot on retail volume",         sector: "Fintech",       iv: 0.65, delta: 0.38, ask: 1.80,  dte: 14, oi:  4800, vol:  1200, spread: 0.11 },
+  SOFI:  { price:  15.40, direction: "CALL", cap: "Mid",   setupType: "Pivot/Base Retest",    score: 60, label: "Aggressive", trend: "Retest of recent pivot",                  sector: "Fintech",       iv: 0.60, delta: 0.36, ask: 0.48,  dte: 14, oi:  5800, vol:  1400, spread: 0.12 },
+  RBLX:  { price:  58.20, direction: "CALL", cap: "Mid",   setupType: "Short-Term Momentum",  score: 58, label: "Aggressive", trend: "Gaming sector momentum",                  sector: "Gaming",        iv: 0.55, delta: 0.35, ask: 1.40,  dte: 14, oi:  3200, vol:   680, spread: 0.11 },
+  UBER:  { price:  82.40, direction: "CALL", cap: "Large", setupType: "Pullback-to-Support",  score: 74, label: "Watchlist",  trend: "20DMA support reclaim attempt",           sector: "Transportation",iv: 0.36, delta: 0.42, ask: 2.20,  dte: 21, oi:  2800, vol:   680, spread: 0.06 },
+  LYFT:  { price:  18.20, direction: "PUT",  cap: "Mid",   setupType: "Breakdown",            score: 62, label: "Aggressive", trend: "Lower highs forming, underperforming",    sector: "Transportation",iv: 0.65, delta: 0.38, ask: 0.68,  dte: 14, oi:  2800, vol:   620, spread: 0.13 },
+  ABNB:  { price: 148.40, direction: "CALL", cap: "Mid",   setupType: "Pivot/Base Retest",    score: 68, label: "Aggressive", trend: "Post-earnings pivot retest",              sector: "Travel",        iv: 0.42, delta: 0.40, ask: 3.80,  dte: 21, oi:  1600, vol:   380, spread: 0.08 },
+  // ---- YOLO/Reddit ---------------------------------------------------------
+  AMC:  { price:   4.50, direction: "CALL", cap: "Small", setupType: "Reddit YOLO", score: 48, label: "Lotto", trend: "Reddit squeeze watch list", sector: "Meme",         iv: 1.20, delta: 0.15, ask: 0.18, dte: 10, oi: 18000, vol: 4200, spread: 0.18, isYolo: true, whyExplode: "Short squeeze catalyst + Reddit volume",    whyZero: "No catalyst + IV crush guaranteed" },
+  BB:   { price:   3.20, direction: "CALL", cap: "Small", setupType: "Reddit YOLO", score: 44, label: "Lotto", trend: "Legacy meme stock dormant",   sector: "Meme",         iv: 0.90, delta: 0.18, ask: 0.12, dte: 10, oi:  8200, vol: 1800, spread: 0.20, isYolo: true, whyExplode: "Social media spike",                        whyZero: "No real catalyst, fade likely" },
+  MARA: { price:  22.40, direction: "CALL", cap: "Small", setupType: "Reddit YOLO", score: 55, label: "Lotto", trend: "BTC miner momentum",          sector: "Crypto mining", iv: 0.95, delta: 0.22, ask: 0.68, dte: 10, oi:  6200, vol: 1600, spread: 0.16, isYolo: true, whyExplode: "BTC breakout to new highs",                 whyZero: "BTC fade + margin pressure" },
+  RIOT: { price:  12.40, direction: "CALL", cap: "Small", setupType: "Reddit YOLO", score: 52, label: "Lotto", trend: "BTC miner speculation",        sector: "Crypto mining", iv: 0.98, delta: 0.20, ask: 0.38, dte: 10, oi:  5800, vol: 1200, spread: 0.17, isYolo: true, whyExplode: "Hash-rate expansion + BTC price",           whyZero: "BTC sells off, IV crush" },
+  CLSK: { price:  14.20, direction: "CALL", cap: "Small", setupType: "Reddit YOLO", score: 50, label: "Lotto", trend: "Crypto mining YOLO",           sector: "Crypto mining", iv: 1.05, delta: 0.20, ask: 0.42, dte: 10, oi:  2800, vol:  680, spread: 0.18, isYolo: true, whyExplode: "BTC + energy-cost leverage play",           whyZero: "No BTC move, time decay wins" },
+  HIMS: { price:  28.40, direction: "CALL", cap: "Small", setupType: "Reddit YOLO", score: 55, label: "Lotto", trend: "Health-tech Reddit buzz",       sector: "Health tech",   iv: 0.78, delta: 0.25, ask: 0.88, dte: 10, oi:  4200, vol:  980, spread: 0.15, isYolo: true, whyExplode: "GLP-1 / weight-loss product expansion",    whyZero: "Competition + IV crush on pop" },
+};
+
+/**
+ * Build a candidate list from the active universe.
+ * Tickers already present in MOCK_CANDIDATES keep their seed entries
+ * (including LEAPS duplicates). New tickers use UNIVERSE_SEEDS.
+ */
+export function buildUniverseCandidates(tickers: string[]): TradeCandidate[] {
+  const out: TradeCandidate[] = [];
+  const covered = new Set<string>();
+
+  for (const ticker of tickers) {
+    const existing = MOCK_CANDIDATES.filter((c) => c.ticker === ticker);
+    if (existing.length > 0) {
+      out.push(...existing);
+      covered.add(ticker);
+      continue;
+    }
+    const seed = UNIVERSE_SEEDS[ticker];
+    if (!seed) continue;
+    out.push(
+      build({
+        ticker,
+        direction:  seed.direction,
+        price:      seed.price,
+        cap:        seed.cap,
+        setupType:  seed.setupType,
+        score:      seed.score,
+        label:      seed.label,
+        trend:      seed.trend,
+        sector:     seed.sector,
+        sentiment:  seed.sentiment,
+        iv:         seed.iv,
+        delta:      seed.delta,
+        ask:        seed.ask,
+        dte:        seed.dte,
+        oi:         seed.oi,
+        vol:        seed.vol,
+        spread:     seed.spread,
+        isYolo:     seed.isYolo,
+        whyExplode: seed.whyExplode,
+        whyZero:    seed.whyZero,
+      }),
+    );
+    covered.add(ticker);
+  }
+  return out;
+}
 
 export const MOCK_AVOID: AvoidEntry[] = [
   { ticker: "AAPL", reason: "Middle of base, no trigger", details: "Stuck between 20DMA and 50DMA, no clean entry. Wait for either reclaim or break." },
