@@ -235,17 +235,24 @@ function Dashboard() {
     () => picks.map((p) => `${p.ticker}:${p.direction}`).join(","),
     [picks],
   );
-  // Hydrate cached scan snapshot only on the client. SSR sees `null` so the
-  // server-rendered HTML matches the first client paint; the persisted
-  // snapshot streams in after mount and seeds react-query.
-  const [snapshotMounted, setSnapshotMounted] = useState(false);
+  // Hydrate cached scan snapshot only on the client. The snapshot module is
+  // dynamically imported inside an effect so SSR never touches localStorage
+  // and the `.client.ts` module stays out of the server bundle.
+  type CachedScan = { result: EnrichmentResult; savedAt: number } | null;
+  const [cachedSnapshot, setCachedSnapshot] = useState<CachedScan>(null);
+
   useEffect(() => {
-    setSnapshotMounted(true);
-  }, []);
-  const cachedSnapshot = useMemo(
-    () => (snapshotMounted ? loadScanSnapshot(pickKey) : null),
-    [pickKey, snapshotMounted],
-  );
+    let cancelled = false;
+    loadSnapshotModule().then((mod) => {
+      if (cancelled || !mod) return;
+      const snap = mod.loadScanSnapshot(pickKey);
+      if (snap) setCachedSnapshot({ result: snap.result, savedAt: snap.savedAt });
+      else setCachedSnapshot(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pickKey]);
 
   const {
     data: chainData,
@@ -270,11 +277,18 @@ function Dashboard() {
 
   // Persist verified snapshots only. saveScanSnapshot refuses to overwrite
   // a good snapshot with empty/rate-limited/broken results internally.
-  // Guarded by `snapshotMounted` so SSR never invokes localStorage.
+  // Dynamic-imported so SSR never invokes localStorage.
   useEffect(() => {
-    if (!snapshotMounted || !chainData) return;
-    saveScanSnapshot(pickKey, chainData);
-  }, [chainData, pickKey, snapshotMounted]);
+    if (!chainData) return;
+    let cancelled = false;
+    loadSnapshotModule().then((mod) => {
+      if (cancelled || !mod) return;
+      mod.saveScanSnapshot(pickKey, chainData);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [chainData, pickKey]);
 
 
   useEffect(() => {
