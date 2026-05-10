@@ -123,8 +123,10 @@ function migrateV1(raw: unknown): WatchlistEntry | null {
           changePct: 0,
           volume: 0,
           ts: v1.addedAt ?? Date.now(),
-          source: "legacy-v1",
+          consensusSource: "legacy-v1",
+          sources: {},
           agreement: "single",
+          diffPct: null,
         }
       : null,
     source: "computed",
@@ -174,8 +176,10 @@ export function snapshotFromCandidate(
           changePct: 0,
           volume: 0,
           ts: Date.now(),
-          source: "fallback-snapshot",
+          consensusSource: "fallback-snapshot",
+          sources: {},
           agreement: "single",
+          diffPct: null,
         }
       : null,
     source: "computed",
