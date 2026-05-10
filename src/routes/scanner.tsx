@@ -399,6 +399,7 @@ function Scanner() {
             <Chip active={preset === "aggressive"} onClick={() => applyPreset("aggressive")}>⚡ Aggressive</Chip>
             <Chip active={preset === "lottos"} onClick={() => applyPreset("lottos")}>🎰 Lottos</Chip>
             <Chip active={preset === "reddit"} onClick={() => applyPreset("reddit")}>🚀 Reddit YOLO</Chip>
+            <Chip active={preset === "7day"} onClick={() => applyPreset("7day")}>🗓️ 7-Day</Chip>
             <Chip active={preset === "leaps"} onClick={() => applyPreset("leaps")}>📅 LEAPS</Chip>
           </Group>
           <Group label={`Scan size: ${max}`}>
