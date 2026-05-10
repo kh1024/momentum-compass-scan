@@ -469,12 +469,14 @@ function Scanner() {
       <div className="text-xs text-muted-foreground">{filtered.length} candidates shown</div>
 
       {/* ---- Main content — flat vs DTE-sectioned -------------------------- */}
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          No clean trades match your filters.
+      {view === "table" ? (
+        <TradeTable rows={filtered} onOpen={setOpenId} isLoading={isScanning && filtered.length === 0} />
+      ) : filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border bg-card/40 py-14 text-center">
+          <div className="text-2xl text-muted-foreground/20">—</div>
+          <div className="mt-2 text-sm font-medium text-muted-foreground">No candidates match current filters</div>
+          <div className="mt-1 text-xs text-muted-foreground/60">Try relaxing DTE, direction, or label filters</div>
         </div>
-      ) : view === "table" ? (
-        <TradeTable rows={filtered} onOpen={setOpenId} />
       ) : (
         <div className="space-y-6">
           {BUCKET_ORDER.map((bucket) => {
