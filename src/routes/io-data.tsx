@@ -15,6 +15,9 @@ import { entryModeFromSetup } from "@/lib/entryMode";
 import { chainPickKey } from "@/lib/chainKeys";
 import { runDisciplineGate, type DisciplineGateResult } from "@/lib/disciplineGate";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useContractPreference } from "@/hooks/useContractPreference";
+import { ContractPreferenceToolbar } from "@/components/ContractPreferenceToolbar";
+import { PREFERENCE_LABEL, deltaBandForMode, allowedMoneynessForMode } from "@/lib/contractPreference";
 
 export const Route = createFileRoute("/io-data")({
   head: () => ({ meta: [{ title: "Data Inspector — Momentum Options Scanner" }] }),
