@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { MOCK_CANDIDATES } from "@/lib/mockData";
+import { buildUniverseCandidates } from "@/lib/mockData";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeTable } from "@/components/TradeTable";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
@@ -15,10 +15,16 @@ import { cn } from "@/lib/utils";
 import { useLiveQuotes } from "@/hooks/useLiveQuotes";
 import { useRedditSentiment } from "@/hooks/useRedditSentiment";
 import { applyLiveChain, applyLiveQuote, applyRedditSignal, finalizeCandidate } from "@/lib/applyLiveQuote";
-import { expirationBucketFor } from "@/lib/optionQualityValidator";
+import { expirationBucketFor, EXPIRATION_BUCKET_LABEL } from "@/lib/optionQualityValidator";
 import { entryModeFromSetup } from "@/lib/entryMode";
 import { chainPickKey } from "@/lib/chainKeys";
 import { runDisciplineGate, type DisciplineGateResult } from "@/lib/disciplineGate";
+import {
+  ALL_GROUPS, UNIVERSE_GROUPS, getActiveUniverse, loadGroupEnabled, saveGroupEnabled,
+  type UniverseGroup,
+} from "@/lib/universe";
+import { loadScannerMode, saveScannerMode, type ScannerMode } from "@/lib/scannerMode";
+import type { ExpirationBucket } from "@/lib/types";
 
 export const Route = createFileRoute("/scanner")({
   head: () => ({ meta: [{ title: "Scanner Results — Momentum Options Scanner" }] }),
@@ -27,7 +33,7 @@ export const Route = createFileRoute("/scanner")({
 
 type ViewMode = "table" | "card";
 type Persona = "trader" | "debug";
-type DteBucketFilter = "ALL" | "weekly" | "short" | "extended" | "leaps";
+type DteBucketFilter = "ALL" | "weekly-lotto" | "lotto-aggressive" | "short-term-swing" | "extended-swing" | "swing-plus" | "leaps";
 
 const LABEL_ORDER: Record<Label, number> = {
   "Buy Now": 0,
@@ -42,29 +48,82 @@ const LABEL_ORDER: Record<Label, number> = {
   "Avoid": 9,
 };
 
+const ALL_TIER_LABELS: Label[] = [
+  "Buy Now", "Watchlist", "Waiting on Trigger", "Aggressive",
+  "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract",
+];
+
+const DTE_FILTER_OPTIONS: Array<[DteBucketFilter, string]> = [
+  ["ALL", "All"],
+  ["weekly-lotto", "0–6D"],
+  ["lotto-aggressive", "7–13D"],
+  ["short-term-swing", "14–30D"],
+  ["extended-swing", "31–45D"],
+  ["swing-plus", "46–60D"],
+  ["leaps", "180D+"],
+];
 
 function Scanner() {
+  // ---- Universe toggles (loaded from localStorage on mount) ----------------
+  const [universeEnabled, setUniverseEnabled] = useState<Record<UniverseGroup, boolean>>(() => ({
+    MEGA_LARGE: loadGroupEnabled("MEGA_LARGE"),
+    ETFS: loadGroupEnabled("ETFS"),
+    MID_MOMENTUM: loadGroupEnabled("MID_MOMENTUM"),
+    YOLO_REDDIT: loadGroupEnabled("YOLO_REDDIT"),
+  }));
+
+  function toggleGroup(g: UniverseGroup) {
+    setUniverseEnabled((prev) => {
+      const next = { ...prev, [g]: !prev[g] };
+      saveGroupEnabled(g, next[g]);
+      return next;
+    });
+  }
+
+  // ---- Scanner mode --------------------------------------------------------
+  const [scannerMode, setScannerModeState] = useState<ScannerMode>(() => loadScannerMode());
+  function setMode(m: ScannerMode) {
+    saveScannerMode(m);
+    setScannerModeState(m);
+  }
+
+  // ---- Filter state --------------------------------------------------------
   const [dir, setDir] = useState<Direction | "ALL">("ALL");
-  const [label, setLabel] = useState<Label | "ALL">("ALL");
   const [capFilter, setCapFilter] = useState<CapBucket | "ALL">("ALL");
   const [dteFilter, setDteFilter] = useState<DteBucketFilter>("ALL");
   const [maxCost, setMaxCost] = useState(1000);
   const [triggerActiveOnly, setTriggerActiveOnly] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
-  const [hideAvoids, setHideAvoids] = useState(true);
+  const [hideTrueAvoids, setHideTrueAvoids] = useState(true);
+  const [hiddenLabels, setHiddenLabels] = useState<Set<Label>>(new Set());
   const [includeLeaps, setIncludeLeaps] = useState(true);
   const [includeYolo, setIncludeYolo] = useState(true);
   const [extendedSwingEnabled, setExtendedSwingEnabled] = useState(true);
+
+  function toggleLabelVisibility(lbl: Label) {
+    setHiddenLabels((prev) => {
+      const next = new Set(prev);
+      if (next.has(lbl)) next.delete(lbl); else next.add(lbl);
+      return next;
+    });
+  }
+
+  // ---- View / persona ------------------------------------------------------
   const [view, setView] = useState<ViewMode>("table");
   const [persona, setPersona] = useState<Persona>("trader");
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  // Tick every 1s so the "updated Ns ago" / next-scan clock re-renders.
+
+  // Tick every 1s so "updated Ns ago" / next-scan clock re-renders.
   const [, setNowTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setNowTick((n) => n + 1), 1_000);
     return () => clearInterval(id);
   }, []);
+
+  // ---- Active universe → candidates ----------------------------------------
+  const activeTickers = useMemo(() => getActiveUniverse(universeEnabled), [universeEnabled]);
+  const allMockCandidates = useMemo(() => buildUniverseCandidates(activeTickers), [activeTickers]);
 
   const qc = useQueryClient();
   const enrichFn = useServerFn(enrichWithPublicChain);
@@ -75,9 +134,10 @@ function Scanner() {
     staleTime: 60_000,
   });
   const fullScanIntervalMs = scannerSettings?.fullScanIntervalMs ?? 10 * 60_000;
+
   const picks = useMemo(
     () =>
-      MOCK_CANDIDATES.map((c) => ({
+      allMockCandidates.map((c) => ({
         ticker: c.ticker,
         direction: c.direction,
         isLeaps: c.setupType === "LEAPS",
@@ -85,10 +145,12 @@ function Scanner() {
         entryMode: entryModeFromSetup(c.setupType),
         targetStrike: entryModeFromSetup(c.setupType) === "Breakout" ? c.levels.baseHigh : c.price,
       })),
-    [],
+    [allMockCandidates],
   );
+
   const max = scannerSettings?.maxTickersPerScan ?? 12;
   const scanPicks = useMemo(() => picks.slice(0, max), [picks, max]);
+
   const {
     data: chainData,
     isFetching: isScanning,
@@ -102,10 +164,10 @@ function Scanner() {
     refetchInterval: autoRefresh && fullScanIntervalMs > 0 ? fullScanIntervalMs : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
-    // Stability: keep selected contracts steady between full scans.
     staleTime: fullScanIntervalMs > 0 ? Math.max(fullScanIntervalMs - 10_000, 60_000) : 24 * 60 * 60_000,
     placeholderData: (previousData) => previousData,
   });
+
   const lastFullScanAt = dataUpdatedAt || null;
   const nextFullScanAt =
     autoRefresh && fullScanIntervalMs > 0 && lastFullScanAt
@@ -113,6 +175,7 @@ function Scanner() {
       : null;
   const ageMs = dataUpdatedAt ? Date.now() - dataUpdatedAt : null;
   const isStale = ageMs != null && fullScanIntervalMs > 0 && ageMs > fullScanIntervalMs * 2;
+
   useEffect(() => {
     if (chainError) {
       toast.error("Scanner request failed", {
@@ -120,9 +183,9 @@ function Scanner() {
       });
     }
   }, [chainError]);
+
   const runScan = () => { void refetchChain(); };
 
-  // User-friendly toast on rate-limit transitions.
   const lastRateLimitedRef = useRef(false);
   useEffect(() => {
     if (!chainData) return;
@@ -141,15 +204,16 @@ function Scanner() {
   }, [chainData]);
 
   const symbols = useMemo(
-    () => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.ticker))),
-    [],
+    () => Array.from(new Set(allMockCandidates.map((c) => c.ticker))),
+    [allMockCandidates],
   );
   const { get: getLive, anyLive } = useLiveQuotes(symbols);
   const { get: getReddit } = useRedditSentiment(symbols);
 
+  // ---- Core trace pipeline -------------------------------------------------
   const traces: { c: TradeCandidate; gate: DisciplineGateResult }[] = useMemo(() => {
     const enriched = chainData?.enriched ?? {};
-    return MOCK_CANDIDATES.map((c) => {
+    return allMockCandidates.map((c) => {
       const isLeaps = c.setupType === "LEAPS";
       const isYolo = c.setupType === "Reddit YOLO";
       const base = applyRedditSignal(applyLiveQuote(c, getLive(c.ticker)), getReddit(c.ticker));
@@ -157,11 +221,10 @@ function Scanner() {
       const key = chainPickKey(c.ticker, c.direction, { isLeaps, isYolo, entryMode });
       const withChain = applyLiveChain(base, enriched[key] ?? null);
       const finalized = finalizeCandidate(withChain);
-      const gate = runDisciplineGate(finalized, { extendedSwingEnabled });
+      const gate = runDisciplineGate(finalized, { extendedSwingEnabled, mode: scannerMode });
 
       const merged: TradeCandidate = {
         ...finalized,
-        // Single source of truth for what the UI renders.
         score: gate.finalScore,
         finalScore: gate.finalScore,
         label: gate.displayLabel,
@@ -175,35 +238,46 @@ function Scanner() {
       };
       return { c: merged, gate };
     });
-  }, [chainData, getLive, getReddit, extendedSwingEnabled]);
+  }, [chainData, getLive, getReddit, extendedSwingEnabled, scannerMode, allMockCandidates]);
 
   const candidates = useMemo(
     () => traces.filter((t) => t.gate.visible).map((t) => t.c),
     [traces],
   );
 
+  // ---- Counts for stat bar -------------------------------------------------
+  const labelCounts = useMemo(() => {
+    const out: Partial<Record<Label, number>> = {};
+    for (const c of candidates) out[c.label] = (out[c.label] ?? 0) + 1;
+    return out;
+  }, [candidates]);
+
+  const totalScanned = allMockCandidates.length;
+  const passedChart = traces.filter((t) => t.gate.visible).length;
+  const failedContract = traces.filter(
+    (t) => t.gate.visible && (t.gate.finalLabel === "Avoid Contract" || t.gate.finalLabel === "Find Better Strike"),
+  ).length;
+  const activeGroupCount = ALL_GROUPS.filter((g) => universeEnabled[g]).length;
+
+  // ---- DTE filter ----------------------------------------------------------
   const matchesDte = (dte: number, f: DteBucketFilter): boolean => {
     if (f === "ALL") return true;
-    if (f === "weekly") return dte >= 1 && dte <= 13;
-    if (f === "short") return dte >= 14 && dte <= 30;
-    if (f === "extended") return dte >= 31 && dte <= 45;
-    if (f === "leaps") return dte >= 180;
-    return true;
+    return expirationBucketFor(dte) === f;
   };
 
+  // ---- Filtered & sorted rows ----------------------------------------------
   const filtered = useMemo(() => {
     const rows = candidates
       .filter((c) => dir === "ALL" || c.direction === dir)
-      .filter((c) => label === "ALL" || c.label === label)
       .filter((c) => capFilter === "ALL" || c.cap === capFilter)
       .filter((c) => matchesDte(c.contract.dte, dteFilter))
       .filter((c) => c.contract.cost <= maxCost)
       .filter((c) => !triggerActiveOnly || c.triggerStatus === "active")
       .filter((c) => !verifiedOnly || c.contract.source === "chain")
-      .filter((c) => !hideAvoids || c.label !== "Avoid")
+      .filter((c) => !hideTrueAvoids || c.label !== "Avoid Ticker")
+      .filter((c) => !hiddenLabels.has(c.label as Label))
       .filter((c) => includeLeaps || c.setupType !== "LEAPS")
       .filter((c) => includeYolo || c.setupType !== "Reddit YOLO");
-    // Default sort: label group → trigger-active first → final score desc.
     return rows.sort((a, b) => {
       const dl = (LABEL_ORDER[a.label] ?? 9) - (LABEL_ORDER[b.label] ?? 9);
       if (dl !== 0) return dl;
@@ -212,13 +286,23 @@ function Scanner() {
       if (ta !== tb) return ta - tb;
       return (b.finalScore ?? b.score) - (a.finalScore ?? a.score);
     });
-  }, [candidates, dir, label, capFilter, dteFilter, maxCost, triggerActiveOnly, verifiedOnly, hideAvoids, includeLeaps, includeYolo]);
+  }, [candidates, dir, capFilter, dteFilter, maxCost, triggerActiveOnly, verifiedOnly, hideTrueAvoids, hiddenLabels, includeLeaps, includeYolo]);
 
-  const labelCounts = useMemo(() => {
-    const out = { "Buy Now": 0, "Watchlist": 0, "Aggressive": 0, "Lotto": 0, "Find Better Strike": 0, "Avoid": 0 } as Record<Label, number>;
-    for (const c of candidates) out[c.label] = (out[c.label] ?? 0) + 1;
-    return out;
-  }, [candidates]);
+  // ---- DTE-bucketed groups for sectioned view ------------------------------
+  const BUCKET_ORDER: ExpirationBucket[] = [
+    "weekly-lotto", "lotto-aggressive", "short-term-swing",
+    "extended-swing", "swing-plus", "leaps",
+  ];
+
+  const byBucket = useMemo(() => {
+    const map = new Map<ExpirationBucket, TradeCandidate[]>();
+    for (const c of filtered) {
+      const b = (c.sectionRouted ?? expirationBucketFor(c.contract.dte)) as ExpirationBucket;
+      if (!map.has(b)) map.set(b, []);
+      map.get(b)!.push(c);
+    }
+    return map;
+  }, [filtered]);
 
   const traceById = useMemo(() => {
     const m = new Map<string, { c: TradeCandidate; gate: DisciplineGateResult }>();
@@ -237,6 +321,7 @@ function Scanner() {
     : chainData && Object.values(chainData.enriched).some((v) => v !== null) ? "live"
     : anyLive ? "cached"
     : "demo";
+
   const onRefreshQuotesOnly = () => {
     void qc.invalidateQueries({ queryKey: ["live-quotes"] });
     toast.success("Refreshing quotes…");
@@ -244,11 +329,12 @@ function Scanner() {
 
   return (
     <div className="space-y-4">
+      {/* ---- Header -------------------------------------------------------- */}
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Scanner</h1>
           <p className="text-xs text-muted-foreground">
-            Full scan reranks {fullScanIntervalMs > 0 ? `every ${Math.round(fullScanIntervalMs / 60_000)} min` : "only on demand"} · {liveCount}/{picks.length} live · Regime: <span className="text-foreground">Risk-on</span>
+            Full scan reranks {fullScanIntervalMs > 0 ? `every ${Math.round(fullScanIntervalMs / 60_000)} min` : "only on demand"} · {liveCount}/{scanPicks.length} live · Regime: <span className="text-foreground">Risk-on</span>
             {isStale ? " · ⚠ stale" : ""}
           </p>
         </div>
@@ -267,80 +353,155 @@ function Scanner() {
         onToggleAutoRefresh={() => setAutoRefresh((v) => !v)}
       />
 
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 text-xs">
-        <Stat label="Total" value={candidates.length} />
-        <Stat label="Buy Now" value={labelCounts["Buy Now"]} tone="bull" />
-        <Stat label="Watchlist" value={labelCounts.Watchlist} tone="watch" />
-        <Stat label="Aggressive" value={labelCounts.Aggressive} tone="warn" />
-        <Stat label="Avoid" value={labelCounts.Avoid} tone="bear" />
+      {/* ---- Stat bar ------------------------------------------------------ */}
+      <div className="rounded-xl border border-border bg-card p-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <span className="font-semibold text-foreground mono">{totalScanned}</span> scanned ·
+            <span className="font-semibold text-foreground mono">{passedChart}</span> passed ·
+            <span className="font-semibold text-foreground mono">{failedContract}</span> failed contract ·
+            <span className="text-muted-foreground">{activeGroupCount}/4 groups · {activeTickers.length} tickers</span>
+          </span>
+          <span className="h-3 w-px bg-border" />
+          <Stat label="Buy Now" value={labelCounts["Buy Now"] ?? 0} tone="bull" />
+          <Stat label="Watchlist" value={labelCounts["Watchlist"] ?? 0} tone="watch" />
+          <Stat label="On Trigger" value={labelCounts["Waiting on Trigger"] ?? 0} tone="sky" />
+          <Stat label="Aggressive" value={labelCounts["Aggressive"] ?? 0} tone="warn" />
+          <Stat label="Lotto" value={labelCounts["Lotto"] ?? 0} tone="warn" />
+          <Stat label="Near Miss" value={labelCounts["Near Miss"] ?? 0} tone="fuchsia" />
+          <Stat label="Find Better" value={labelCounts["Find Better Strike"] ?? 0} tone="amber" />
+          <Stat label="Avoid Contract" value={labelCounts["Avoid Contract"] ?? 0} tone="orange" />
+          <Stat label="Avoid Ticker" value={labelCounts["Avoid Ticker"] ?? 0} tone="bear" />
+        </div>
       </div>
 
-      {/* Filter bar */}
+      {/* ---- Filter bar ---------------------------------------------------- */}
       <div className="rounded-xl border border-border bg-card p-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+
+          {/* Universe groups */}
+          <Group label="Universe">
+            {ALL_GROUPS.map((g) => (
+              <Chip
+                key={g}
+                active={universeEnabled[g]}
+                onClick={() => toggleGroup(g)}
+              >
+                {UNIVERSE_GROUPS[g].label}
+              </Chip>
+            ))}
+          </Group>
+
+          {/* Scanner mode */}
+          <Group label="Mode">
+            {(["Strict", "Balanced", "Discovery"] as ScannerMode[]).map((m) => (
+              <Chip key={m} active={scannerMode === m} onClick={() => setMode(m)}>{m}</Chip>
+            ))}
+          </Group>
+
+          {/* Direction */}
           <Group label="Direction">
             {(["ALL", "CALL", "PUT"] as const).map((v) => (
-              <Chip key={v} active={dir === v} onClick={() => setDir(v)}>{v === "ALL" ? "All" : v === "CALL" ? "Calls" : "Puts"}</Chip>
+              <Chip key={v} active={dir === v} onClick={() => setDir(v)}>
+                {v === "ALL" ? "All" : v === "CALL" ? "Calls" : "Puts"}
+              </Chip>
             ))}
           </Group>
-          <Group label="Label">
-            {(["ALL", "Buy Now", "Watchlist", "Aggressive", "Lotto", "Avoid"] as const).map((v) => (
-              <Chip key={v} active={label === v} onClick={() => setLabel(v)}>{v === "ALL" ? "All" : v}</Chip>
-            ))}
-          </Group>
+
+          {/* Cap */}
           <Group label="Cap">
             {(["ALL", "Mega", "Large", "Mid", "Small"] as const).map((v) => (
-              <Chip key={v} active={capFilter === v} onClick={() => setCapFilter(v)}>{v === "ALL" ? "All" : v}</Chip>
+              <Chip key={v} active={capFilter === v} onClick={() => setCapFilter(v)}>
+                {v === "ALL" ? "All" : v}
+              </Chip>
             ))}
           </Group>
+
+          {/* DTE */}
           <Group label="DTE">
-            {([
-              ["ALL","All"],["weekly","0–13"],["short","14–30"],["extended","31–45"],["leaps","180+"],
-            ] as const).map(([v, lbl]) => (
+            {DTE_FILTER_OPTIONS.map(([v, lbl]) => (
               <Chip key={v} active={dteFilter === v} onClick={() => setDteFilter(v)}>{lbl}</Chip>
             ))}
           </Group>
+
+          {/* Max cost */}
           <Group label={`Max cost: $${maxCost}`}>
-            <input type="range" min={100} max={5000} step={100} value={maxCost} onChange={(e) => setMaxCost(+e.target.value)} className="w-32 accent-[var(--color-bull)]" />
+            <input
+              type="range" min={100} max={5000} step={100} value={maxCost}
+              onChange={(e) => setMaxCost(+e.target.value)}
+              className="w-32 accent-[var(--color-bull)]"
+            />
           </Group>
+
+          {/* Tier visibility */}
+          <Group label="Show tiers">
+            {ALL_TIER_LABELS.map((lbl) => (
+              <Chip key={lbl} active={!hiddenLabels.has(lbl)} onClick={() => toggleLabelVisibility(lbl)}>
+                {lbl}
+              </Chip>
+            ))}
+          </Group>
+
+          {/* Misc toggles */}
           <Group label="Toggles">
+            <Chip active={hideTrueAvoids} onClick={() => setHideTrueAvoids((v) => !v)}>Hide Ticker Avoids</Chip>
             <Chip active={triggerActiveOnly} onClick={() => setTriggerActiveOnly((v) => !v)}>Trigger active</Chip>
             <Chip active={verifiedOnly} onClick={() => setVerifiedOnly((v) => !v)}>Verified only</Chip>
-            <Chip active={hideAvoids} onClick={() => setHideAvoids((v) => !v)}>Hide Avoids</Chip>
             <Chip active={includeLeaps} onClick={() => setIncludeLeaps((v) => !v)}>LEAPS</Chip>
             <Chip active={includeYolo} onClick={() => setIncludeYolo((v) => !v)}>YOLO</Chip>
             <Chip active={extendedSwingEnabled} onClick={() => setExtendedSwingEnabled((v) => !v)}>Extended Swing</Chip>
           </Group>
+
+          {/* View */}
           <Group label="View">
             <Chip active={view === "table"} onClick={() => setView("table")}>Table</Chip>
             <Chip active={view === "card"} onClick={() => setView("card")}>Cards</Chip>
           </Group>
-          <Group label="Mode">
+
+          {/* Persona */}
+          <Group label="Persona">
             <Chip active={persona === "trader"} onClick={() => setPersona("trader")}>Trader</Chip>
             <Chip active={persona === "debug"} onClick={() => setPersona("debug")}>Debug</Chip>
           </Group>
         </div>
       </div>
 
-      <div className="text-xs text-muted-foreground">{filtered.length} candidates</div>
+      <div className="text-xs text-muted-foreground">{filtered.length} candidates shown</div>
 
-      {view === "table" ? (
-        <TradeTable rows={filtered} onOpen={setOpenId} />
-      ) : (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {filtered.map((t) => (
-            <CompactTradeCard
-              key={t.id}
-              t={t}
-              warnings={t.buyNowBlockers ?? []}
-              onOpenDetails={() => setOpenId(t.id)}
-            />
-          ))}
-        </div>
-      )}
-      {filtered.length === 0 && (
+      {/* ---- Main content — flat vs DTE-sectioned -------------------------- */}
+      {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
           No clean trades match your filters.
+        </div>
+      ) : view === "table" ? (
+        <TradeTable rows={filtered} onOpen={setOpenId} />
+      ) : (
+        <div className="space-y-6">
+          {BUCKET_ORDER.map((bucket) => {
+            const rows = byBucket.get(bucket);
+            if (!rows || rows.length === 0) return null;
+            return (
+              <div key={bucket} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {EXPIRATION_BUCKET_LABEL[bucket]}
+                  </h2>
+                  <span className="text-[10px] text-muted-foreground">({rows.length})</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  {rows.map((t) => (
+                    <CompactTradeCard
+                      key={t.id}
+                      t={t}
+                      warnings={t.buyNowBlockers ?? []}
+                      onOpenDetails={() => setOpenId(t.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -356,12 +517,20 @@ function Scanner() {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone?: "bull" | "watch" | "warn" | "bear" }) {
+// ---- Small helpers ---------------------------------------------------------
+
+type StatTone = "bull" | "watch" | "sky" | "warn" | "fuchsia" | "amber" | "orange" | "bear";
+
+function Stat({ label, value, tone }: { label: string; value: number; tone?: StatTone }) {
   const cls =
-    tone === "bull" ? "text-[var(--color-bull)]"
-    : tone === "watch" ? "text-[var(--color-watch)]"
-    : tone === "warn" ? "text-amber-500"
-    : tone === "bear" ? "text-[var(--color-bear)]"
+    tone === "bull"    ? "text-[var(--color-bull)]"
+    : tone === "watch"   ? "text-[var(--color-watch)]"
+    : tone === "sky"     ? "text-sky-400"
+    : tone === "warn"    ? "text-amber-500"
+    : tone === "fuchsia" ? "text-fuchsia-400"
+    : tone === "amber"   ? "text-amber-500"
+    : tone === "orange"  ? "text-orange-400"
+    : tone === "bear"    ? "text-[var(--color-bear)]"
     : "text-foreground";
   return (
     <span className="inline-flex items-center gap-1">
