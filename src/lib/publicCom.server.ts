@@ -391,6 +391,10 @@ export interface ContractSelector {
   targetStrike?: number;
   /** Hard filter: when set, only contracts with `expiration === selectedExpiration` may be picked. */
   selectedExpiration?: string;
+  /** User-selected contract preference mode. Defaults to "Balanced" when omitted. */
+  preferenceMode?: import("./contractPreference").PreferenceMode;
+  /** User-configured max premium per contract in $. Default 500. */
+  maxContractCost?: number;
 }
 
 export interface ContractTraceRow {
