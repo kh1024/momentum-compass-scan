@@ -15,9 +15,16 @@ import {
  * app so every list view updates immediately.
  */
 export function useRiskFilters() {
-  const [state, setState] = useState(() => readRiskState());
+  // Start from defaults on every first render so SSR and the client's first
+  // paint produce identical HTML. After mount we hydrate from localStorage
+  // and subscribe to changes.
+  const [state, setState] = useState(() => ({
+    preset: DEFAULT_PRESET as ReturnType<typeof readRiskState>["preset"],
+    filters: { ...RISK_PRESETS[DEFAULT_PRESET] },
+  }));
 
   useEffect(() => {
+    setState(readRiskState());
     const unsub = subscribeRiskState(() => setState(readRiskState()));
     return unsub;
   }, []);
