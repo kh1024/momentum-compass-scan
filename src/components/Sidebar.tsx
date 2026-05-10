@@ -105,10 +105,13 @@ export function Sidebar({
 }: SidebarProps) {
   const [devMode, setDevMode] = useDeveloperMode();
 
-  // Ticker for "Xs ago" + insight rotation.
+  // Self-tick once every 30s for the "Updated Xm ago" label only.
+  // Insights rotate every 6s. We deliberately do NOT tick at 1Hz — that
+  // re-renders this whole sidebar every second and (via the parent) was
+  // contributing to the trade-card flicker on the dashboard.
   const [, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 1_000);
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
     return () => clearInterval(id);
   }, []);
 
@@ -119,6 +122,11 @@ export function Sidebar({
     const id = setInterval(() => setInsightIdx((n) => (n + 1) % insights.length), 6_000);
     return () => clearInterval(id);
   }, [insights.length]);
+
+  // Sticky live state — once observed live, stay live until a hard error.
+  const everLive = useRef(false);
+  if (live) everLive.current = true;
+  const liveSticky = everLive.current || live;
 
   const commentaryInput: CommentaryInput = {
     spy: markets.find((m) => m.symbol === "SPY"),
