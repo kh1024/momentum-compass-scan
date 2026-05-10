@@ -131,7 +131,7 @@ export function CompactTradeCard({
           </div>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
