@@ -1,10 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { HealthResponse, BackendStatus } from "@/routes/api/health";
 
 async function fetchHealth(): Promise<HealthResponse> {
   const res = await fetch("/api/health", { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`Health check failed (${res.status})`);
+  if (!res.ok) {
+    const err = new Error(`Health check failed (${res.status})`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
@@ -15,8 +20,33 @@ export function useBackendHealth() {
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
     staleTime: 30_000,
-    retry: 1,
+    // Exponential backoff: ~1s, 2s, 4s, 8s, 16s before giving up.
+    retry: 5,
+    retryDelay: (attempt) => {
+      const base = Math.min(1000 * 2 ** attempt, 16_000);
+      const jitter = base * 0.3 * (Math.random() * 2 - 1);
+      return Math.max(250, Math.round(base + jitter));
+    },
   });
+}
+
+/**
+ * Force a full reconnect: invalidate every cached query so all data sources
+ * re-fetch in parallel. Returns when the health check completes (or fails).
+ */
+export function useRetryConnection() {
+  const qc = useQueryClient();
+  const [pending, setPending] = useState(false);
+  const retry = async () => {
+    setPending(true);
+    try {
+      await qc.invalidateQueries();
+      await qc.refetchQueries({ queryKey: ["backend-health"] });
+    } finally {
+      setPending(false);
+    }
+  };
+  return { retry, pending };
 }
 
 const STATUS_STYLE: Record<BackendStatus | "unknown", { dot: string; label: string; text: string; border: string }> = {
