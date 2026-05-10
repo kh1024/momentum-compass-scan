@@ -37,12 +37,60 @@ export interface ConsensusQuote {
 const YAHOO_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
-// ── Yahoo (free, chart endpoint — v7 quote requires auth as of 2024) ──
+// ── Yahoo crumb/cookie session (required since mid-2024) ──
+const YAHOO_CRUMB_TTL_MS = 50 * 60 * 1000; // 50 minutes
+let yahooCrumbCache: { crumb: string; cookie: string; expires: number } | null = null;
+
+async function getYahooCrumb(force = false): Promise<{ crumb: string; cookie: string } | null> {
+  const now = Date.now();
+  if (!force && yahooCrumbCache && yahooCrumbCache.expires > now) {
+    return { crumb: yahooCrumbCache.crumb, cookie: yahooCrumbCache.cookie };
+  }
+  try {
+    const r = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
+      headers: { "User-Agent": YAHOO_UA, Accept: "*/*" },
+    });
+    if (!r.ok) return null;
+    const crumb = (await r.text()).trim();
+    if (!crumb) return null;
+    // Collect Set-Cookie headers (Yahoo sets A1/A3 session cookies)
+    const setCookies: string[] = [];
+    // @ts-expect-error — Workers/undici expose getSetCookie()
+    if (typeof r.headers.getSetCookie === "function") {
+      // @ts-expect-error
+      setCookies.push(...r.headers.getSetCookie());
+    } else {
+      const sc = r.headers.get("set-cookie");
+      if (sc) setCookies.push(sc);
+    }
+    const cookie = setCookies.map((c) => c.split(";")[0]).filter(Boolean).join("; ");
+    yahooCrumbCache = { crumb, cookie, expires: now + YAHOO_CRUMB_TTL_MS };
+    return { crumb, cookie };
+  } catch (e) {
+    console.warn("[yahoo] crumb fetch failed", e);
+    return null;
+  }
+}
+
+// ── Yahoo (free, chart endpoint — requires crumb + cookie since 2024) ──
 async function fetchYahoo(symbol: string): Promise<SourceQuote | null> {
   const sym = symbol.toUpperCase();
+  const doFetch = async (session: { crumb: string; cookie: string } | null) => {
+    const qs = `interval=1d&range=5d${session?.crumb ? `&crumb=${encodeURIComponent(session.crumb)}` : ""}`;
+    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?${qs}`;
+    const headers: Record<string, string> = { "User-Agent": YAHOO_UA, Accept: "application/json" };
+    if (session?.cookie) headers["Cookie"] = session.cookie;
+    return fetchWithRetry(url, { headers });
+  };
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=5d`;
-    const r = await fetchWithRetry(url, { headers: { "User-Agent": YAHOO_UA, Accept: "application/json" } });
+    let session = await getYahooCrumb();
+    let r = await doFetch(session);
+    if (r.status === 401 || r.status === 403) {
+      // Stale crumb — invalidate and retry once with a fresh session.
+      yahooCrumbCache = null;
+      session = await getYahooCrumb(true);
+      r = await doFetch(session);
+    }
     if (!r.ok) return null;
     const d = (await r.json()) as {
       chart?: {
