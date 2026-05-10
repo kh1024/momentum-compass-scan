@@ -46,10 +46,10 @@ export const getMarketNews = createServerFn({ method: "GET" }).handler(
         },
         body: JSON.stringify({
           query:
-            "stock market today S&P 500 Nasdaq sector movers options flow Federal Reserve",
-          limit: 8,
+            "site:reuters.com (markets OR stocks OR S&P OR Nasdaq OR Fed OR earnings)",
+          limit: 10,
           tbs: "qdr:d",
-          sources: ["web", "news"],
+          sources: ["news", "web"],
         }),
       });
 
@@ -80,8 +80,8 @@ export const getMarketNews = createServerFn({ method: "GET" }).handler(
           snippet: String(r.description || r.snippet || r.text || "").trim(),
           publishedAt: r.date || r.publishedAt || r.published_date,
         }))
-        .filter((i) => i.title && i.url)
-        .slice(0, 6);
+        .filter((i) => i.title && i.url && /reuters\.com/i.test(i.url))
+        .slice(0, 8);
 
       const top = items[0];
       const headline = top?.title ?? "Markets in focus";
