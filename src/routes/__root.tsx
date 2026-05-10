@@ -73,7 +73,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background text-foreground">
-        <Sidebar markets={SIDEBAR_MARKETS} live={!MOCK_REGIME.isDemo} regime={MOCK_REGIME.bias} />
+        <NavBar />
         <main className="pl-56">
           <div className="mx-auto max-w-7xl px-4 py-6">
             <Outlet />
