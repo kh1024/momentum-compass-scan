@@ -92,13 +92,13 @@ export function RefreshBar(props: RefreshBarProps) {
       ? `Verified ${formatAgo(lastFullScanAt, now)}`
       : "Latest verified scan loading";
 
-  const nextRefresh = !autoRefresh
+  const nextRefresh = !mounted || !autoRefresh
     ? null
     : nextFullScanAt
       ? `Next refresh ${formatAgo(nextFullScanAt, now).replace(" ago", "")}`
       : null;
 
-  const tooltip = [
+  const tooltip = !mounted ? "" : [
     marketDataUpdatedAt ? `Market data: ${new Date(marketDataUpdatedAt).toLocaleTimeString()}` : null,
     lastFullScanAt ? `Last scan: ${new Date(lastFullScanAt).toLocaleTimeString()}` : null,
     `Auto refresh: ${autoRefresh ? "on" : "off"}`,
