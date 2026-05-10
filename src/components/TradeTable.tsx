@@ -2,6 +2,8 @@ import type { TradeCandidate, Label } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Tip, TIPS } from "@/components/Tip";
 
+const displayLabel = (label: Label): Label | "Watchlist" => (label === "Waiting on Trigger" ? "Watchlist" : label);
+
 const LABEL_COLOR: Record<Label, string> = {
   "Buy Now":            "text-[var(--color-buy-now)]",
   "Watchlist":          "text-[var(--color-watch)]",
@@ -142,8 +144,8 @@ export function TradeTable({
                 </td>
 
                 <td className={cn("px-2 py-1 font-semibold whitespace-nowrap", LABEL_COLOR[t.label])}>
-                  <Tip content={(TIPS.label as Record<string, React.ReactNode>)[t.label] ?? <span>{t.label}</span>}>
-                    <span className="cursor-help">{t.label}</span>
+                  <Tip content={(TIPS.label as Record<string, React.ReactNode>)[displayLabel(t.label)] ?? <span>{displayLabel(t.label)}</span>}>
+                    <span className="cursor-help">{displayLabel(t.label)}</span>
                   </Tip>
                 </td>
 
