@@ -411,7 +411,7 @@ function Dashboard() {
       <RefreshBar
         lastFullScanAt={lastFullScanAt}
         nextFullScanAt={nextFullScanAt}
-        marketDataUpdatedAt={liveQuoteUpdatedAt}
+        marketDataUpdatedAt={marketDataUpdatedAt}
         optionQuoteUpdatedAt={lastFullScanAt}
         dataMode={dataMode}
         autoRefresh={autoRefresh && fullScanIntervalMs > 0}
