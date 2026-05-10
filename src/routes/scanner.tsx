@@ -112,7 +112,7 @@ function Scanner() {
   const [view, setView] = useState<ViewMode>("table");
   const [openId, setOpenId] = useState<string | null>(null);
   const [scanLimit, setScanLimit] = useState(30);
-  type Preset = "all" | "lottos" | "reddit" | "leaps" | "buynow" | "aggressive" | "watchlist";
+  type Preset = "all" | "lottos" | "reddit" | "leaps" | "buynow" | "aggressive" | "watchlist" | "7day";
   const [preset, setPreset] = useState<Preset>("all");
 
   function applyPreset(p: Preset) {
@@ -129,6 +129,10 @@ function Scanner() {
     if (p === "lottos") {
       setHiddenLabels(new Set<Label>(["Buy Now", "Watchlist", "Waiting on Trigger", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
       setDteFilter("weekly-lotto");
+    } else if (p === "7day") {
+      // 7-day swing window: 4–10 DTE — spans weekly-lotto + lotto-aggressive
+      setIncludeLeaps(false);
+      setDteFilter("7day");
     } else if (p === "reddit") {
       setIncludeLeaps(false);
       // YOLO universe must be on
