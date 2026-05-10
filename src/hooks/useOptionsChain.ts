@@ -6,7 +6,7 @@
  * should prefer reading envelopes via `getEnvelope(key)`.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchOptionsChainEnvelopes,
@@ -20,6 +20,7 @@ import {
   type DataStatus,
   type TrustEnvelope,
 } from "@/services/trust";
+import { loadOptionsSnapshot, saveOptionsSnapshot } from "@/lib/scanSnapshot.client";
 
 export interface UseOptionsChainResult {
   envelopes: Record<string, TrustEnvelope<EnrichedContract>>;
@@ -54,16 +55,34 @@ export function useOptionsChain(
     [picks],
   );
 
+  const cachedSnapshot = useMemo(
+    () => loadOptionsSnapshot<OptionsChainResult>(queryKey),
+    [queryKey],
+  );
+
   const q = useQuery({
     queryKey: ["options-chain", queryKey],
     queryFn: () => fetchOptionsChainEnvelopes(picks),
     enabled: enabled && picks.length > 0,
+    initialData: cachedSnapshot?.result,
+    initialDataUpdatedAt: cachedSnapshot?.savedAt,
     refetchInterval,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
     staleTime,
-    placeholderData: (prev) => prev,
+    // Stale-while-revalidate: keep showing the previous payload (or the
+    // disk-cached snapshot) while a fresh fetch is in flight so the scanner
+    // table never wipes mid-refresh.
+    placeholderData: (prev) => prev ?? cachedSnapshot?.result,
   });
+
+  // Persist verified results only. saveOptionsSnapshot internally rejects
+  // empty / rate-limited payloads so a broken refresh can never overwrite
+  // the last good snapshot.
+  useEffect(() => {
+    if (!q.data) return;
+    saveOptionsSnapshot<OptionsChainResult>(queryKey, q.data);
+  }, [q.data, queryKey]);
 
   const envelopes = q.data?.envelopes ?? {};
   const status = rollupStatus(Object.values(envelopes));
