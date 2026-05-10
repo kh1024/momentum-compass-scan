@@ -1,5 +1,4 @@
-// Shared quote types — safe to import from both client and server.
-export type SourceName = "yahoo" | "stooq" | "finnhub" | "twelvedata" | "polygon" | "alphaVantage" | string;
+export type SourceName = "massive" | "public" | "finnhub" | "yahoo" | "stooq" | "coingecko";
 
 export interface ConsensusQuote {
   symbol: string;
