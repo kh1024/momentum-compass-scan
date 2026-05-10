@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { getRedditSentiment, type RedditSignal } from "@/lib/reddit.functions";
 
 /**
  * Live Reddit sentiment overlay. Refreshes every 15 min (server caches 30 min,
- * so cheap polling). Always succeeds — returns an empty map on any failure.
+ * so cheap polling). `get` is a STABLE reference (closed over a ref) so it
+ * does not invalidate consumer memos on unrelated re-renders.
  */
 export function useRedditSentiment(symbols: string[]) {
   const fetchFn = useServerFn(getRedditSentiment);
@@ -26,9 +27,15 @@ export function useRedditSentiment(symbols: string[]) {
     retry: 0,
   });
 
-  const signals = data?.signals ?? {};
-  const get = (sym: string): RedditSignal | null =>
-    signals[sym.toUpperCase()] ?? null;
+  const signalsRef = useRef<Record<string, RedditSignal>>({});
+  if (data?.signals) signalsRef.current = data.signals;
+  const signals = signalsRef.current;
+
+  const get = useCallback(
+    (sym: string): RedditSignal | null => signalsRef.current[sym.toUpperCase()] ?? null,
+    [],
+  );
 
   return { get, signals };
 }
+
