@@ -20,8 +20,12 @@ export interface Quote {
   changePct: number;
   volume: number;
   ts: number;
-  source: string;
+  /** Primary consensus provider for this quote. */
+  consensusSource: string;
+  /** Per-provider prices used to derive consensus. */
+  sources: Partial<Record<string, number>>;
   agreement: "verified" | "close" | "mismatch" | "single";
+  diffPct: number | null;
 }
 
 function mapSourceName(s: string): DataSource {
@@ -63,8 +67,10 @@ export async function fetchQuotesEnvelope(
         changePct: raw.changePct,
         volume: raw.volume,
         ts: raw.ts,
-        source: raw.consensusSource,
+        consensusSource: raw.consensusSource,
+        sources: raw.sources,
         agreement: raw.agreement,
+        diffPct: raw.diffPct,
       };
       const validated = validateQuote(q);
       out[sym] = wrap<Quote>({
