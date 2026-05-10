@@ -13,6 +13,7 @@ import {
   type EnrichedContract,
   type OptionsChainResult,
   type OptionsPickInput,
+  type OptionsChainPreference,
 } from "@/services/optionsDataService";
 import {
   rollupStatus,
@@ -40,19 +41,30 @@ export interface UseOptionsChainResult {
 
 export function useOptionsChain(
   picks: OptionsPickInput[],
-  opts: { enabled?: boolean; staleTime?: number; refetchInterval?: number | false } = {},
+  opts: {
+    enabled?: boolean;
+    staleTime?: number;
+    refetchInterval?: number | false;
+    /** Global contract-selection preference. Included in queryKey so a mode
+     *  change refetches & re-selects via the server's selectContractFromChain. */
+    preference?: OptionsChainPreference;
+  } = {},
 ): UseOptionsChainResult {
-  const { enabled = true, staleTime = 60 * 60_000, refetchInterval = false } = opts;
+  const { enabled = true, staleTime = 60 * 60_000, refetchInterval = false, preference } = opts;
+  const prefMode = preference?.preferenceMode ?? "Balanced";
+  const prefMaxCost = preference?.maxContractCost ?? 500;
 
   const queryKey = useMemo(
-    () =>
-      picks
+    () => {
+      const picksKey = picks
         .map(
           (p) =>
             `${p.ticker}:${p.direction}:${p.isLeaps ? 1 : 0}:${p.isYolo ? 1 : 0}:${p.entryMode ?? ""}:${p.targetStrike ?? ""}`,
         )
-        .join(","),
-    [picks],
+        .join(",");
+      return `${picksKey}|${prefMode}|${prefMaxCost}`;
+    },
+    [picks, prefMode, prefMaxCost],
   );
 
   // Hydrate snapshot on the client only. `loadOptionsSnapshot` is wrapped
@@ -71,7 +83,11 @@ export function useOptionsChain(
 
   const q = useQuery({
     queryKey: ["options-chain", queryKey],
-    queryFn: () => fetchOptionsChainEnvelopes(picks),
+    queryFn: () =>
+      fetchOptionsChainEnvelopes(picks, {
+        preferenceMode: prefMode,
+        maxContractCost: prefMaxCost,
+      }),
     enabled: enabled && picks.length > 0,
     initialData: cachedSnapshot?.result as OptionsChainResult | undefined,
     initialDataUpdatedAt: cachedSnapshot?.savedAt,
