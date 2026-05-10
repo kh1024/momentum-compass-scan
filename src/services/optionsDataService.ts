@@ -8,6 +8,7 @@
 
 import { enrichWithPublicChain, type EnrichedContract, type EnrichmentResult } from "@/lib/chain.functions";
 import type { Direction, EntryMode } from "@/lib/types";
+import type { PreferenceMode } from "@/lib/contractPreference";
 import type { TrustEnvelope, DataSource } from "./trust";
 import { wrap, unavailable, errored } from "./trust";
 
@@ -20,6 +21,12 @@ export interface OptionsPickInput {
   isYolo?: boolean;
   entryMode?: EntryMode;
   targetStrike?: number;
+}
+
+/** Global contract-selection preference applied to ALL picks in a single scan. */
+export interface OptionsChainPreference {
+  preferenceMode?: PreferenceMode;
+  maxContractCost?: number;
 }
 
 export interface OptionsChainResult {
