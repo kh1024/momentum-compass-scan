@@ -8,7 +8,7 @@ export const MAX_CONCURRENT_REQUESTS = getScannerSettings().maxConcurrentRequest
  * keeps us out of 429 territory on hot tickers like RIVN.
  * Override via MASSIVE_MIN_SPACING_MS.
  */
-const MIN_SPACING_MS = Number(process.env.MASSIVE_MIN_SPACING_MS ?? 600);
+const MIN_SPACING_MS = Number(process.env.MASSIVE_MIN_SPACING_MS ?? 1400);
 
 export class RequestLimiter {
   private active = 0;
