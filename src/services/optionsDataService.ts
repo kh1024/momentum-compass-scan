@@ -8,6 +8,7 @@
 
 import { enrichWithPublicChain, type EnrichedContract, type EnrichmentResult } from "@/lib/chain.functions";
 import type { Direction } from "@/lib/types";
+import type { EntryMode } from "@/lib/entryMode";
 import type { TrustEnvelope, DataSource } from "./trust";
 import { wrap, unavailable, errored } from "./trust";
 
@@ -18,7 +19,7 @@ export interface OptionsPickInput {
   direction: Direction;
   isLeaps?: boolean;
   isYolo?: boolean;
-  entryMode?: "Breakout" | "Pullback" | "Continuation" | null;
+  entryMode?: EntryMode;
   targetStrike?: number;
 }
 
