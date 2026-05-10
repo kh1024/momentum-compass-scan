@@ -118,6 +118,6 @@ export function aiReasonFor(t: TradeCandidate, ctx: AiReasonContext = {}): strin
   if (score >= 85) return "Elite setup — multi-factor confirmation aligned.";
   if (score >= 75) return "Strong setup — trend and structure aligned.";
   if (score >= 65) return "Moderate setup — selective entry on confirmation.";
-  if (m === "Lottery OTM") return "Speculative far-OTM lottery — low probability, asymmetric reward.";
+  // Lottery / Far-OTM handled earlier in the contract block.
   return "Speculative — wait for clearer confirmation.";
 }
