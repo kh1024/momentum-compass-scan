@@ -368,6 +368,35 @@ export const enrichWithPublicChain = createServerFn({ method: "POST" })
           console.warn(`[chain] contract repair search failed for ${ticker}`, e);
         }
 
+        // ---- Contract Classification (moneyness / style / explanation) ----
+        try {
+          const { classifyContract } = await import("./contractClassification");
+          contract.classification = classifyContract({
+            direction: p.direction,
+            strike: contract.strike,
+            underlyingPrice: chain.underlyingPrice,
+            breakeven: contract.breakeven,
+            delta: contract.delta,
+            entryMode: p.entryMode ?? "Momentum",
+            isLeaps: p.isLeaps,
+            isYolo: p.isYolo,
+            quality: {
+              spreadPct: contract.spreadPct,
+              openInterest: contract.openInterest,
+              volume: contract.volume,
+              iv: contract.iv,
+              bid: contract.bid,
+              ask: contract.ask,
+              dte: contract.dte,
+              premium: (contract.mid ?? contract.ask) * 100,
+            },
+            premium: (contract.mid ?? contract.ask) * 100,
+            dte: contract.dte,
+          });
+        } catch (e) {
+          console.warn(`[chain] classification failed for ${ticker}`, e);
+        }
+
         const optionScore = scoreOptionQuality({ contract, isLeaps: p.isLeaps, isYolo: p.isYolo });
         const riskScore = scoreRiskReward({
           breakevenMovePct: contract.breakevenMovePct,
