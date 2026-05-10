@@ -449,13 +449,8 @@ function Dashboard() {
           <p className="text-xs text-muted-foreground">
             Best options opportunities for the next few days · ranked by AI confidence
           </p>
-          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-            <span>
-              <span className={cn("font-semibold", dataMode === "live" ? "text-[var(--color-bull)]" : dataMode === "delayed" ? "text-amber-500" : "text-muted-foreground")}>
-                {dataMode === "live" ? "Live" : dataMode === "delayed" ? "Rate-limited" : "Cached"}
-              </span>
-              {" "}data
-            </span>
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <StatusPill state={quoteState} updatedAt={marketDataUpdatedAt} source="market" />
             <span className="h-3 w-px bg-border" />
             <span>{counts.total} ideas · {counts.highConviction} high conviction</span>
             <span className="h-3 w-px bg-border" />
@@ -468,7 +463,7 @@ function Dashboard() {
             </span>
           </div>
         </div>
-        <RegimeCard spy={spyQ} qqq={qqqQ} smh={smhQ} updatedAt={regimeUpdatedAt} live={regimeLive} />
+        <RegimeCard spy={spyQ} qqq={qqqQ} smh={smhQ} updatedAt={regimeUpdatedAt} isFetching={isScanning} />
       </div>
 
       <RefreshBar
@@ -477,6 +472,8 @@ function Dashboard() {
         marketDataUpdatedAt={marketDataUpdatedAt}
         optionQuoteUpdatedAt={lastFullScanAt}
         dataMode={dataMode}
+        quoteState={quoteState}
+        chainState={chainState}
         autoRefresh={autoRefresh && fullScanIntervalMs > 0}
         isScanning={isScanning}
         onRunScanNow={onRunScanNow}
@@ -484,13 +481,19 @@ function Dashboard() {
         onToggleAutoRefresh={() => setAutoRefresh((v) => !v)}
       />
 
-      {!regimeLive && !anyLive && (
+      {(quoteState === "unavailable" || quoteState === "connecting" || quoteState === "error" || quoteState === "stale") && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.04] px-4 py-3 text-xs">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse-dot" />
-            <span className="font-semibold uppercase tracking-wider text-amber-500">Live market data unavailable</span>
+            <span className="font-semibold uppercase tracking-wider text-amber-500">
+              {quoteState === "connecting" ? "Connecting to market data"
+                : quoteState === "stale" ? "Market data is stale"
+                : quoteState === "error" ? "Quote provider unreachable"
+                : "Waiting for live quote provider"}
+            </span>
             <span className="text-muted-foreground">
-              {isMarketOpen() ? "Quote provider is not responding — retrying." : "Market closed — last verified scan shown below once available."}
+              {LIVE_STATE_EXPLAIN[quoteState]}
+              {marketDataUpdatedAt ? ` · Last refresh ${formatAgo(marketDataUpdatedAt)}` : ""}
             </span>
           </div>
           <button
