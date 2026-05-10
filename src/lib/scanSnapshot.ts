@@ -183,16 +183,17 @@ interface OptionsChainShape {
   message: string | null;
 }
 
-function isVerifiedOptions(r: OptionsChainShape | null | undefined): r is OptionsChainShape {
-  if (!r || typeof r !== "object") return false;
-  if (r.rateLimited) return false;
-  return isVerifiedEnrichment(r.raw);
+function validateOptions(r: unknown): ValidationResult {
+  if (!r || typeof r !== "object") return { ok: false, reason: "options result not an object" };
+  const o = r as Partial<OptionsChainShape>;
+  if (o.rateLimited) return { ok: false, reason: "rate-limited options payload" };
+  return validateEnrichment(o.raw);
 }
 
 export const loadOptionsSnapshot = <T extends OptionsChainShape>(pickKey: string): BaseSnapshot<T> | null =>
-  loadAt<T>(OPTIONS_KEY, pickKey, (r) => isVerifiedOptions(r as OptionsChainShape));
+  loadAt<T>(OPTIONS_KEY, pickKey, validateOptions);
 export const saveOptionsSnapshot = <T extends OptionsChainShape>(pickKey: string, result: T, marketSession?: string): boolean =>
-  saveAt<T>(OPTIONS_KEY, pickKey, result, (r) => isVerifiedOptions(r as OptionsChainShape), marketSession);
+  saveAt<T>(OPTIONS_KEY, pickKey, result, validateOptions, marketSession);
 
 export function getSnapshotAge(): number | null {
   const w = safeWindow();
