@@ -233,6 +233,8 @@ function Dashboard() {
   const symbols = useMemo(() => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.ticker))), []);
   const quoteRefreshIntervalMs = isMarketOpen() ? 30_000 : 24 * 60 * 60_000;
   const { get: getLive, anyLive } = useLiveQuotes(symbols, { refetchIntervalMs: quoteRefreshIntervalMs });
+  // Crypto trades 24/7 — refresh every 60s regardless of equity hours.
+  const { get: getCrypto } = useLiveQuotes(["BTC-USD", "SOL-USD"], { refetchIntervalMs: 60_000 });
   const { get: getReddit } = useRedditSentiment(symbols);
   const { get: getEarnings } = useEarnings(symbols, 60);
   void getEarnings;
