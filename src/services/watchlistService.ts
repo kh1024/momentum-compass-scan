@@ -191,6 +191,7 @@ export function snapshotFromCandidate(
     label: t.label,
     addedAt: Date.now(),
     entryQuote: entryQuoteEnvelope ?? fallbackQuote,
+    entryStockPrice: (entryQuoteEnvelope ?? fallbackQuote).value?.price ?? t.price ?? 0,
     entryScore: t.finalScore ?? t.score,
     entryThesis: t.thesis,
     target1: t.target1,
