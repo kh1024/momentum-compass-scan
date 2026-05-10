@@ -20,6 +20,21 @@ export interface DerivedMoneyness extends MoneynessResult {
 
 export function derivedMoneyness(t: TradeCandidate): DerivedMoneyness {
   const c = t.contract;
+  // Gate: if the underlying quote failed validation we MUST NOT compute
+  // moneyness from a bad price. Surface a clean "Price unavailable" state.
+  const qv = t.quoteValidation;
+  if (qv && !qv.rankable && qv.status !== "cached") {
+    return {
+      moneyness: "ATM",
+      strikeOffsetPct: 0,
+      strikeDistancePct: 0,
+      breakevenMovePct: 0,
+      isAtm: false,
+      isItm: false,
+      label: qv.display || "Price unavailable",
+      fromChain: false,
+    };
+  }
   if (c.classification) {
     return {
       moneyness: c.classification.moneyness,
