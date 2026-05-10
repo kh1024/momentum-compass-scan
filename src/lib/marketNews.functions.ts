@@ -80,8 +80,8 @@ export const getMarketNews = createServerFn({ method: "GET" }).handler(
           snippet: String(r.description || r.snippet || r.text || "").trim(),
           publishedAt: r.date || r.publishedAt || r.published_date,
         }))
-        .filter((i) => i.title && i.url)
-        .slice(0, 6);
+        .filter((i) => i.title && i.url && /reuters\.com/i.test(i.url))
+        .slice(0, 8);
 
       const top = items[0];
       const headline = top?.title ?? "Markets in focus";
