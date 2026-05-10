@@ -197,6 +197,7 @@ function heuristicEntry(m: MergedRow): RedditTrendingEntry {
   else if (sentiment === "Hype" && mentionsDeltaPct > 1) category = "Too Much Hype";
   else if (isOptionsSub && mentionsDeltaPct > 0.5) category = "Options Hype";
   else if (upPerMention < 4 && m.mentions > 30) category = "Lottery Watch";
+  else if (sentiment === "Mixed" && trend === "Falling") category = "Contrarian Watch";
 
   const interp =
     category === "Bullish Momentum" ? "Retail interest rising in alignment with momentum."
