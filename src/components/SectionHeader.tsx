@@ -17,7 +17,7 @@ export function SectionHeader({ title, subtitle, count, action }: { title: strin
   );
 }
 
-export function EmptySection({ message = "No clean trades — wait for trigger." }: { message?: string }) {
+export function EmptySection({ message = "No clean trades — keep these on watch." }: { message?: string }) {
   return (
     <div className="rounded-xl border border-dashed border-border bg-card/40 p-6 text-center text-sm text-muted-foreground">
       {message}
