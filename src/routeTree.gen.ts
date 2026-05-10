@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ScannerRouteImport } from './routes/scanner'
+import { Route as RedditSignalsRouteImport } from './routes/reddit-signals'
 import { Route as PerformanceRouteImport } from './routes/performance'
 import { Route as PatternsRouteImport } from './routes/patterns'
 import { Route as LiveRouteImport } from './routes/live'
@@ -34,6 +35,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ScannerRoute = ScannerRouteImport.update({
   id: '/scanner',
   path: '/scanner',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RedditSignalsRoute = RedditSignalsRouteImport.update({
+  id: '/reddit-signals',
+  path: '/reddit-signals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PerformanceRoute = PerformanceRouteImport.update({
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/live': typeof LiveRoute
   '/patterns': typeof PatternsRoute
   '/performance': typeof PerformanceRoute
+  '/reddit-signals': typeof RedditSignalsRoute
   '/scanner': typeof ScannerRoute
   '/settings': typeof SettingsRoute
   '/watchlist': typeof WatchlistRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/live': typeof LiveRoute
   '/patterns': typeof PatternsRoute
   '/performance': typeof PerformanceRoute
+  '/reddit-signals': typeof RedditSignalsRoute
   '/scanner': typeof ScannerRoute
   '/settings': typeof SettingsRoute
   '/watchlist': typeof WatchlistRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/live': typeof LiveRoute
   '/patterns': typeof PatternsRoute
   '/performance': typeof PerformanceRoute
+  '/reddit-signals': typeof RedditSignalsRoute
   '/scanner': typeof ScannerRoute
   '/settings': typeof SettingsRoute
   '/watchlist': typeof WatchlistRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/patterns'
     | '/performance'
+    | '/reddit-signals'
     | '/scanner'
     | '/settings'
     | '/watchlist'
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/patterns'
     | '/performance'
+    | '/reddit-signals'
     | '/scanner'
     | '/settings'
     | '/watchlist'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/patterns'
     | '/performance'
+    | '/reddit-signals'
     | '/scanner'
     | '/settings'
     | '/watchlist'
@@ -167,6 +179,7 @@ export interface RootRouteChildren {
   LiveRoute: typeof LiveRoute
   PatternsRoute: typeof PatternsRoute
   PerformanceRoute: typeof PerformanceRoute
+  RedditSignalsRoute: typeof RedditSignalsRoute
   ScannerRoute: typeof ScannerRoute
   SettingsRoute: typeof SettingsRoute
   WatchlistRoute: typeof WatchlistRoute
@@ -195,6 +208,13 @@ declare module '@tanstack/react-router' {
       path: '/scanner'
       fullPath: '/scanner'
       preLoaderRoute: typeof ScannerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reddit-signals': {
+      id: '/reddit-signals'
+      path: '/reddit-signals'
+      fullPath: '/reddit-signals'
+      preLoaderRoute: typeof RedditSignalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/performance': {
@@ -263,6 +283,7 @@ const rootRouteChildren: RootRouteChildren = {
   LiveRoute: LiveRoute,
   PatternsRoute: PatternsRoute,
   PerformanceRoute: PerformanceRoute,
+  RedditSignalsRoute: RedditSignalsRoute,
   ScannerRoute: ScannerRoute,
   SettingsRoute: SettingsRoute,
   WatchlistRoute: WatchlistRoute,
