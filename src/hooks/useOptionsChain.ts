@@ -20,7 +20,7 @@ import {
   type DataStatus,
   type TrustEnvelope,
 } from "@/services/trust";
-import { loadOptionsSnapshot, saveOptionsSnapshot } from "@/lib/scanSnapshot";
+import { loadSnapshotModule } from "@/lib/scanSnapshot";
 
 export interface UseOptionsChainResult {
   envelopes: Record<string, TrustEnvelope<EnrichedContract>>;
@@ -55,18 +55,24 @@ export function useOptionsChain(
     [picks],
   );
 
-  // Hydrate snapshot only on the client to avoid SSR evaluating localStorage
-  // access paths. Server render sees `null`; the cached snapshot streams in
-  // after mount and seeds react-query via initialData.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Hydrate snapshot only on the client. The snapshot module is dynamically
+  // imported inside an effect so the server bundle never touches localStorage
+  // and TanStack's import-protection plugin keeps `.client.ts` out of SSR.
+  type CachedSnap = { result: OptionsChainResult; savedAt: number } | null;
+  const [cachedSnapshot, setCachedSnapshot] = useState<CachedSnap>(null);
 
-  const cachedSnapshot = useMemo(
-    () => (mounted ? loadOptionsSnapshot<OptionsChainResult>(queryKey) : null),
-    [queryKey, mounted],
-  );
+  useEffect(() => {
+    let cancelled = false;
+    loadSnapshotModule().then((mod) => {
+      if (cancelled || !mod) return;
+      const snap = mod.loadOptionsSnapshot<OptionsChainResult>(queryKey);
+      if (snap) setCachedSnapshot({ result: snap.result, savedAt: snap.savedAt });
+      else setCachedSnapshot(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [queryKey]);
 
   const q = useQuery({
     queryKey: ["options-chain", queryKey],
@@ -86,11 +92,18 @@ export function useOptionsChain(
 
   // Persist verified results only. saveOptionsSnapshot internally rejects
   // empty / rate-limited payloads so a broken refresh can never overwrite
-  // the last good snapshot. Guarded by `mounted` so SSR never invokes it.
+  // the last good snapshot. Dynamic-imported so SSR never sees localStorage.
   useEffect(() => {
-    if (!mounted || !q.data) return;
-    saveOptionsSnapshot<OptionsChainResult>(queryKey, q.data);
-  }, [q.data, queryKey, mounted]);
+    if (!q.data) return;
+    let cancelled = false;
+    loadSnapshotModule().then((mod) => {
+      if (cancelled || !mod) return;
+      mod.saveOptionsSnapshot<OptionsChainResult>(queryKey, q.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [q.data, queryKey]);
 
   const envelopes = q.data?.envelopes ?? {};
   const status = rollupStatus(Object.values(envelopes));
