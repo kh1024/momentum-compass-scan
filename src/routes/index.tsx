@@ -312,9 +312,13 @@ function Dashboard() {
   }, [chainData, getLive, getReddit]);
 
   // In normal mode hide low-quality / unhideable picks. Dev mode shows everything.
+  const { filters: riskFilters } = useRiskFilters();
   const candidates = useMemo(
-    () => traces.filter((t) => devMode || t.section !== null).map((t) => t.c),
-    [traces, devMode],
+    () => applyRiskFilters(
+      traces.filter((t) => devMode || t.section !== null).map((t) => t.c),
+      riskFilters,
+    ),
+    [traces, devMode, riskFilters],
   );
 
   const sectionMap = useMemo(() => {
