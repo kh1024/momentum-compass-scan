@@ -1,0 +1,84 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-bull: var(--bull);
+  --color-bear: var(--bear);
+  --color-watch: var(--watch);
+  --color-avoid: var(--avoid);
+  --color-lotto: var(--lotto);
+  --color-buy-now: var(--buy-now);
+  --color-aggressive: var(--aggressive);
+  --color-demo: var(--demo);
+}
+
+:root {
+  --radius: 0.75rem;
+  /* Dark by default */
+  --background: oklch(0.16 0.012 260);
+  --foreground: oklch(0.96 0.005 260);
+  --card: oklch(0.20 0.014 260);
+  --card-foreground: oklch(0.96 0.005 260);
+  --popover: oklch(0.20 0.014 260);
+  --popover-foreground: oklch(0.96 0.005 260);
+  --primary: oklch(0.74 0.16 155);
+  --primary-foreground: oklch(0.14 0.01 260);
+  --secondary: oklch(0.26 0.014 260);
+  --secondary-foreground: oklch(0.96 0.005 260);
+  --muted: oklch(0.24 0.012 260);
+  --muted-foreground: oklch(0.68 0.02 260);
+  --accent: oklch(0.28 0.02 260);
+  --accent-foreground: oklch(0.96 0.005 260);
+  --destructive: oklch(0.62 0.22 25);
+  --destructive-foreground: oklch(0.98 0.005 260);
+  --border: oklch(0.28 0.014 260);
+  --input: oklch(0.26 0.014 260);
+  --ring: oklch(0.74 0.16 155);
+
+  /* Trading semantic tokens */
+  --bull: oklch(0.74 0.18 150);
+  --bear: oklch(0.65 0.22 25);
+  --watch: oklch(0.78 0.16 75);
+  --avoid: oklch(0.55 0.012 260);
+  --lotto: oklch(0.72 0.18 50);
+  --buy-now: oklch(0.74 0.18 150);
+  --aggressive: oklch(0.72 0.18 50);
+  --demo: oklch(0.78 0.16 75);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+}
