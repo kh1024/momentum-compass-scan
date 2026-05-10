@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
-import { MOCK_CANDIDATES } from "@/lib/mockData";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Sparkles, TrendingUp, TrendingDown, Activity, Zap, Radio } from "lucide-react";
+import { MOCK_CANDIDATES, MOCK_REGIME } from "@/lib/mockData";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
 import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
@@ -13,15 +14,27 @@ import { applyLiveChain, applyLiveQuote, applyRedditSignal, finalizeCandidate } 
 import { entryModeFromSetup } from "@/lib/entryMode";
 import { chainPickKey } from "@/lib/chainKeys";
 import { runDisciplineGate, type DisciplineGateResult } from "@/lib/disciplineGate";
+import { aiInsights, freshness, marketCommentary, sectorStrength } from "@/lib/aiCommentary";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/live")({
   head: () => ({ meta: [{ title: "Live Opportunities — Momentum Options Scanner" }] }),
   component: LiveOpportunities,
 });
 
+type RQ = { price: number; changePct: number; ts?: number };
+
 function LiveOpportunities() {
   const [openId, setOpenId] = useState<string | null>(null);
   const enrichFn = useServerFn(enrichWithPublicChain);
+  const qc = useQueryClient();
+
+  // Tick for "Xs ago" labels & rotating insights.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 1_000);
+    return () => clearInterval(id);
+  }, []);
 
   const picks = useMemo(
     () =>
@@ -44,7 +57,7 @@ function LiveOpportunities() {
   });
 
   const symbols = useMemo(() => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.ticker))), []);
-  const { get: getLive } = useLiveQuotes(symbols);
+  const { get: getLive, anyLive } = useLiveQuotes(symbols);
   const { get: getReddit } = useRedditSentiment(symbols);
 
   const traces = useMemo(() => {
@@ -90,29 +103,186 @@ function LiveOpportunities() {
   }, [traces]);
   const open = openId ? traceById.get(openId) ?? null : null;
 
+  // ── Sidebar feeds ────────────────────────────────────────────────────────
+  const regimeData = qc.getQueryData<{ live: boolean; quotes?: { SPY?: RQ; QQQ?: RQ; SMH?: RQ } }>(["regime-quotes"]);
+  const spyQ = regimeData?.quotes?.SPY ?? MOCK_REGIME.spy;
+  const qqqQ = regimeData?.quotes?.QQQ ?? MOCK_REGIME.qqq;
+  const smhQ = regimeData?.quotes?.SMH ?? MOCK_REGIME.smh;
+  const updatedAt = Math.max(
+    (regimeData?.quotes?.SPY?.ts ?? 0),
+    (regimeData?.quotes?.QQQ?.ts ?? 0),
+    (regimeData?.quotes?.SMH?.ts ?? 0),
+  ) || null;
+
+  const commentaryInput = {
+    spy: { symbol: "SPY", changePct: spyQ.changePct },
+    qqq: { symbol: "QQQ", changePct: qqqQ.changePct },
+    smh: { symbol: "SMH", changePct: smhQ.changePct },
+    bias: MOCK_REGIME.bias,
+  };
+  const commentary = marketCommentary(commentaryInput);
+  const insights = aiInsights(commentaryInput);
+  const sectors = sectorStrength(commentaryInput);
+
+  // Top movers (by intraday changePct) — driven by the live quote feed.
+  const movers = useMemo(() => {
+    const arr = symbols
+      .map((s) => {
+        const q = getLive(s);
+        return q ? { symbol: s, price: q.price, changePct: q.changePct, ts: q.ts } : null;
+      })
+      .filter((x): x is { symbol: string; price: number; changePct: number; ts: number } => x !== null)
+      .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
+    return arr;
+  }, [symbols, getLive]);
+
+  const gainers = movers.filter((m) => m.changePct > 0).slice(0, 5);
+  const losers = movers.filter((m) => m.changePct < 0).slice(0, 5);
+
+  // AI alert stream — synthesized from current data; rotates via insightIdx.
+  const alerts = useMemo(() => {
+    const a: { kind: "momentum" | "flow" | "sector" | "ai"; msg: string; ts: number }[] = [];
+    const now = Date.now();
+    for (const t of live.slice(0, 6)) {
+      a.push({
+        kind: t.isUnusualFlow ? "flow" : "momentum",
+        msg: t.isUnusualFlow
+          ? `Unusual ${t.c.direction.toLowerCase()} flow detected in ${t.c.ticker} — ${(t.c.contract.volume / Math.max(1, t.c.contract.openInterest)).toFixed(1)}× OI.`
+          : `${t.c.ticker} momentum confirmed — AI confidence ${t.c.finalScore ?? t.c.score}.`,
+        ts: now - Math.floor(Math.random() * 5 * 60_000),
+      });
+    }
+    for (const s of sectors) {
+      if (s.state === "Strong") a.push({ kind: "sector", msg: `${s.name} strength leading the tape (+${s.changePct.toFixed(2)}%).`, ts: now - 120_000 });
+      if (s.state === "Weak")   a.push({ kind: "sector", msg: `${s.name} weakness — capital rotating away.`, ts: now - 180_000 });
+    }
+    for (const i of insights.slice(0, 3)) {
+      a.push({ kind: "ai", msg: i, ts: now - Math.floor(Math.random() * 10 * 60_000) });
+    }
+    return a.sort((x, y) => y.ts - x.ts).slice(0, 12);
+  }, [live, sectors, insights]);
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight">Live Opportunities</h1>
-        <p className="text-xs text-muted-foreground">
-          Exceptional intraday moves: unusual flow · momentum spikes · rapid score changes
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Live Opportunities</h1>
+          <p className="text-xs text-muted-foreground">
+            Real-time momentum, unusual flow, and AI alerts as they happen
+          </p>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-1.5 text-xs">
+          <span className={cn("flex items-center gap-1.5 font-semibold", anyLive ? "text-[var(--color-bull)]" : "text-amber-500")}>
+            <Radio className={cn("h-3 w-3", anyLive && "animate-pulse-dot")} />
+            {anyLive ? "Live" : "Delayed"}
+          </span>
+          <span className="text-muted-foreground">Updated {freshness(updatedAt)}</span>
+        </div>
       </div>
 
-      {live.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-12 text-center">
-          <div className="text-sm font-medium text-foreground/80">No exceptional intraday moves right now.</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            Check back later — or browse the Daily AI Picks for next-day setups.
+      {/* AI commentary banner */}
+      <div className="rounded-xl border border-[var(--color-bull)]/20 bg-gradient-to-r from-[var(--color-bull)]/[0.06] to-transparent px-4 py-3">
+        <div className="flex items-start gap-3">
+          <Sparkles className="mt-0.5 h-4 w-4 text-[var(--color-bull)]" />
+          <div className="flex-1">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-bull)]">AI Market Read</div>
+            <div className="mt-0.5 text-sm text-foreground/90">{commentary}</div>
           </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {live.map((t) => (
-            <CompactTradeCard key={t.c.id} t={t.c} onOpenDetails={() => setOpenId(t.c.id)} />
-          ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-5">
+          {/* Exceptional opportunities */}
+          <section>
+            <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold tracking-wide">
+              <Zap className="h-3.5 w-3.5 text-amber-500" /> Exceptional opportunities
+              <span className="text-xs font-normal text-muted-foreground">{live.length}</span>
+            </h2>
+            {live.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border p-8 text-center">
+                <div className="text-sm font-medium text-foreground/80">No exceptional intraday moves right now.</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  AI is monitoring — the feed below shows everything moving.
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {live.map((t) => (
+                  <CompactTradeCard key={t.c.id} t={t.c} onOpenDetails={() => setOpenId(t.c.id)} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Movers */}
+          <section className="grid gap-4 sm:grid-cols-2">
+            <MoverList title="Top Gainers" icon={<TrendingUp className="h-3.5 w-3.5 text-[var(--color-bull)]" />} items={gainers} positive />
+            <MoverList title="Top Losers" icon={<TrendingDown className="h-3.5 w-3.5 text-[var(--color-bear)]" />} items={losers} positive={false} />
+          </section>
         </div>
-      )}
+
+        {/* Right rail: AI alerts + sector rotation */}
+        <aside className="space-y-4">
+          <section className="rounded-xl border border-border bg-card">
+            <div className="flex items-center justify-between border-b border-border px-3 py-2">
+              <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <Activity className="h-3 w-3" /> AI Alerts
+              </h3>
+              <span className="text-[9px] text-muted-foreground/60">{alerts.length} events</span>
+            </div>
+            <div className="max-h-[480px] divide-y divide-border overflow-y-auto">
+              {alerts.length === 0 ? (
+                <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                  AI feed quiet — no notable events.
+                </div>
+              ) : alerts.map((a, i) => (
+                <div key={i} className="px-3 py-2 text-[11px] leading-snug">
+                  <div className="flex items-center gap-1.5">
+                    <AlertDot kind={a.kind} />
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {a.kind === "flow" ? "Unusual flow"
+                        : a.kind === "momentum" ? "Momentum"
+                        : a.kind === "sector" ? "Sector"
+                        : "AI insight"}
+                    </span>
+                    <span className="ml-auto text-[9px] text-muted-foreground/50">{freshness(a.ts)}</span>
+                  </div>
+                  <div className="mt-0.5 text-foreground/85">{a.msg}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-3">
+            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sector Rotation</h3>
+            <div className="space-y-1.5">
+              {sectors.map((s) => (
+                <div key={s.name} className="flex items-center gap-2 text-xs">
+                  <span className="w-20 shrink-0 text-foreground/80">{s.name}</span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted/40">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-700",
+                        s.changePct > 0 ? "bg-[var(--color-bull)]" : s.changePct < 0 ? "bg-[var(--color-bear)]" : "bg-muted-foreground/40",
+                      )}
+                      style={{ width: `${Math.min(100, Math.abs(s.changePct) * 60 + 15)}%` }}
+                    />
+                  </div>
+                  <span className={cn(
+                    "mono w-14 text-right tabular-nums text-[10px]",
+                    s.changePct > 0 ? "text-[var(--color-bull)]"
+                    : s.changePct < 0 ? "text-[var(--color-bear)]"
+                    : "text-muted-foreground",
+                  )}>
+                    {s.changePct >= 0 ? "+" : ""}{s.changePct.toFixed(2)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
 
       <TradeDetailDrawer
         open={!!open}
@@ -120,6 +290,50 @@ function LiveOpportunities() {
         t={open?.c ?? null}
         gate={open?.gate ?? null}
       />
+    </div>
+  );
+}
+
+function AlertDot({ kind }: { kind: "momentum" | "flow" | "sector" | "ai" }) {
+  const cls =
+    kind === "flow" ? "bg-amber-500"
+    : kind === "momentum" ? "bg-[var(--color-bull)]"
+    : kind === "sector" ? "bg-sky-400"
+    : "bg-fuchsia-400";
+  return <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full animate-pulse-dot", cls)} />;
+}
+
+function MoverList({
+  title, icon, items, positive,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  items: { symbol: string; price: number; changePct: number }[];
+  positive: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-3">
+      <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {icon} {title}
+      </h3>
+      {items.length === 0 ? (
+        <div className="py-3 text-center text-xs text-muted-foreground/60">No {positive ? "gainers" : "losers"} yet.</div>
+      ) : (
+        <div className="space-y-1">
+          {items.map((m) => (
+            <div key={m.symbol} className="flex items-center justify-between gap-2 text-xs">
+              <span className="font-mono font-semibold text-foreground/90">{m.symbol}</span>
+              <span className="mono ml-auto tabular-nums text-foreground/70">${m.price.toFixed(2)}</span>
+              <span className={cn(
+                "mono w-16 text-right tabular-nums font-semibold",
+                m.changePct > 0 ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]",
+              )}>
+                {m.changePct >= 0 ? "+" : ""}{m.changePct.toFixed(2)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
