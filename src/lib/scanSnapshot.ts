@@ -213,6 +213,7 @@ function saveAtClient<T>(
   }
   try {
     const snap: BaseSnapshot<T> = {
+      schemaVersion: SNAPSHOT_SCHEMA_VERSION,
       pickKey,
       result,
       savedAt: Date.now(),
