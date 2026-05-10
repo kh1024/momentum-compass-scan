@@ -102,13 +102,16 @@ export const DEFAULT_PRESET: RiskPresetKey = "Balanced";
 interface PersistedState {
   preset: RiskPresetKey | "Custom";
   filters: RiskFilters;
+  /** When true, manual risk filters are bypassed and the AI/scoring layer
+   * decides what is shown. Default: true (AI picks). */
+  auto: boolean;
 }
 
 const STORAGE_KEY = "risk-filters-v1";
 const EVENT = "risk-filters-changed";
 
 export function getDefaultState(): PersistedState {
-  return { preset: DEFAULT_PRESET, filters: { ...RISK_PRESETS[DEFAULT_PRESET] } };
+  return { preset: DEFAULT_PRESET, filters: { ...RISK_PRESETS[DEFAULT_PRESET] }, auto: true };
 }
 
 export function readRiskState(): PersistedState {
@@ -116,9 +119,15 @@ export function readRiskState(): PersistedState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return getDefaultState();
-    const parsed = JSON.parse(raw) as PersistedState;
+    const parsed = JSON.parse(raw) as Partial<PersistedState>;
     if (!parsed?.filters) return getDefaultState();
-    return { preset: parsed.preset ?? "Custom", filters: { ...getDefaultState().filters, ...parsed.filters } };
+    return {
+      preset: parsed.preset ?? "Custom",
+      filters: { ...getDefaultState().filters, ...parsed.filters },
+      // Legacy state (pre-auto) had no `auto` field — preserve its manual
+      // behavior so existing users aren't surprised. New installs default to auto.
+      auto: typeof parsed.auto === "boolean" ? parsed.auto : false,
+    };
   } catch {
     return getDefaultState();
   }
