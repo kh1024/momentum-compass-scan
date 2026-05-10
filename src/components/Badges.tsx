@@ -39,9 +39,15 @@ export function SentimentBadge({ s }: { s: Sentiment }) {
 }
 
 export function DemoBadge() {
+  // Production: never surface "Demo" wording to users. Show a neutral
+  // "Last close" indicator instead — the underlying may be stale but the
+  // app is fully functional.
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-demo)]/40 bg-[var(--color-demo)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-demo)]">
-      Demo Data
+    <span
+      title="Showing last-known close. Will refresh on next live poll."
+      className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-500"
+    >
+      Last Close
     </span>
   );
 }
@@ -60,7 +66,7 @@ export function StaleBadge() {
       title="Showing last-known live data. Provider was briefly unreachable or rate-limited; will refresh automatically."
       className="inline-flex items-center gap-1 rounded-full border border-[var(--color-watch)]/40 bg-[var(--color-watch)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-watch)]"
     >
-      Stale Data
+      Delayed
     </span>
   );
 }
