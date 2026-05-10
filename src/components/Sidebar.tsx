@@ -118,22 +118,41 @@ export function Sidebar({ markets = [], live = false, regime }: SidebarProps) {
             </span>
           </div>
           <div className="space-y-1">
-            {markets.map((m) => (
-              <div key={m.symbol} className="flex items-center justify-between text-xs">
-                <span className="font-medium text-[var(--color-muted-foreground)]">{m.symbol}</span>
-                <span className="mono font-semibold text-[var(--color-foreground)]">
-                  ${m.price.toFixed(2)}
-                </span>
-                <span className={cn(
-                  "mono text-[10px]",
-                  m.trend === "Up" ? "text-[var(--color-bull)]"
-                  : m.trend === "Down" ? "text-[var(--color-bear)]"
-                  : "text-[var(--color-muted-foreground)]",
-                )}>
-                  {m.changePct >= 0 ? "+" : ""}{m.changePct.toFixed(2)}%
-                </span>
-              </div>
-            ))}
+            {markets.map((m) => {
+              const srcCount = m.sources?.length ?? 0;
+              const verified = srcCount >= 2 && (m.agreement === "verified" || m.agreement === "close");
+              return (
+                <div key={m.symbol} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-medium text-[var(--color-muted-foreground)]">{m.symbol}</span>
+                  <span className="mono ml-auto font-semibold text-[var(--color-foreground)]">
+                    ${m.price.toFixed(2)}
+                  </span>
+                  <span
+                    className={cn(
+                      "mono w-12 text-right text-[10px]",
+                      m.trend === "Up" ? "text-[var(--color-bull)]"
+                      : m.trend === "Down" ? "text-[var(--color-bear)]"
+                      : "text-[var(--color-muted-foreground)]",
+                    )}
+                  >
+                    {m.changePct >= 0 ? "+" : ""}{m.changePct.toFixed(2)}%
+                  </span>
+                  <span
+                    title={m.sources?.join(", ") || "no source"}
+                    className={cn(
+                      "rounded px-1 py-px text-[9px] font-bold uppercase tracking-wider",
+                      srcCount >= 2
+                        ? verified
+                          ? "bg-[var(--color-bull)]/10 text-[var(--color-bull)]"
+                          : "bg-amber-500/10 text-amber-500"
+                        : "bg-amber-500/10 text-amber-500",
+                    )}
+                  >
+                    {srcCount >= 2 ? (verified ? "✓" : "≠") : "⚠"}{srcCount}
+                  </span>
+                </div>
+              );
+            })}
           </div>
           {regime && (
             <div className={cn(
