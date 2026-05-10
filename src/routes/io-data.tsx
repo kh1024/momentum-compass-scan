@@ -387,7 +387,7 @@ function IOData() {
           {chainData?.rateLimited && (
             <div className="rounded-lg border border-[var(--color-bear)]/30 bg-[var(--color-bear)]/5 px-4 py-3 text-sm font-medium text-[var(--color-bear)]">
               429 Rate limited — retry/backoff required. Showing cached or demo data meanwhile.
-              {chainData.cooldownMs > 0 && <span className="ml-2 text-xs font-normal">Cooldown: {Math.ceil(chainData.cooldownMs / 1000)}s</span>}
+              {chainData.retryInMs > 0 && <span className="ml-2 text-xs font-normal">Cooldown: {Math.ceil(chainData.retryInMs / 1000)}s</span>}
             </div>
           )}
 
