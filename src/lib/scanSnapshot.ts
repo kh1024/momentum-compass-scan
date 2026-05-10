@@ -15,11 +15,34 @@
 import { createIsomorphicFn } from "@tanstack/react-start";
 import type { EnrichmentResult } from "@/lib/chain.functions";
 
+/**
+ * Snapshot schema version. BUMP THIS when any of the following change:
+ *   - shape of `EnrichmentResult` / `OptionsChainShape`
+ *   - shape of `TradeCandidate` / `OptionContract`
+ *   - format of `chainPickKey()` (the pick-key string layout)
+ *   - validation rules in `validateEnrichment` / `validateOptions`
+ *
+ * On bump, previously-persisted snapshots are automatically invalidated
+ * and purged on first load — the user sees a fresh scan instead of a
+ * stale row hydrated against an incompatible code path.
+ */
+export const SNAPSHOT_SCHEMA_VERSION = 3;
+
 const DASHBOARD_KEY = "scanner:dashboardSnapshot:v1";
 const OPTIONS_KEY = "scanner:optionsSnapshot:v1";
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+/** Legacy keys we sweep on cold start to free quota. */
+const LEGACY_KEYS = [
+  "scanner:dashboardSnapshot",
+  "scanner:optionsSnapshot",
+  "scanner:dashboardSnapshot:v0",
+  "scanner:optionsSnapshot:v0",
+];
+
 interface BaseSnapshot<T> {
+  /** Schema version this snapshot was written against. */
+  schemaVersion: number;
   pickKey: string;
   result: T;
   savedAt: number;
