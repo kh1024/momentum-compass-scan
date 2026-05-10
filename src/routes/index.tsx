@@ -40,6 +40,51 @@ function regimePlainLabel(bias: string): "Risk On" | "Neutral" | "Risk Off" {
 
 type RegimeQuote = { price: number; changePct: number; ts?: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
 
+function CryptoCell({ label, q }: { label: string; q: RegimeQuote | null }) {
+  const decimals = label === "BTC" ? 0 : 2;
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-card/60 px-3 py-2">
+      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/30">
+        <span className="text-[10px] font-bold tracking-tight text-amber-500">{label}</span>
+      </div>
+      <div className="flex-1">
+        <div className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+          {label === "BTC" ? "Bitcoin" : label === "SOL" ? "Solana" : label}
+        </div>
+        {q ? (
+          <div className="flex items-baseline gap-2">
+            <span className="mono text-sm font-semibold tabular-nums text-foreground">
+              ${q.price.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
+            </span>
+            <span className={cn(
+              "mono text-[11px] tabular-nums",
+              q.changePct > 0 ? "text-[var(--color-bull)]"
+              : q.changePct < 0 ? "text-[var(--color-bear)]"
+              : "text-muted-foreground",
+            )}>
+              {q.changePct >= 0 ? "+" : ""}{q.changePct.toFixed(2)}%
+            </span>
+          </div>
+        ) : (
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60">unavailable</div>
+        )}
+      </div>
+      <span className={cn(
+        "h-1.5 w-1.5 rounded-full",
+        q ? "bg-[var(--color-bull)] animate-pulse-dot" : "bg-muted-foreground/40",
+      )} />
+    </div>
+  );
+}
+
+function CryptoStrip({ btc, sol }: { btc: RegimeQuote | null; sol: RegimeQuote | null }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <CryptoCell label="BTC" q={btc} />
+      <CryptoCell label="SOL" q={sol} />
+    </div>
+  );
+}
 
 function deriveBias(spy: RegimeQuote | null, qqq: RegimeQuote | null, smh: RegimeQuote | null): string {
   const xs = [spy, qqq, smh].filter((x): x is RegimeQuote => !!x);
