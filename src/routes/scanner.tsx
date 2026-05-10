@@ -13,7 +13,7 @@ import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functi
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { CapBucket, Direction, Label, TradeCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useLiveQuotes } from "@/hooks/useLiveQuotes";
+import { useMarketQuotesCompat } from "@/hooks/useMarketQuotesCompat";
 import { useRedditSentiment } from "@/hooks/useRedditSentiment";
 import { applyLiveChain, applyLiveQuote, applyRedditSignal, finalizeCandidate } from "@/lib/applyLiveQuote";
 import { expirationBucketFor, EXPIRATION_BUCKET_LABEL } from "@/lib/optionQualityValidator";
@@ -231,7 +231,7 @@ function Scanner() {
     () => Array.from(new Set(allMockCandidates.map((c) => c.ticker))),
     [allMockCandidates],
   );
-  const { get: getLive, anyLive } = useLiveQuotes(symbols);
+  const { get: getLive, anyLive } = useMarketQuotesCompat(symbols);
   const { get: getReddit } = useRedditSentiment(symbols);
 
   // ---- Core trace pipeline -------------------------------------------------
