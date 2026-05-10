@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { type LiveState, formatAgo } from "@/lib/liveStatus";
 import { isMarketOpen } from "@/lib/marketHours";
+import { useStableValue } from "@/hooks/useStableValue";
 
 export interface RefreshBarProps {
   lastFullScanAt: number | null;
@@ -83,8 +84,19 @@ export function RefreshBar(props: RefreshBarProps) {
   }, []);
 
   const marketOpen = mounted ? isMarketOpen() : false;
-  const health = deriveHealth(quoteState, chainState, marketOpen);
+  const rawHealth = deriveHealth(quoteState, chainState, marketOpen);
+  // Hold the previous health briefly to prevent flicker during refresh cycles;
+  // urgent states (offline/limited) flip in immediately.
+  const health = useStableValue(rawHealth, {
+    holdMs: 900,
+    flushImmediate: (next) => next === "offline" || next === "limited",
+  });
   const tone = HEALTH_TONE[health];
+
+  const rawScanLabel = mounted
+    ? scanLabel(isScanning, lastFullScanAt, autoRefresh, marketOpen)
+    : "Initializing market intelligence";
+  const stableScanLabel = useStableValue(rawScanLabel, { holdMs: 500 });
 
   const lastVerified = !mounted
     ? "Latest verified scan loading"
@@ -124,8 +136,8 @@ export function RefreshBar(props: RefreshBarProps) {
               "h-1.5 w-1.5 rounded-full transition-colors duration-500",
               isScanning ? "bg-sky-400 animate-pulse-dot" : "bg-[var(--color-bull)]/70",
             )} />
-            <span className="transition-opacity duration-500">
-              {mounted ? scanLabel(isScanning, lastFullScanAt, autoRefresh, marketOpen) : "Initializing market intelligence"}
+            <span key={stableScanLabel} className="animate-fade-in">
+              {stableScanLabel}
             </span>
           </div>
         </div>
@@ -139,8 +151,10 @@ export function RefreshBar(props: RefreshBarProps) {
               tone.pill,
             )}
           >
-            <span className={cn("h-1.5 w-1.5 rounded-full", tone.dot)} />
-            {HEALTH_LABEL[health]}
+            <span className={cn("h-1.5 w-1.5 rounded-full transition-colors duration-500", tone.dot)} />
+            <span key={HEALTH_LABEL[health]} className="animate-fade-in">
+              {HEALTH_LABEL[health]}
+            </span>
           </span>
 
           {nextRefresh && (

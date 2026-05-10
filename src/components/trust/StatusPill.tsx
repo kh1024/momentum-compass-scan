@@ -5,6 +5,21 @@ import {
   formatAgo,
 } from "@/lib/liveStatus";
 import { useEffect, useState } from "react";
+import { useStableValue } from "@/hooks/useStableValue";
+
+// Transient states that flip rapidly during refresh cycles. We hold the
+// previous state briefly before allowing them to take over, and we let
+// "important" terminal states (error/unavailable/stale) override immediately.
+const TRANSIENT: ReadonlySet<LiveState> = new Set([
+  "refreshing",
+  "connecting",
+]);
+const URGENT: ReadonlySet<LiveState> = new Set([
+  "error",
+  "unavailable",
+  "stale",
+  "market-closed",
+]);
 
 const TONE: Record<LiveState, string> = {
   live: "border-[var(--color-bull)]/40 bg-[var(--color-bull)]/10 text-[var(--color-bull)]",
@@ -54,9 +69,17 @@ export function StatusPill({ state, updatedAt = null, source, className, showAge
     return () => clearInterval(id);
   }, [updatedAt]);
 
-  const label = LIVE_STATE_LABEL[state];
+  // Debounce rapid transitions into transient states; flush instantly for
+  // urgent states or when transitioning out of a transient state.
+  const stableState = useStableValue(state, {
+    holdMs: 800,
+    flushImmediate: (next, prev) =>
+      URGENT.has(next) || (TRANSIENT.has(prev) && !TRANSIENT.has(next)),
+  });
+
+  const label = LIVE_STATE_LABEL[stableState];
   const ageSuffix =
-    showAge && updatedAt && (state === "delayed" || state === "stale" || state === "refreshing")
+    showAge && updatedAt && (stableState === "delayed" || stableState === "stale" || stableState === "refreshing")
       ? ` · ${formatAgo(updatedAt, now)}`
       : "";
   const tooltip = [
@@ -68,13 +91,15 @@ export function StatusPill({ state, updatedAt = null, source, className, showAge
     <span
       title={tooltip}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-        TONE[state],
+        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition-colors duration-500",
+        TONE[stableState],
         className,
       )}
     >
-      <span className={cn("h-1.5 w-1.5 rounded-full", DOT[state])} />
-      {label}{ageSuffix}
+      <span className={cn("h-1.5 w-1.5 rounded-full transition-colors duration-500", DOT[stableState])} />
+      <span key={`${label}${ageSuffix}`} className="animate-fade-in">
+        {label}{ageSuffix}
+      </span>
     </span>
   );
 }
