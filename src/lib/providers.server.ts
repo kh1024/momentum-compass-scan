@@ -299,6 +299,16 @@ export interface ProviderHealth {
   retryInMs?: number;
 }
 
+const PROBE_TIMEOUT_MS = 2_500;
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`probe timed out after ${ms}ms`)), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); },
+           (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 async function probe(
   source: SourceName,
   fn: () => Promise<SourceQuote | null>,
@@ -316,7 +326,7 @@ async function probe(
   }
   const start = Date.now();
   try {
-    const q = await fn();
+    const q = await withTimeout(fn(), PROBE_TIMEOUT_MS);
     const latencyMs = Date.now() - start;
     return { source, configured: true, ok: Boolean(q), latencyMs, records: q ? 1 : 0, note };
   } catch (e) {
@@ -329,6 +339,7 @@ async function probe(
     };
   }
 }
+
 
 export async function probeAllProviders(): Promise<ProviderHealth[]> {
   return Promise.all([
