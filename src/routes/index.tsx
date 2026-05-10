@@ -12,6 +12,7 @@ import { RefreshBar } from "@/components/RefreshBar";
 import { StatusPill } from "@/components/trust/StatusPill";
 import { deriveLiveState, LIVE_STATE_EXPLAIN, formatAgo } from "@/lib/liveStatus";
 import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
+import { loadScanSnapshot, saveScanSnapshot } from "@/lib/scanSnapshot.client";
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { Direction, TradeCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
