@@ -196,13 +196,16 @@ export function TradeTable({ rows, onOpen, isLoading, sectors }: TradeTableProps
             const labelText = PUBLIC_LABEL[t.label] ?? displayLabel(t.label);
             const isElite = score >= 90;
 
+            const f = flash[t.id];
             return (
               <tr
                 key={t.id}
                 onClick={() => onOpen(t.id)}
                 className={cn(
-                  "cursor-pointer transition-colors hover:bg-muted/15 active:bg-muted/25",
+                  "cursor-pointer transition-colors duration-700 hover:bg-muted/15 active:bg-muted/25",
                   isElite && "bg-[var(--color-bull)]/[0.04]",
+                  f === "up" && "bg-[var(--color-bull)]/[0.10]",
+                  f === "down" && "bg-[var(--color-bear)]/[0.10]",
                 )}
               >
                 {/* Label accent bar — wider/glowing for elite rows */}
@@ -265,7 +268,11 @@ export function TradeTable({ rows, onOpen, isLoading, sectors }: TradeTableProps
                   </span>
                 </td>
 
-                <td className="px-2 py-1 text-right tabular-nums">${t.price.toFixed(2)}</td>
+                <td className={cn(
+                  "px-2 py-1 text-right tabular-nums transition-colors duration-700",
+                  f === "up" && "text-[var(--color-bull)]",
+                  f === "down" && "text-[var(--color-bear)]",
+                )}>${t.price.toFixed(2)}</td>
                 <td className="px-2 py-1 tabular-nums whitespace-nowrap">{expShort(c.expiration)}</td>
                 <td className="px-2 py-1 text-right tabular-nums">${c.strike}</td>
                 <td className="px-2 py-1 text-right tabular-nums">${(c.cost ?? c.ask * 100).toFixed(0)}</td>
