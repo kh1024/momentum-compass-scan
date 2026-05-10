@@ -180,6 +180,12 @@ export function CompactTradeCard({
             className="rounded-md border border-border bg-background px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition-all hover:border-foreground/40 hover:bg-muted hover:text-foreground"
           >
             Details →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Cell({ k, v }: { k: string; v: string }) {
   return (
