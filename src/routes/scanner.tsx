@@ -247,6 +247,8 @@ function Scanner() {
 
   // ---- Core trace pipeline -------------------------------------------------
   const traces: { c: TradeCandidate; gate: DisciplineGateResult }[] = useMemo(() => {
+    const debug = chainData?.debug ?? {};
+    const chainAttempted = !!chainData && (chainData.live || Object.keys(chainData.enriched ?? {}).length > 0);
     return allMockCandidates.map((c) => {
       const isLeaps = c.setupType === "LEAPS";
       const isYolo = c.setupType === "Reddit YOLO";
@@ -263,6 +265,17 @@ function Scanner() {
       const finalized = finalizeCandidate(withChain);
       const gate = runDisciplineGate(finalized, { extendedSwingEnabled, mode: scannerMode });
 
+      const noQuality = chainAttempted && enrichedForChain === null;
+      const noQualityReason = noQuality
+        ? (() => {
+            const r = debug[key]?.errorReason ?? "no-contract-passed-filter";
+            if (r.includes("no-contract")) return "no contract passes quality/cost filters";
+            if (r.includes("underlying")) return "underlying price unavailable";
+            if (r.includes("rate")) return "chain rate-limited";
+            return r;
+          })()
+        : undefined;
+
       const merged: TradeCandidate = {
         ...finalized,
         score: gate.finalScore,
@@ -272,13 +285,19 @@ function Scanner() {
         sectionRouted: gate.routedSection === "hidden" ? expirationBucketFor(finalized.contract.dte) : gate.routedSection,
         dteBucketLabel: expirationBucketFor(finalized.contract.dte),
         validationOk: gate.visible && gate.finalLabel !== "Avoid",
-        validationReason: gate.reasons.join(" · "),
-        buyNowEligible: gate.buyNowEligible,
-        buyNowBlockers: gate.buyNowBlockers,
+        validationReason: noQuality
+          ? `No quality contract — ${noQualityReason}`
+          : gate.reasons.join(" · "),
+        buyNowEligible: noQuality ? false : gate.buyNowEligible,
+        buyNowBlockers: noQuality
+          ? [...(gate.buyNowBlockers ?? []), `no-quality-contract:${noQualityReason}`]
+          : gate.buyNowBlockers,
+        noQualityContract: noQuality || undefined,
+        noQualityReason,
       };
       return { c: merged, gate };
     });
-  }, [chainEnvelopes, getLive, getReddit, extendedSwingEnabled, scannerMode, allMockCandidates]);
+  }, [chainEnvelopes, chainData, getLive, getReddit, extendedSwingEnabled, scannerMode, allMockCandidates]);
 
   const { filters: riskFilters, auto: riskAuto } = useRiskFilters();
   const candidates = useMemo(
