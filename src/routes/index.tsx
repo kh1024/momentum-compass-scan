@@ -320,15 +320,31 @@ function Dashboard() {
 
   const traces = useMemo(() => {
     const enriched = chainData?.enriched ?? {};
+    const debug = chainData?.debug ?? {};
+    const chainAttempted = !!chainData && (chainData.live || Object.keys(enriched).length > 0);
     return MOCK_CANDIDATES.map((c) => {
       const isLeaps = c.setupType === "LEAPS";
       const isYolo = c.setupType === "Reddit YOLO";
       const base = applyRedditSignal(applyLiveQuote(c, getLive(c.ticker)), getReddit(c.ticker));
       const entryMode = entryModeFromSetup(c.setupType);
       const key = chainPickKey(c.ticker, c.direction, { isLeaps, isYolo, entryMode });
-      const withChain = applyLiveChain(base, enriched[key] ?? null);
+      const enrichedRow = enriched[key] ?? null;
+      const withChain = applyLiveChain(base, enrichedRow);
       const finalized = finalizeCandidate(withChain);
       const gate = runDisciplineGate(finalized, { extendedSwingEnabled: true });
+      // No-quality-contract fallback: chain endpoint returned but found
+      // nothing tradable for the active preference. Keep the ticker idea
+      // visible but flag it so the UI can render "No quality contract".
+      const noQuality = chainAttempted && enrichedRow === null;
+      const noQualityReason = noQuality
+        ? (() => {
+            const r = debug[key]?.errorReason ?? "no-contract-passed-filter";
+            if (r.includes("no-contract")) return "no contract passes quality/cost filters";
+            if (r.includes("underlying")) return "underlying price unavailable";
+            if (r.includes("rate")) return "chain rate-limited";
+            return r;
+          })()
+        : undefined;
       const merged: TradeCandidate = {
         ...finalized,
         score: gate.finalScore,
@@ -338,9 +354,15 @@ function Dashboard() {
         sectionRouted: gate.routedSection === "hidden" ? expirationBucketFor(finalized.contract.dte) : gate.routedSection,
         dteBucketLabel: expirationBucketFor(finalized.contract.dte),
         validationOk: gate.visible && gate.finalLabel !== "Avoid",
-        validationReason: gate.reasons.join(" · "),
-        buyNowEligible: gate.buyNowEligible,
-        buyNowBlockers: gate.buyNowBlockers,
+        validationReason: noQuality
+          ? `No quality contract — ${noQualityReason}`
+          : gate.reasons.join(" · "),
+        buyNowEligible: noQuality ? false : gate.buyNowEligible,
+        buyNowBlockers: noQuality
+          ? [...(gate.buyNowBlockers ?? []), `no-quality-contract:${noQualityReason}`]
+          : gate.buyNowBlockers,
+        noQualityContract: noQuality || undefined,
+        noQualityReason,
       };
       const section = sectionFor(merged);
       return { c: merged, gate, section };
