@@ -246,6 +246,38 @@ function Settings() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
+        <h2 className="text-sm font-semibold">Full Scanner Refresh</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Controls how often the scanner reruns and reranks all option contracts. Quote refresh runs separately and never replaces selected contracts.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {([
+            ["Off / Manual only", 0],
+            ["5 min", 5 * 60_000],
+            ["10 min", 10 * 60_000],
+            ["15 min", 15 * 60_000],
+          ] as const).map(([lbl, ms]) => {
+            const cur = scannerSettings?.fullScanIntervalMs ?? 10 * 60_000;
+            const active = cur === ms;
+            return (
+              <button
+                key={lbl}
+                onClick={() => settingsMutation.mutate({ fullScanIntervalMs: ms })}
+                className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
+                  active
+                    ? "border-[var(--color-bull)] bg-[var(--color-bull)]/10 text-[var(--color-bull)]"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {lbl}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">Default: 10 min. Manual scans always allowed via "Run scan now".</p>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-sm font-semibold">Scanner API Controls</h2>
         <p className="mt-1 text-xs text-muted-foreground">Throttle Massive requests and tune cache windows so scans stay live without 429 storms.</p>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">

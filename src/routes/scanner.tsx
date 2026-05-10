@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { MOCK_CANDIDATES } from "@/lib/mockData";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeTable } from "@/components/TradeTable";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
+import { RefreshBar } from "@/components/RefreshBar";
 import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { CapBucket, Direction, Label, TradeCandidate } from "@/lib/types";
@@ -48,18 +49,15 @@ function Scanner() {
   const [view, setView] = useState<ViewMode>("table");
   const [persona, setPersona] = useState<Persona>("trader");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [autoSync, setAutoSync] = useState(true);
-  const AUTO_SYNC_MS = 30_000;
-  // Tick every 1s so the "updated Ns ago" / last-sync clock re-renders.
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  // Tick every 1s so the "updated Ns ago" / next-scan clock re-renders.
   const [, setNowTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setNowTick((n) => n + 1), 1_000);
     return () => clearInterval(id);
   }, []);
-  const STALE_MS = 120_000;
 
-  // Live option-chain enrichment — auto-syncs on mount and on a fast interval
-  // so strikes/Greeks come from the real chain, not synthetic rescaled mocks.
+  const qc = useQueryClient();
   const enrichFn = useServerFn(enrichWithPublicChain);
   const fetchScannerSettings = useServerFn(getScannerSettingsFn);
   const { data: scannerSettings } = useQuery({
@@ -67,6 +65,7 @@ function Scanner() {
     queryFn: () => fetchScannerSettings(),
     staleTime: 60_000,
   });
+  const fullScanIntervalMs = scannerSettings?.fullScanIntervalMs ?? 10 * 60_000;
   const picks = useMemo(
     () =>
       MOCK_CANDIDATES.map((c) => ({
@@ -91,17 +90,20 @@ function Scanner() {
     queryKey: ["scanner-chain", scanPicks.map((p) => `${p.ticker}:${p.direction}:${p.isLeaps?1:0}:${p.isYolo?1:0}:${p.entryMode ?? ""}:${p.targetStrike ?? ""}`).join(",")],
     queryFn: () => enrichFn({ data: { picks: scanPicks } }),
     enabled: scanPicks.length > 0,
-    refetchInterval: autoSync ? AUTO_SYNC_MS : false,
+    refetchInterval: autoRefresh && fullScanIntervalMs > 0 ? fullScanIntervalMs : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
-    staleTime: 60_000,
+    // Stability: keep selected contracts steady between full scans.
+    staleTime: fullScanIntervalMs > 0 ? Math.max(fullScanIntervalMs - 10_000, 60_000) : 24 * 60 * 60_000,
     placeholderData: (previousData) => previousData,
   });
+  const lastFullScanAt = dataUpdatedAt || null;
+  const nextFullScanAt =
+    autoRefresh && fullScanIntervalMs > 0 && lastFullScanAt
+      ? lastFullScanAt + fullScanIntervalMs
+      : null;
   const ageMs = dataUpdatedAt ? Date.now() - dataUpdatedAt : null;
-  const isStale = ageMs != null && ageMs > STALE_MS;
-  const lastSyncLabel = dataUpdatedAt
-    ? new Date(dataUpdatedAt).toLocaleTimeString(undefined, { hour12: false })
-    : "—";
+  const isStale = ageMs != null && fullScanIntervalMs > 0 && ageMs > fullScanIntervalMs * 2;
   useEffect(() => {
     if (chainError) {
       toast.error("Scanner request failed", {
@@ -133,7 +135,7 @@ function Scanner() {
     () => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.ticker))),
     [],
   );
-  const { get: getLive } = useLiveQuotes(symbols);
+  const { get: getLive, anyLive } = useLiveQuotes(symbols);
   const { get: getReddit } = useRedditSentiment(symbols);
 
   const traces: { c: TradeCandidate; gate: DisciplineGateResult }[] = useMemo(() => {
@@ -220,44 +222,48 @@ function Scanner() {
     ? Object.values(chainData.enriched).filter((v) => v !== null).length
     : 0;
 
+  void getLive;
+  const dataMode: "live" | "cached" | "delayed" | "demo" =
+    chainData?.rateLimited ? "delayed"
+    : chainData && Object.values(chainData.enriched).some((v) => v !== null) ? "live"
+    : anyLive ? "cached"
+    : "demo";
+  const onRefreshQuotesOnly = () => {
+    void qc.invalidateQueries({ queryKey: ["live-quotes"] });
+    toast.success("Refreshing quotes…");
+  };
+
   return (
     <div className="space-y-4">
-      {/* Top summary bar */}
-      <div className="rounded-xl border border-border bg-card p-3">
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <h1 className="text-base font-semibold">Scanner</h1>
-          <Stat label="Total" value={candidates.length} />
-          <Stat label="Buy Now" value={labelCounts["Buy Now"]} tone="bull" />
-          <Stat label="Watchlist" value={labelCounts.Watchlist} tone="watch" />
-          <Stat label="Aggressive" value={labelCounts.Aggressive} tone="warn" />
-          <Stat label="Avoid" value={labelCounts.Avoid} tone="bear" />
-          <span className="hidden text-muted-foreground sm:inline">·</span>
-          <span className="text-muted-foreground">Regime: <span className="text-foreground">Risk-on</span></span>
-          <span className="ml-auto flex items-center gap-2">
-            <span
-              className={cn(
-                "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                isStale ? "border-amber-500/50 bg-amber-500/10 text-amber-500"
-                : ageMs != null ? "border-[var(--color-bull)]/40 bg-[var(--color-bull)]/5 text-[var(--color-bull)]"
-                : "border-border text-muted-foreground",
-              )}
-              title={chainData?.message ?? undefined}
-            >
-              {isScanning ? "↻ syncing"
-                : chainData?.rateLimited ? "⚠ rate-limited"
-                : ageMs == null ? "○ no data"
-                : `● live ${liveCount}/${picks.length} · ${Math.round(ageMs / 1000)}s ago`}
-            </span>
-            <span className="text-muted-foreground">Updated <span className="mono text-foreground">{lastSyncLabel}</span></span>
-            <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <input type="checkbox" checked={autoSync} onChange={(e) => setAutoSync(e.target.checked)} className="h-3 w-3 accent-[var(--color-bull)]" />
-              Auto 30s
-            </label>
-            <button onClick={runScan} disabled={isScanning} className="rounded-md border border-border bg-background px-2 py-1 text-[10px] font-semibold hover:bg-muted disabled:opacity-50">
-              {isScanning ? "Syncing…" : "Sync now"}
-            </button>
-          </span>
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Scanner</h1>
+          <p className="text-xs text-muted-foreground">
+            Full scan reranks {fullScanIntervalMs > 0 ? `every ${Math.round(fullScanIntervalMs / 60_000)} min` : "only on demand"} · {liveCount}/{picks.length} live · Regime: <span className="text-foreground">Risk-on</span>
+            {isStale ? " · ⚠ stale" : ""}
+          </p>
         </div>
+      </div>
+
+      <RefreshBar
+        lastFullScanAt={lastFullScanAt}
+        nextFullScanAt={nextFullScanAt}
+        marketDataUpdatedAt={lastFullScanAt}
+        optionQuoteUpdatedAt={lastFullScanAt}
+        dataMode={dataMode}
+        autoRefresh={autoRefresh && fullScanIntervalMs > 0}
+        isScanning={isScanning}
+        onRunScanNow={runScan}
+        onRefreshQuotesOnly={onRefreshQuotesOnly}
+        onToggleAutoRefresh={() => setAutoRefresh((v) => !v)}
+      />
+
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 text-xs">
+        <Stat label="Total" value={candidates.length} />
+        <Stat label="Buy Now" value={labelCounts["Buy Now"]} tone="bull" />
+        <Stat label="Watchlist" value={labelCounts.Watchlist} tone="watch" />
+        <Stat label="Aggressive" value={labelCounts.Aggressive} tone="warn" />
+        <Stat label="Avoid" value={labelCounts.Avoid} tone="bear" />
       </div>
 
       {/* Filter bar */}

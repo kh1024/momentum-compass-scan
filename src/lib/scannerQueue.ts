@@ -8,6 +8,11 @@ export interface ScannerRuntimeSettings {
   retryBackoffMaxMs: number;
   maxTickersPerScan: number;
   scanFinalistsOnlyForOptions: boolean;
+  /**
+   * Auto-refresh interval for the full scanner (rerunning contract selection).
+   * 0 = manual only. UI exposes Off / 5 / 10 / 15 min presets.
+   */
+  fullScanIntervalMs: number;
 }
 
 const defaults: ScannerRuntimeSettings = {
@@ -20,6 +25,7 @@ const defaults: ScannerRuntimeSettings = {
   retryBackoffMaxMs: 15_000,
   maxTickersPerScan: 23,
   scanFinalistsOnlyForOptions: true,
+  fullScanIntervalMs: 10 * 60_000,
 };
 
 let settings: ScannerRuntimeSettings = { ...defaults };
@@ -41,8 +47,14 @@ export function updateScannerSettings(next: Partial<ScannerRuntimeSettings>): Sc
     marketRegimeTtlMs: clampInt(next.marketRegimeTtlMs ?? settings.marketRegimeTtlMs, 30_000, 10 * 60_000),
     maxTickersPerScan: clampInt(next.maxTickersPerScan ?? settings.maxTickersPerScan, 1, 50),
     scanFinalistsOnlyForOptions: next.scanFinalistsOnlyForOptions ?? settings.scanFinalistsOnlyForOptions,
+    fullScanIntervalMs: clampFullScanInterval(next.fullScanIntervalMs ?? settings.fullScanIntervalMs),
   };
   return getScannerSettings();
+}
+
+function clampFullScanInterval(v: number): number {
+  if (!isFinite(v) || v <= 0) return 0;
+  return Math.min(Math.max(Math.round(v), 60_000), 60 * 60_000);
 }
 
 export function normalizeTickers(symbols: string[], max = 50): string[] {

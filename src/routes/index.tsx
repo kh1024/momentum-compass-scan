@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { MOCK_CANDIDATES } from "@/lib/mockData";
-import { TradeTable } from "@/components/TradeTable";
+import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
+import { RefreshBar } from "@/components/RefreshBar";
 import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
+import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { Direction, Label, SetupType, TradeCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useLiveQuotes } from "@/hooks/useLiveQuotes";
@@ -35,10 +37,10 @@ function Stat({ label, value, tone }: { label: string; value: number | string; t
     : tone === "bear" ? "text-[var(--color-bear)]"
     : "text-foreground";
   return (
-    <span className="flex items-baseline gap-1">
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
-      <span className={cn("font-semibold tabular-nums", cls)}>{value}</span>
-    </span>
+    <div className="rounded-lg border border-border bg-card px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={cn("text-lg font-semibold tabular-nums leading-none mt-1", cls)}>{value}</div>
+    </div>
   );
 }
 
@@ -48,11 +50,26 @@ function Dashboard() {
   const [setupF, setSetupF] = useState<SetupType | "ALL">("ALL");
   const [hideAvoids, setHideAvoids] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [autoSync, setAutoSync] = useState(true);
-  const AUTO_SYNC_MS = 30_000;
-  const STALE_MS = 120_000;
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
+  // Tick once per second so the refresh bar's "Ns ago" / "in Ns" labels update.
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setNowTick((n) => n + 1), 1_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const qc = useQueryClient();
   const enrichFn = useServerFn(enrichWithPublicChain);
+  const fetchScannerSettings = useServerFn(getScannerSettingsFn);
+  const { data: scannerSettings } = useQuery({
+    queryKey: ["scanner-settings"],
+    queryFn: () => fetchScannerSettings(),
+    staleTime: 60_000,
+  });
+  // Default 10 minutes. 0 = manual only.
+  const fullScanIntervalMs = scannerSettings?.fullScanIntervalMs ?? 10 * 60_000;
+
   const picks = useMemo(
     () =>
       MOCK_CANDIDATES.map((c) => ({
@@ -76,14 +93,14 @@ function Dashboard() {
     queryKey: ["dashboard-chain", picks.map((p) => `${p.ticker}:${p.direction}`).join(",")],
     queryFn: () => enrichFn({ data: { picks } }),
     enabled: picks.length > 0,
-    refetchInterval: autoSync ? AUTO_SYNC_MS : false,
+    refetchInterval: autoRefresh && fullScanIntervalMs > 0 ? fullScanIntervalMs : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
-    staleTime: 60_000,
+    // Stability: keep the same contract picks across quote refreshes — only
+    // a fresh full scan (manual or scheduled) replaces selected contracts.
+    staleTime: fullScanIntervalMs > 0 ? Math.max(fullScanIntervalMs - 10_000, 60_000) : 24 * 60 * 60_000,
     placeholderData: (previousData) => previousData,
   });
-  const ageMs = dataUpdatedAt ? Date.now() - dataUpdatedAt : null;
-  const isStale = ageMs != null && ageMs > STALE_MS;
 
   useEffect(() => {
     if (chainError) {
@@ -106,10 +123,10 @@ function Dashboard() {
   }, [chainData]);
 
   const symbols = useMemo(() => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.ticker))), []);
-  const { get: getLive } = useLiveQuotes(symbols);
+  const { get: getLive, anyLive } = useLiveQuotes(symbols);
   const { get: getReddit } = useRedditSentiment(symbols);
   const { get: getEarnings } = useEarnings(symbols, 60);
-  void getEarnings; // reserved for drawer
+  void getEarnings;
 
   const traces = useMemo(() => {
     const enriched = chainData?.enriched ?? {};
@@ -175,8 +192,33 @@ function Dashboard() {
   }, [traces]);
   const open = openId ? traceById.get(openId) ?? null : null;
 
-  const liveCount = chainData ? Object.values(chainData.enriched).filter((v) => v !== null).length : 0;
-  const lastSyncLabel = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString(undefined, { hour12: false }) : "—";
+  // Latest live-quote update timestamp (across all symbols).
+  const liveQuoteUpdatedAt = useMemo(() => {
+    let max = 0;
+    for (const s of symbols) {
+      const q = getLive(s);
+      if (q?.ts) max = Math.max(max, q.ts);
+    }
+    return max || null;
+  }, [symbols, getLive]);
+
+  const lastFullScanAt = dataUpdatedAt || null;
+  const nextFullScanAt =
+    autoRefresh && fullScanIntervalMs > 0 && lastFullScanAt
+      ? lastFullScanAt + fullScanIntervalMs
+      : null;
+
+  const dataMode: "live" | "cached" | "delayed" | "demo" =
+    chainData?.rateLimited ? "delayed"
+    : anyLive && (chainData?.enriched && Object.values(chainData.enriched).some((v) => v !== null)) ? "live"
+    : anyLive ? "cached"
+    : "demo";
+
+  const onRunScanNow = () => { void refetchChain(); };
+  const onRefreshQuotesOnly = () => {
+    void qc.invalidateQueries({ queryKey: ["live-quotes"] });
+    toast.success("Refreshing quotes…");
+  };
 
   const Pill = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
     <button
@@ -192,41 +234,36 @@ function Dashboard() {
 
   return (
     <div className="space-y-4">
-      {/* Summary bar */}
-      <div className="rounded-xl border border-border bg-card p-3">
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          <h1 className="text-base font-semibold">Dashboard</h1>
-          <Stat label="Total" value={candidates.length} />
-          <Stat label="Buy Now" value={labelCounts["Buy Now"]} tone="bull" />
-          <Stat label="Watchlist" value={labelCounts.Watchlist} tone="watch" />
-          <Stat label="Aggressive" value={labelCounts.Aggressive} tone="warn" />
-          <Stat label="Lotto" value={labelCounts.Lotto} tone="warn" />
-          <Stat label="Find Better Strike" value={labelCounts["Find Better Strike"]} tone="warn" />
-          <Stat label="Avoid" value={labelCounts.Avoid} tone="bear" />
-          <span className="ml-auto flex items-center gap-2">
-            <span
-              className={cn(
-                "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                isStale ? "border-amber-500/50 bg-amber-500/10 text-amber-500"
-                : ageMs != null ? "border-[var(--color-bull)]/40 bg-[var(--color-bull)]/5 text-[var(--color-bull)]"
-                : "border-border text-muted-foreground",
-              )}
-            >
-              {isScanning && ageMs == null ? "○ loading"
-                : chainData?.rateLimited ? "⚠ rate-limited"
-                : ageMs == null ? "○ no data"
-                : `● live ${liveCount}/${picks.length} · ${Math.round(ageMs / 1000)}s ago`}
-            </span>
-            <span className="text-muted-foreground">Updated <span className="mono text-foreground">{lastSyncLabel}</span></span>
-            <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <input type="checkbox" checked={autoSync} onChange={(e) => setAutoSync(e.target.checked)} className="h-3 w-3 accent-[var(--color-bull)]" />
-              Auto 30s
-            </label>
-            <button onClick={() => void refetchChain()} disabled={isScanning} className="rounded-md border border-border bg-background px-2 py-1 text-[10px] font-semibold hover:bg-muted disabled:opacity-50">
-              {isScanning ? "Syncing…" : "Sync"}
-            </button>
-          </span>
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-xs text-muted-foreground">
+            Stable picks. Full scan reranks {fullScanIntervalMs > 0 ? `every ${Math.round(fullScanIntervalMs / 60_000)} min` : "only on demand"}; quotes refresh continuously without changing contracts.
+          </p>
         </div>
+      </div>
+
+      <RefreshBar
+        lastFullScanAt={lastFullScanAt}
+        nextFullScanAt={nextFullScanAt}
+        marketDataUpdatedAt={liveQuoteUpdatedAt}
+        optionQuoteUpdatedAt={lastFullScanAt}
+        dataMode={dataMode}
+        autoRefresh={autoRefresh && fullScanIntervalMs > 0}
+        isScanning={isScanning}
+        onRunScanNow={onRunScanNow}
+        onRefreshQuotesOnly={onRefreshQuotesOnly}
+        onToggleAutoRefresh={() => setAutoRefresh((v) => !v)}
+      />
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <Stat label="Total" value={candidates.length} />
+        <Stat label="Buy Now" value={labelCounts["Buy Now"]} tone="bull" />
+        <Stat label="Watchlist" value={labelCounts.Watchlist} tone="watch" />
+        <Stat label="Aggressive" value={labelCounts.Aggressive} tone="warn" />
+        <Stat label="Lotto" value={labelCounts.Lotto} tone="warn" />
+        <Stat label="Avoid" value={labelCounts.Avoid} tone="bear" />
       </div>
 
       {/* Filter row */}
@@ -260,7 +297,23 @@ function Dashboard() {
         </label>
       </div>
 
-      <TradeTable rows={filtered} onOpen={(id) => setOpenId(id)} />
+      {/* Cards modern grid */}
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          No clean trades match your filters.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((t) => (
+            <CompactTradeCard
+              key={t.id}
+              t={t}
+              warnings={t.buyNowBlockers ?? []}
+              onOpenDetails={() => setOpenId(t.id)}
+            />
+          ))}
+        </div>
+      )}
 
       <TradeDetailDrawer
         open={!!open}

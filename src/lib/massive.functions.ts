@@ -84,6 +84,7 @@ const SettingsInput = z.object({
   retryBackoffMaxMs: z.number().min(1_000).max(60_000).optional(),
   maxTickersPerScan: z.number().min(1).max(50).optional(),
   scanFinalistsOnlyForOptions: z.boolean().optional(),
+  fullScanIntervalMs: z.number().min(0).max(60 * 60_000).optional(),
 });
 
 export const updateScannerSettingsFn = createServerFn({ method: "POST" })
