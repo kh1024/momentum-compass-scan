@@ -11,7 +11,6 @@ import {
 import appCss from "../styles.css?url";
 import { Disclaimer } from "@/components/NavBar";
 import { Sidebar } from "@/components/Sidebar";
-import { RegimeBar } from "@/components/RegimeBar";
 import { MOCK_REGIME } from "@/lib/mockData";
 
 const SIDEBAR_MARKETS = [
@@ -83,13 +82,12 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background text-foreground">
         <Sidebar markets={SIDEBAR_MARKETS} live={!MOCK_REGIME.isDemo} regime={MOCK_REGIME.bias} />
-        <div className="pl-56">
-          <RegimeBar regime={MOCK_REGIME} />
-          <main className="mx-auto max-w-7xl px-4 py-6">
+        <main className="pl-56">
+          <div className="mx-auto max-w-7xl px-4 py-6">
             <Outlet />
-          </main>
-          <Disclaimer />
-        </div>
+          </div>
+        </main>
+        <Disclaimer />
       </div>
     </QueryClientProvider>
   );
