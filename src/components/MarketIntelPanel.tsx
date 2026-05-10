@@ -392,6 +392,12 @@ export function MarketIntelPanel() {
                       })}
                     </div>
                   )}
+                  <HeadlineAiSummary
+                    url={it.url}
+                    title={it.title}
+                    snippet={it.snippet}
+                    source={it.source}
+                  />
                 </a>
               </li>
             ))}
