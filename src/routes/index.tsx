@@ -31,6 +31,8 @@ import { sectionFor, SECTION_TITLES, type SectionKey } from "@/lib/uiVocabulary"
 import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 import { useAdaptiveIntervals } from "@/hooks/useAdaptiveIntervals";
 import { MarketIntelPanel } from "@/components/MarketIntelPanel";
+import { ContractPreferenceToolbar } from "@/components/ContractPreferenceToolbar";
+import { useContractPreference } from "@/hooks/useContractPreference";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Daily AI Picks — Momentum Options Scanner" }] }),
