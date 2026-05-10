@@ -212,6 +212,10 @@ async function fetchAllSources(symbol: string): Promise<SourceQuote[]> {
     fetchStooq(symbol).catch(() => null),
   ];
 
+  if (finnhubConfigured()) {
+    tasks.push(fetchFinnhub(symbol).catch(() => null));
+  }
+
   const massiveCooldown = getMassiveCooldownStatus();
   const massiveAvailable =
     massiveConfigured() && isMassiveEnabled() && !massiveCooldown.rateLimited;
