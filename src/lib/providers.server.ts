@@ -9,7 +9,7 @@ import { fetchPublicQuote, publicConfigured, getPublicCooldownStatus, type Publi
 import { fetchWithRetry } from "./fetchRetry.server";
 import { normalizeTickers } from "./scannerQueue";
 
-export type SourceName = "massive" | "public" | "yahoo" | "stooq";
+export type SourceName = "massive" | "public" | "finnhub" | "yahoo" | "stooq";
 
 export interface SourceQuote {
   source: SourceName;
