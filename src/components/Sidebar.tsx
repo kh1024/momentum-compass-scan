@@ -140,7 +140,7 @@ export function Sidebar({ markets = [], live = false, regime }: SidebarProps) {
               : regime === "Risk-off" ? "bg-[var(--color-bear)]/10 text-[var(--color-bear)]"
               : "bg-[var(--color-watch)]/10 text-[var(--color-watch)]",
             )}>
-              {regime}
+              {regime === "Risk-on" ? "Risk On" : regime === "Risk-off" ? "Risk Off" : "Neutral"}
             </div>
           )}
         </div>
