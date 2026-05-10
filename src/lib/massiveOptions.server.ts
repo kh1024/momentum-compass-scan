@@ -69,8 +69,9 @@ function dteFromIso(iso: string): number {
 
 function rangeForStyle(opts?: { isLeaps?: boolean; isYolo?: boolean }): { min: number; max: number } {
   if (opts?.isLeaps) return { min: 270, max: 540 };
-  if (opts?.isYolo) return { min: 1, max: 14 };
-  return { min: 14, max: 45 };
+  if (opts?.isYolo) return { min: 1, max: 7 };
+  // Default: ~7-day swing window (4–10 DTE).
+  return { min: 4, max: 10 };
 }
 
 function toContract(symbol: string, row: MassiveSnapshotRow): MassiveOptionContract | null {
