@@ -1,6 +1,7 @@
 /**
  * Multi-source quote provider — server-only.
- * Aggregates Massive (keyed) + Yahoo + Stooq (free, no key).
+ * Aggregates Massive (keyed) + Public.com (keyed) + Finnhub (keyed)
+ *   + Yahoo + Stooq + CoinGecko (all free, no key).
  * Consensus rule: freshest timestamp wins. Cross-checked across sources.
  */
 
@@ -416,5 +417,6 @@ export async function probeAllProviders(): Promise<ProviderHealth[]> {
     probe("finnhub", () => fetchFinnhub("SPY"), finnhubConfigured(), "Real-time quotes — FINNHUB_API_KEY"),
     probe("yahoo", () => fetchYahoo("SPY"), true, "Quotes feed — free, no key required"),
     probe("stooq", () => fetchStooq("SPY"), true, "EOD quotes — free, no key required"),
+    probe("coingecko", () => fetchCoinGecko("BTC-USD"), true, "Crypto quotes — free, no key required"),
   ]);
 }
