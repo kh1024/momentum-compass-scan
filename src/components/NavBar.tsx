@@ -197,18 +197,24 @@ export function NavBar() {
       price: spyQ?.price ?? MOCK_REGIME.spy.price,
       changePct: spyQ?.changePct ?? MOCK_REGIME.spy.changePct,
       trend: spyQ ? trendOf(spyQ.changePct) : MOCK_REGIME.spy.trend,
+      sources: spyQ ? Object.keys(spyQ.sources ?? {}) : [],
+      agreement: spyQ?.agreement,
     },
     {
       symbol: "QQQ",
       price: qqqQ?.price ?? MOCK_REGIME.qqq.price,
       changePct: qqqQ?.changePct ?? MOCK_REGIME.qqq.changePct,
       trend: qqqQ ? trendOf(qqqQ.changePct) : MOCK_REGIME.qqq.trend,
+      sources: qqqQ ? Object.keys(qqqQ.sources ?? {}) : [],
+      agreement: qqqQ?.agreement,
     },
     {
       symbol: "SMH",
       price: smhQ?.price ?? MOCK_REGIME.smh.price,
       changePct: smhQ?.changePct ?? MOCK_REGIME.smh.changePct,
       trend: smhQ ? trendOf(smhQ.changePct) : MOCK_REGIME.smh.trend,
+      sources: smhQ ? Object.keys(smhQ.sources ?? {}) : [],
+      agreement: smhQ?.agreement,
     },
   ];
 
