@@ -228,8 +228,13 @@ function Scanner() {
     () => Array.from(new Set(allMockCandidates.map((c) => c.ticker))),
     [allMockCandidates],
   );
-  const { get: getLive, anyLive } = useMarketQuotesCompat(symbols);
-  const { get: getReddit } = useRedditSentiment(symbols);
+  const intervals = useAdaptiveIntervals();
+  const { get: getLive, anyLive } = useMarketQuotesCompat(symbols, {
+    refetchIntervalMs: typeof intervals.quotes === "number" ? intervals.quotes : 10 * 60_000,
+  });
+  const { get: getReddit } = useRedditSentiment(symbols, {
+    refetchIntervalMs: intervals.sentiment,
+  });
 
   // ---- Core trace pipeline -------------------------------------------------
   const traces: { c: TradeCandidate; gate: DisciplineGateResult }[] = useMemo(() => {
