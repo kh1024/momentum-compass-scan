@@ -35,7 +35,14 @@ export interface ConsensusQuote {
 }
 
 const YAHOO_UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+const YAHOO_HEADERS = {
+  "User-Agent": YAHOO_UA,
+  "Accept": "*/*",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Origin": "https://finance.yahoo.com",
+  "Referer": "https://finance.yahoo.com/",
+};
 
 // ── Yahoo crumb/cookie session (required since mid-2024) ──
 const YAHOO_CRUMB_TTL_MS = 50 * 60 * 1000; // 50 minutes
@@ -48,7 +55,7 @@ async function getYahooCrumb(force = false): Promise<{ crumb: string; cookie: st
   }
   try {
     const r = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
-      headers: { "User-Agent": YAHOO_UA, Accept: "*/*" },
+      headers: YAHOO_HEADERS,
     });
     if (!r.ok) return null;
     const crumb = (await r.text()).trim();
@@ -91,34 +98,38 @@ async function fetchYahoo(symbol: string): Promise<SourceQuote | null> {
       r = await doFetch(session);
     }
     if (!r.ok) return null;
-    const d = (await r.json()) as {
-      chart?: {
-        result?: Array<{
-          meta?: {
-            regularMarketPrice?: number;
-            chartPreviousClose?: number;
-            previousClose?: number;
-            regularMarketVolume?: number;
-            regularMarketTime?: number;
-          };
-        }>;
-      };
-    };
-    const meta = d.chart?.result?.[0]?.meta;
-    const price = Number(meta?.regularMarketPrice);
-    if (!isFinite(price) || price <= 0) return null;
-    const prev = Number(meta?.chartPreviousClose ?? meta?.previousClose ?? 0);
-    const change = isFinite(prev) && prev ? price - prev : 0;
-    const changePct = isFinite(prev) && prev ? (change / prev) * 100 : 0;
-    const ts = Number(meta?.regularMarketTime) > 0 ? Number(meta?.regularMarketTime) * 1000 : Date.now();
-    return {
-      source: "yahoo", symbol: sym, price, change, changePct,
-      volume: Number(meta?.regularMarketVolume ?? 0), ts,
-    };
+    return parseYahooChart(await r.json(), sym);
   } catch (e) {
     console.warn(`[yahoo] ${sym}`, e);
     return null;
   }
+}
+
+function parseYahooChart(d: unknown, sym: string): SourceQuote | null {
+  const data = d as {
+    chart?: {
+      result?: Array<{
+        meta?: {
+          regularMarketPrice?: number;
+          chartPreviousClose?: number;
+          previousClose?: number;
+          regularMarketVolume?: number;
+          regularMarketTime?: number;
+        };
+      }>;
+    };
+  };
+  const meta = data.chart?.result?.[0]?.meta;
+  const price = Number(meta?.regularMarketPrice);
+  if (!isFinite(price) || price <= 0) return null;
+  const prev = Number(meta?.chartPreviousClose ?? meta?.previousClose ?? 0);
+  const change = isFinite(prev) && prev ? price - prev : 0;
+  const changePct = isFinite(prev) && prev ? (change / prev) * 100 : 0;
+  const ts = Number(meta?.regularMarketTime) > 0 ? Number(meta.regularMarketTime) * 1000 : Date.now();
+  return {
+    source: "yahoo", symbol: sym, price, change, changePct,
+    volume: Number(meta?.regularMarketVolume ?? 0), ts,
+  };
 }
 
 // ── Stooq (free, CSV; US tickers need .US suffix) ──

@@ -355,7 +355,7 @@ function IOData() {
 
           <Section title="Scanner Settings">
             <Table rows={[
-              ["Max contract cost", `$1000`],
+              ["Max contract cost", `$${scannerSettings?.maxCost ?? 1000}`],
               ["Max tickers/scan", String(scannerSettings?.maxTickersPerScan ?? 12)],
               ["Full scan interval", `${Math.round((scannerSettings?.fullScanIntervalMs ?? 600000) / 60000)} min`],
               ["DTE range (short-term)", "14–30d"],

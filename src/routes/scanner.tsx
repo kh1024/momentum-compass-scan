@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
+// useRef kept for rate-limit toast dedup; useEffect for chain error toast
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -7,7 +8,7 @@ import { buildUniverseCandidates } from "@/lib/mockData";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeTable } from "@/components/TradeTable";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
-import { RefreshBar } from "@/components/RefreshBar";
+import { ScanBar } from "@/components/ScanBar";
 import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { CapBucket, Direction, Label, TradeCandidate } from "@/lib/types";
@@ -32,7 +33,6 @@ export const Route = createFileRoute("/scanner")({
 });
 
 type ViewMode = "table" | "card";
-type Persona = "trader" | "debug";
 type DteBucketFilter = "ALL" | "weekly-lotto" | "lotto-aggressive" | "short-term-swing" | "extended-swing" | "swing-plus" | "leaps";
 
 const LABEL_ORDER: Record<Label, number> = {
@@ -92,7 +92,6 @@ function Scanner() {
   const [capFilter, setCapFilter] = useState<CapBucket | "ALL">("ALL");
   const [dteFilter, setDteFilter] = useState<DteBucketFilter>("ALL");
   const [maxCost, setMaxCost] = useState(1000);
-  const [triggerActiveOnly, setTriggerActiveOnly] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [hideTrueAvoids, setHideTrueAvoids] = useState(true);
   const [hiddenLabels, setHiddenLabels] = useState<Set<Label>>(new Set());
@@ -108,18 +107,9 @@ function Scanner() {
     });
   }
 
-  // ---- View / persona ------------------------------------------------------
+  // ---- View ----------------------------------------------------------------
   const [view, setView] = useState<ViewMode>("table");
-  const [persona, setPersona] = useState<Persona>("trader");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-
-  // Tick every 1s so "updated Ns ago" / next-scan clock re-renders.
-  const [, setNowTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setNowTick((n) => n + 1), 1_000);
-    return () => clearInterval(id);
-  }, []);
 
   // ---- Active universe → candidates ----------------------------------------
   const activeTickers = useMemo(() => getActiveUniverse(universeEnabled), [universeEnabled]);
@@ -161,20 +151,14 @@ function Scanner() {
     queryKey: ["scanner-chain", scanPicks.map((p) => `${p.ticker}:${p.direction}:${p.isLeaps?1:0}:${p.isYolo?1:0}:${p.entryMode ?? ""}:${p.targetStrike ?? ""}`).join(",")],
     queryFn: () => enrichFn({ data: { picks: scanPicks } }),
     enabled: scanPicks.length > 0,
-    refetchInterval: autoRefresh && fullScanIntervalMs > 0 ? fullScanIntervalMs : false,
+    refetchInterval: false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
-    staleTime: fullScanIntervalMs > 0 ? Math.max(fullScanIntervalMs - 10_000, 60_000) : 24 * 60 * 60_000,
+    staleTime: 60 * 60_000, // 1 hour — results are stable until you re-scan
     placeholderData: (previousData) => previousData,
   });
 
   const lastFullScanAt = dataUpdatedAt || null;
-  const nextFullScanAt =
-    autoRefresh && fullScanIntervalMs > 0 && lastFullScanAt
-      ? lastFullScanAt + fullScanIntervalMs
-      : null;
-  const ageMs = dataUpdatedAt ? Date.now() - dataUpdatedAt : null;
-  const isStale = ageMs != null && fullScanIntervalMs > 0 && ageMs > fullScanIntervalMs * 2;
 
   useEffect(() => {
     if (chainError) {
@@ -185,6 +169,7 @@ function Scanner() {
   }, [chainError]);
 
   const runScan = () => { void refetchChain(); };
+  void fullScanIntervalMs;
 
   const lastRateLimitedRef = useRef(false);
   useEffect(() => {
@@ -272,7 +257,6 @@ function Scanner() {
       .filter((c) => capFilter === "ALL" || c.cap === capFilter)
       .filter((c) => matchesDte(c.contract.dte, dteFilter))
       .filter((c) => c.contract.cost <= maxCost)
-      .filter((c) => !triggerActiveOnly || c.triggerStatus === "active")
       .filter((c) => !verifiedOnly || c.contract.source === "chain")
       .filter((c) => !hideTrueAvoids || c.label !== "Avoid Ticker")
       .filter((c) => !hiddenLabels.has(c.label as Label))
@@ -281,9 +265,6 @@ function Scanner() {
     return rows.sort((a, b) => {
       const dl = (LABEL_ORDER[a.label] ?? 9) - (LABEL_ORDER[b.label] ?? 9);
       if (dl !== 0) return dl;
-      const ta = a.triggerStatus === "active" ? 0 : 1;
-      const tb = b.triggerStatus === "active" ? 0 : 1;
-      if (ta !== tb) return ta - tb;
       return (b.finalScore ?? b.score) - (a.finalScore ?? a.score);
     });
   }, [candidates, dir, capFilter, dteFilter, maxCost, triggerActiveOnly, verifiedOnly, hideTrueAvoids, hiddenLabels, includeLeaps, includeYolo]);
@@ -322,11 +303,6 @@ function Scanner() {
     : anyLive ? "cached"
     : "demo";
 
-  const onRefreshQuotesOnly = () => {
-    void qc.invalidateQueries({ queryKey: ["live-quotes"] });
-    toast.success("Refreshing quotes…");
-  };
-
   return (
     <div className="space-y-4">
       {/* ---- Header -------------------------------------------------------- */}
@@ -334,23 +310,16 @@ function Scanner() {
         <div>
           <h1 className="text-xl font-bold tracking-tight">Scanner</h1>
           <p className="text-xs text-muted-foreground">
-            Full scan reranks {fullScanIntervalMs > 0 ? `every ${Math.round(fullScanIntervalMs / 60_000)} min` : "only on demand"} · {liveCount}/{scanPicks.length} live · Regime: <span className="text-foreground">Risk-on</span>
-            {isStale ? " · ⚠ stale" : ""}
+            {liveCount}/{scanPicks.length} live contracts · Regime: <span className="text-foreground">Risk-on</span>
           </p>
         </div>
       </div>
 
-      <RefreshBar
-        lastFullScanAt={lastFullScanAt}
-        nextFullScanAt={nextFullScanAt}
-        marketDataUpdatedAt={lastFullScanAt}
-        optionQuoteUpdatedAt={lastFullScanAt}
+      <ScanBar
+        lastScanAt={lastFullScanAt}
         dataMode={dataMode}
-        autoRefresh={autoRefresh && fullScanIntervalMs > 0}
         isScanning={isScanning}
-        onRunScanNow={runScan}
-        onRefreshQuotesOnly={onRefreshQuotesOnly}
-        onToggleAutoRefresh={() => setAutoRefresh((v) => !v)}
+        onRunScan={runScan}
       />
 
       {/* ---- Stat bar ------------------------------------------------------ */}
@@ -445,7 +414,6 @@ function Scanner() {
           {/* Misc toggles */}
           <Group label="Toggles">
             <Chip active={hideTrueAvoids} onClick={() => setHideTrueAvoids((v) => !v)}>Hide Ticker Avoids</Chip>
-            <Chip active={triggerActiveOnly} onClick={() => setTriggerActiveOnly((v) => !v)}>Trigger active</Chip>
             <Chip active={verifiedOnly} onClick={() => setVerifiedOnly((v) => !v)}>Verified only</Chip>
             <Chip active={includeLeaps} onClick={() => setIncludeLeaps((v) => !v)}>LEAPS</Chip>
             <Chip active={includeYolo} onClick={() => setIncludeYolo((v) => !v)}>YOLO</Chip>
@@ -456,12 +424,6 @@ function Scanner() {
           <Group label="View">
             <Chip active={view === "table"} onClick={() => setView("table")}>Table</Chip>
             <Chip active={view === "card"} onClick={() => setView("card")}>Cards</Chip>
-          </Group>
-
-          {/* Persona */}
-          <Group label="Persona">
-            <Chip active={persona === "trader"} onClick={() => setPersona("trader")}>Trader</Chip>
-            <Chip active={persona === "debug"} onClick={() => setPersona("debug")}>Debug</Chip>
           </Group>
         </div>
       </div>
@@ -507,8 +469,6 @@ function Scanner() {
         </div>
       )}
 
-      {persona === "debug" && <BuyNowTrace traces={traces} />}
-
       <TradeDetailDrawer
         open={openId !== null}
         onOpenChange={(v) => !v && setOpenId(null)}
@@ -539,63 +499,6 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: Sta
       <span className="text-muted-foreground">{label}:</span>
       <span className={cn("font-semibold mono", cls)}>{value}</span>
     </span>
-  );
-}
-
-function BuyNowTrace({ traces }: { traces: { c: TradeCandidate; gate: DisciplineGateResult }[] }) {
-  const [open, setOpen] = useState(true);
-  const failures = traces.reduce((n, t) => n + t.gate.invariants.filter((i) => !i.pass).length, 0);
-  return (
-    <div className="rounded-xl border border-border bg-card">
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between px-4 py-2 text-left text-xs font-semibold">
-        <span>Buy Now Trace ({traces.length} candidates · {failures} invariant failures)</span>
-        <span className="text-muted-foreground">{open ? "▾" : "▸"}</span>
-      </button>
-      {open && (
-        <div className="overflow-x-auto border-t border-border">
-          <table className="w-full text-[10px]">
-            <thead className="bg-muted/30 uppercase tracking-wider text-muted-foreground">
-              <tr>
-                {["Ticker","Source","Setup","Contract","Trigger","R/R","Data","Base","Final","UI","DTE","Bucket","Section","Visible","BN Elig","Blockers","Reasons","Inv"].map((h) => (
-                  <th key={h} className="px-2 py-1.5 text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {traces.map(({ c, gate }, i) => {
-                const invFails = gate.invariants.filter((x) => !x.pass);
-                return (
-                  <tr key={`${c.id}-${i}`} className="border-t border-border align-top">
-                    <td className="px-2 py-1 font-semibold">{c.ticker}</td>
-                    <td className="px-2 py-1 mono">{gate.source}</td>
-                    <td className="px-2 py-1 text-right mono">{gate.setupScore}</td>
-                    <td className="px-2 py-1 text-right mono">{gate.contractScore}/35</td>
-                    <td className="px-2 py-1 text-right mono">{gate.triggerScore}/10</td>
-                    <td className="px-2 py-1 text-right mono">{gate.riskRewardScore}/10</td>
-                    <td className="px-2 py-1 text-right mono">{gate.dataQualityScore}/10</td>
-                    <td className="px-2 py-1 text-muted-foreground">{gate.baseLabel}</td>
-                    <td className="px-2 py-1 font-semibold">{gate.finalLabel}</td>
-                    <td className="px-2 py-1 font-semibold">{c.label}</td>
-                    <td className="px-2 py-1 text-right mono">{gate.dte}</td>
-                    <td className="px-2 py-1">{gate.bucket}</td>
-                    <td className="px-2 py-1">{gate.routedSection}</td>
-                    <td className="px-2 py-1">{gate.visible ? "yes" : "no"}</td>
-                    <td className={cn("px-2 py-1 font-semibold", gate.buyNowEligible ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]")}>
-                      {gate.buyNowEligible ? "Yes" : "No"}
-                    </td>
-                    <td className="px-2 py-1 text-[var(--color-bear)] max-w-[16rem]">{gate.buyNowBlockers.join(" · ") || "—"}</td>
-                    <td className="px-2 py-1 max-w-[18rem] text-muted-foreground">{gate.reasons.join(" · ")}</td>
-                    <td className={cn("px-2 py-1 font-semibold", invFails.length === 0 ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]")}>
-                      {invFails.length === 0 ? "PASS" : `FAIL (${invFails.map((x) => x.id).join(",")})`}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
   );
 }
 
