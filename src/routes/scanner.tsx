@@ -383,6 +383,8 @@ function Scanner() {
         </div>
       </div>
 
+      <ContractPreferenceToolbar />
+
       <BackendHealthPanel />
 
       <ScanBar
