@@ -28,20 +28,40 @@ export function applyLiveQuote(
   c: TradeCandidate,
   live: ConsensusQuote | null,
 ): TradeCandidate {
+  // Validate BEFORE we trust the price for anything.
+  const validation: QuoteValidation = validateQuote(c.ticker, live);
+
   // Sticky: if we've ever seen live data for this symbol this session,
-  // keep isDemo=false even on an empty poll.
-  if (!live || !isFinite(live.price) || live.price <= 0) {
-    if (hasEverBeenLive(c.ticker)) {
-      return { ...c, isDemo: false, liveState: liveStateFor(c.ticker) };
+  // keep isDemo=false even on an empty / failing poll.
+  if (!validation.rankable) {
+    // Log rejected quotes so they're traceable in dev mode.
+    if (live && validation.status !== "unavailable") {
+      // eslint-disable-next-line no-console
+      console.warn(`[quote-reject] ${c.ticker}: ${validation.status} — ${validation.reason}`);
     }
-    return { ...c, liveState: "demo" };
+    if (hasEverBeenLive(c.ticker)) {
+      return {
+        ...c,
+        isDemo: false,
+        liveState: liveStateFor(c.ticker),
+        quoteValidation: validation,
+      };
+    }
+    return { ...c, liveState: "demo", quoteValidation: validation };
   }
   markLive(c.ticker, "quote");
-  const oldPrice = c.price > 0 ? c.price : live.price;
-  const r = live.price / oldPrice;
+  const safePrice = validation.price;
+  const oldPrice = c.price > 0 ? c.price : safePrice;
+  const r = safePrice / oldPrice;
   // Skip rescale if delta is trivial — avoids needless churn.
   if (Math.abs(r - 1) < 0.0005) {
-    return { ...c, price: live.price, isDemo: false, liveState: liveStateFor(c.ticker) };
+    return {
+      ...c,
+      price: safePrice,
+      isDemo: false,
+      liveState: liveStateFor(c.ticker),
+      quoteValidation: validation,
+    };
   }
   const scale = (n: number) => +(n * r).toFixed(2);
   const L = c.levels;
@@ -65,9 +85,10 @@ export function applyLiveQuote(
   // chain endpoint replaces it via applyLiveChain.
   return {
     ...c,
-    price: live.price,
+    price: safePrice,
     isDemo: false,
     liveState: liveStateFor(c.ticker),
+    quoteValidation: validation,
     target1: scale(c.target1),
     target2: scale(c.target2),
     levels: newLevels,
