@@ -135,7 +135,7 @@ function Scanner() {
     () => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.ticker))),
     [],
   );
-  const { get: getLive } = useLiveQuotes(symbols);
+  const { get: getLive, anyLive } = useLiveQuotes(symbols);
   const { get: getReddit } = useRedditSentiment(symbols);
 
   const traces: { c: TradeCandidate; gate: DisciplineGateResult }[] = useMemo(() => {
