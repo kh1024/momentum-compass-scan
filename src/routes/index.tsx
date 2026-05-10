@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { scanIntervalMs, isMarketOpen } from "@/lib/marketHours";
 import { MOCK_CANDIDATES, MOCK_REGIME } from "@/lib/mockData";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
