@@ -71,20 +71,26 @@ export function RefreshBar(props: RefreshBarProps) {
     onRunScanNow, onToggleAutoRefresh,
   } = props;
 
-  // Self-tick so "Xm ago" stays fresh without re-rendering the dashboard.
-  const [now, setNow] = useState(() => Date.now());
+  // Defer all time-derived rendering until after hydration so SSR and the
+  // first client paint produce identical HTML (avoids React #418 mismatch).
+  const [mounted, setMounted] = useState(false);
+  const [now, setNow] = useState(0);
   useEffect(() => {
+    setMounted(true);
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
 
-  const marketOpen = isMarketOpen();
+  const marketOpen = mounted ? isMarketOpen() : false;
   const health = deriveHealth(quoteState, chainState, marketOpen);
   const tone = HEALTH_TONE[health];
 
-  const lastVerified = lastFullScanAt
-    ? `Verified ${formatAgo(lastFullScanAt, now)}`
-    : "Latest verified scan loading";
+  const lastVerified = !mounted
+    ? "Latest verified scan loading"
+    : lastFullScanAt
+      ? `Verified ${formatAgo(lastFullScanAt, now)}`
+      : "Latest verified scan loading";
 
   const nextRefresh = !autoRefresh
     ? null
