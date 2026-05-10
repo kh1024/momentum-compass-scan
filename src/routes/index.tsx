@@ -376,19 +376,27 @@ function Dashboard() {
       qqqLive?.ts ?? 0,
       smhLive?.ts ?? 0,
     ) || null;
-  // Sticky live flag — once we've ever seen live data, stay "Live" until an
-  // explicit error. Prevents the Live ↔ Stale flicker on every refetch tick.
-  const everLiveRef = useRef(false);
-  if (spyLive || qqqLive || smhLive) everLiveRef.current = true;
-  const regimeLive = everLiveRef.current || Boolean(spyLive || qqqLive || smhLive);
 
   // Unified freshness across SPY/QQQ/SMH regime quotes + per-ticker live quotes.
   const marketDataUpdatedAt =
     Math.max(regimeUpdatedAt ?? 0, liveQuoteUpdatedAt ?? 0) || null;
 
+  // Truthful live states — NEVER show "live" without a recent successful fetch.
+  const quoteState = deriveLiveState({
+    updatedAt: marketDataUpdatedAt,
+    isFetching: isScanning,
+    rateLimited: chainData?.rateLimited === true,
+  });
+  const chainState = deriveLiveState({
+    updatedAt: lastFullScanAt,
+    isFetching: isScanning,
+    rateLimited: chainData?.rateLimited === true,
+    hasError: !!chainError,
+  });
+
   const dataMode: "live" | "cached" | "delayed" =
     chainData?.rateLimited ? "delayed"
-    : (regimeLive || anyLive) ? "live"
+    : quoteState === "live" ? "live"
     : "cached";
 
   const onRunScanNow = () => { void refetchChain(); };
