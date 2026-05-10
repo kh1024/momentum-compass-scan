@@ -338,6 +338,14 @@ function Dashboard() {
             </span>
             <span className="h-3 w-px bg-border" />
             <span>{counts.total} ideas · {counts.highConviction} high conviction</span>
+            <span className="h-3 w-px bg-border" />
+            <span title={isMarketOpen() ? "Market open — scanning every 30 minutes" : "Market closed — scanning once per day"}>
+              <span className={cn("font-semibold", isMarketOpen() ? "text-[var(--color-bull)]" : "text-muted-foreground")}>
+                {isMarketOpen() ? "Market Open" : "Market Closed"}
+              </span>
+              {" · "}
+              {isMarketOpen() ? "30 min" : "daily"} scan
+            </span>
           </div>
         </div>
         <RegimeCard bias={MOCK_REGIME.bias} spy={spyQ} qqq={qqqQ} smh={smhQ} />
