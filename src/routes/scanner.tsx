@@ -27,6 +27,8 @@ import {
 } from "@/lib/universe";
 import { loadScannerMode, saveScannerMode, type ScannerMode } from "@/lib/scannerMode";
 import type { ExpirationBucket } from "@/lib/types";
+import { useRiskFilters } from "@/hooks/useRiskFilters";
+import { applyRiskFilters } from "@/lib/riskFilters";
 
 export const Route = createFileRoute("/scanner")({
   head: () => ({ meta: [{ title: "Scanner Results — Momentum Options Scanner" }] }),
