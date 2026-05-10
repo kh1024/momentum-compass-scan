@@ -6,6 +6,7 @@ import type { SectorStrength } from "@/lib/aiCommentary";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
+import { derivedMoneyness } from "@/lib/derivedMoneyness";
 
 const displayLabel = (label: Label): Label | "Watchlist" => (label === "Waiting on Trigger" ? "Watchlist" : label);
 
@@ -190,8 +191,9 @@ export function TradeTable({ rows, onOpen, isLoading, sectors }: TradeTableProps
             const score = t.finalScore ?? t.score;
             const ss = scoreStyle(score);
             const reason = aiReasonFor(t, { sectors });
-            const moneyness = c.classification?.moneyness;
-            const moneynessLabel = c.classification?.label ?? "—";
+            const m = derivedMoneyness(t);
+            const moneyness = m.moneyness;
+            const moneynessLabel = m.label;
             const watched = onWatchlist(t.id);
             const labelText = PUBLIC_LABEL[t.label] ?? displayLabel(t.label);
             const isElite = score >= 90;

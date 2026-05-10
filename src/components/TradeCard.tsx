@@ -1,5 +1,6 @@
 import type { TradeCandidate } from "@/lib/types";
 import type { Moneyness } from "@/lib/contractClassification";
+import { derivedMoneyness } from "@/lib/derivedMoneyness";
 import type { UpcomingEarnings } from "@/lib/earnings.functions";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
@@ -141,33 +142,54 @@ export function TradeCard({
               </div>
             );
           })()}
-          {c.classification && c.source === "chain" && (
-            <div className="mt-3 rounded-lg border border-border bg-muted/30 p-2">
-              <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                <MoneynessChip moneyness={c.classification.moneyness} />
-                <Pill tone="muted">{c.classification.label}</Pill>
-                <Pill tone={c.classification.breakevenMovePct > 0.08 ? "bear" : c.classification.breakevenMovePct > 0.04 ? "info" : "bull"}>
-                  BE needs {c.classification.breakevenMovePct >= 0 ? "+" : ""}{(c.classification.breakevenMovePct * 100).toFixed(1)}%
-                </Pill>
-                {c.classification.tags.map((tag) => (
-                  <Pill key={tag} tone={tag === "Speculative" || tag === "Low Probability" ? "bear" : tag === "Balanced" || tag === "Swing-Friendly" ? "bull" : "info"}>
-                    {tag}
+          {(() => {
+            const cls = c.classification;
+            const dm = derivedMoneyness(t);
+            const tags = cls?.tags ?? [];
+            const explanation =
+              cls?.explanation
+              ?? (dm.fromChain
+                ? `${dm.moneyness} contract.`
+                : `${dm.moneyness} strike vs current price — full chain pending.`);
+            const fits = cls?.fitsEntryMode !== false;
+            const warnings = cls?.qualityFloor?.warnings ?? [];
+            return (
+              <div className="mt-3 rounded-lg border border-border bg-muted/30 p-2">
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <MoneynessChip moneyness={dm.moneyness} />
+                  <Pill tone="muted">{dm.label}</Pill>
+                  <Pill tone={dm.breakevenMovePct > 0.08 ? "bear" : dm.breakevenMovePct > 0.04 ? "info" : "bull"}>
+                    BE needs {dm.breakevenMovePct >= 0 ? "+" : ""}{(dm.breakevenMovePct * 100).toFixed(1)}%
                   </Pill>
-                ))}
-              </div>
-              <p className={cn(
-                "mt-1.5 text-[11px] leading-snug",
-                c.classification.fitsEntryMode ? "text-muted-foreground" : "text-[var(--color-bear)]",
-              )}>
-                {c.classification.explanation}
-              </p>
-              {c.classification.qualityFloor.warnings.length > 0 && (
-                <p className="mt-1 text-[10px] text-[var(--color-watch)]">
-                  ⚠ {c.classification.qualityFloor.warnings.join(" · ")}
+                  {tags.map((tag) => (
+                    <Pill
+                      key={tag}
+                      tone={
+                        tag === "Speculative" || tag === "Low Probability" || tag === "Break-even Too Far" || tag === "Premium Heavy"
+                          ? "bear"
+                          : tag === "Balanced" || tag === "Swing-Friendly"
+                            ? "bull"
+                            : "info"
+                      }
+                    >
+                      {tag}
+                    </Pill>
+                  ))}
+                </div>
+                <p className={cn(
+                  "mt-1.5 text-[11px] leading-snug",
+                  fits ? "text-muted-foreground" : "text-[var(--color-bear)]",
+                )}>
+                  {explanation}
                 </p>
-              )}
-            </div>
-          )}
+                {warnings.length > 0 && (
+                  <p className="mt-1 text-[10px] text-[var(--color-watch)]">
+                    ⚠ {warnings.join(" · ")}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
             {t.entryMode && <Pill tone="muted">Entry: {t.entryMode}</Pill>}
             <Pill tone={t.selectedContractFitsEntryMode === false ? "bear" : "bull"}>Fits entry: {t.selectedContractFitsEntryMode === false ? "No" : "Yes"}</Pill>

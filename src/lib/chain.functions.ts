@@ -98,6 +98,10 @@ const Input = z.object({
     )
     .min(1)
     .max(25),
+  /** User-selected contract preference mode (defaults to Balanced when omitted). */
+  preferenceMode: z.enum(["Balanced", "Conservative", "Aggressive", "Lottery"]).optional(),
+  /** Max premium per contract in $ (defaults to 500). */
+  maxContractCost: z.number().positive().max(50_000).optional(),
 });
 
 
@@ -262,6 +266,8 @@ export const enrichWithPublicChain = createServerFn({ method: "POST" })
           entryMode: p.entryMode,
           targetStrike: p.targetStrike,
           selectedExpiration: p.selectedExpiration,
+          preferenceMode: data.preferenceMode,
+          maxContractCost: data.maxContractCost,
         });
         const picked = sel.contract;
         if (!picked || chain.underlyingPrice <= 0) {
@@ -380,6 +386,8 @@ export const enrichWithPublicChain = createServerFn({ method: "POST" })
             entryMode: p.entryMode ?? "Momentum",
             isLeaps: p.isLeaps,
             isYolo: p.isYolo,
+            mode: data.preferenceMode,
+            maxContractCost: data.maxContractCost,
             quality: {
               spreadPct: contract.spreadPct,
               openInterest: contract.openInterest,

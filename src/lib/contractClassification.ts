@@ -10,6 +10,12 @@
  *  - `passesQualityFloor`    → spread/OI/volume/IV sanity gate
  */
 import type { Direction, EntryMode } from "./types";
+import {
+  allowedMoneynessForMode,
+  breakevenCeilingPct,
+  deltaBandForMode,
+  type PreferenceMode,
+} from "./contractPreference";
 
 export type Moneyness =
   | "Deep ITM"
@@ -44,10 +50,16 @@ export interface ContractClassification extends MoneynessResult {
   explanation: string;
   /** Quality floor verdict and reasons (if any). */
   qualityFloor: { passes: boolean; warnings: string[] };
-  /** Whether this contract's moneyness is acceptable for the active entry mode. */
+  /** Whether this contract's moneyness is acceptable for the active entry mode / preference. */
   fitsEntryMode: boolean;
-  /** When fitsEntryMode === false, the reason (e.g. "Far OTM unrealistic for High Conviction"). */
+  /** When fitsEntryMode === false, the reason. */
   fitsEntryModeReason?: string;
+  /** True when premium > user max budget. */
+  premiumHeavy?: boolean;
+  /** True when break-even move exceeds the realistic ceiling for the DTE/mode. */
+  breakevenUnrealistic?: boolean;
+  /** Active preference mode at the time of selection. */
+  preferenceMode?: PreferenceMode;
 }
 
 export type ContractStyleTag =
@@ -59,7 +71,8 @@ export type ContractStyleTag =
   | "Swing-Friendly"
   | "Premium Heavy"
   | "Low Probability"
-  | "Momentum Contract";
+  | "Momentum Contract"
+  | "Break-even Too Far";
 
 // ---------- Moneyness classification ----------
 
@@ -153,7 +166,14 @@ export function targetDeltaRange(opts: {
   isYolo?: boolean;
   /** When true, treat as "high conviction" — tightens band toward ITM. */
   highConviction?: boolean;
+  /** When set, user preference mode overrides entry-mode default. */
+  mode?: PreferenceMode;
 }): DeltaTarget {
+  // User preference mode overrides everything except LEAPS / YOLO.
+  if (opts.mode && !opts.isLeaps && !opts.isYolo) {
+    const b = deltaBandForMode(opts.mode);
+    return { min: b.min, max: b.max, ideal: b.ideal };
+  }
   if (opts.isLeaps) return { min: 0.55, max: 0.8, ideal: 0.7 };
   if (opts.isYolo || opts.entryMode === "Lotto") return { min: 0.1, max: 0.25, ideal: 0.18 };
   if (opts.highConviction) return { min: 0.55, max: 0.75, ideal: 0.6 };
@@ -178,7 +198,12 @@ export function allowedMoneyness(opts: {
   isLeaps?: boolean;
   isYolo?: boolean;
   highConviction?: boolean;
+  /** When set, user preference mode overrides entry-mode default. */
+  mode?: PreferenceMode;
 }): Moneyness[] {
+  if (opts.mode && !opts.isLeaps && !opts.isYolo) {
+    return allowedMoneynessForMode(opts.mode);
+  }
   if (opts.isLeaps) return ["Slightly ITM", "ITM", "ATM", "Slightly OTM"];
   if (opts.isYolo || opts.entryMode === "Lotto") return ["OTM", "Far OTM", "Lottery OTM"];
   if (opts.highConviction)
@@ -320,18 +345,39 @@ export function classifyContract(opts: {
   quality: QualityFloorInput;
   premium: number;
   dte: number;
+  /** User-selected preference mode (Balanced / Conservative / Aggressive / Lottery). */
+  mode?: PreferenceMode;
+  /** User-configured max premium per contract in $. Default 500. */
+  maxContractCost?: number;
 }): ContractClassification {
+  const mode = opts.mode;
+  const maxCost = opts.maxContractCost ?? 500;
   const m = classifyMoneyness(opts.direction, opts.strike, opts.underlyingPrice, opts.breakeven);
   const allowed = allowedMoneyness({
     entryMode: opts.entryMode,
     isLeaps: opts.isLeaps,
     isYolo: opts.isYolo,
     highConviction: opts.highConviction,
+    mode,
   });
   const fits = allowed.includes(m.moneyness);
-  const reason = fits
-    ? undefined
-    : `${m.moneyness} contract is not ideal for ${opts.highConviction ? "High Conviction" : opts.entryMode} setups (expected: ${allowed.join(", ")}).`;
+
+  // ---- Premium-heavy + break-even-unrealistic checks ----
+  const premiumHeavy = !opts.isLeaps && opts.premium > maxCost;
+  const beCeiling = mode ? breakevenCeilingPct(mode, opts.dte) : 0.12;
+  const breakevenUnrealistic =
+    !opts.isLeaps && !opts.isYolo && Math.abs(m.breakevenMovePct) > beCeiling;
+
+  let reason: string | undefined;
+  if (!fits) {
+    const label = mode ?? (opts.highConviction ? "High Conviction" : opts.entryMode);
+    reason = `${m.moneyness} contract doesn't fit ${label} mode (expected: ${allowed.join(", ")}).`;
+  } else if (premiumHeavy) {
+    reason = `Premium $${opts.premium.toFixed(0)} exceeds your $${maxCost} per-contract budget.`;
+  } else if (breakevenUnrealistic) {
+    reason = `Needs ${(Math.abs(m.breakevenMovePct) * 100).toFixed(1)}% move in ${opts.dte}d — unrealistic for ${mode ?? "this"} setup.`;
+  }
+  const finalFits = fits && !premiumHeavy && !breakevenUnrealistic;
 
   const qf = passesQualityFloor(opts.quality);
   const tags = contractStyleTags({
@@ -343,24 +389,39 @@ export function classifyContract(opts: {
     premium: opts.premium,
     dte: opts.dte,
   });
-  const explanation = explainContractChoice({
+  if (premiumHeavy && !tags.includes("Premium Heavy")) tags.push("Premium Heavy");
+  if (breakevenUnrealistic) tags.push("Break-even Too Far");
+
+  let explanation = explainContractChoice({
     moneyness: m.moneyness,
     delta: opts.delta,
     entryMode: opts.entryMode,
     isLeaps: opts.isLeaps,
     isYolo: opts.isYolo,
-    fitsEntryMode: fits,
+    fitsEntryMode: finalFits,
     fitsEntryModeReason: reason,
     breakevenMovePct: m.breakevenMovePct,
     direction: opts.direction,
   });
+  // Prepend mode-aware framing when fit OK.
+  if (finalFits && mode) {
+    const prefix =
+      mode === "Conservative" ? "Conservative pick — "
+      : mode === "Aggressive" ? "Aggressive pick — "
+      : mode === "Lottery" ? "Lottery pick — "
+      : "Balanced swing pick — ";
+    explanation = prefix + explanation.charAt(0).toLowerCase() + explanation.slice(1);
+  }
 
   return {
     ...m,
     tags,
     explanation,
     qualityFloor: qf,
-    fitsEntryMode: fits,
+    fitsEntryMode: finalFits,
     fitsEntryModeReason: reason,
+    premiumHeavy,
+    breakevenUnrealistic,
+    preferenceMode: mode,
   };
 }

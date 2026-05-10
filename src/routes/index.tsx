@@ -31,6 +31,8 @@ import { sectionFor, SECTION_TITLES, type SectionKey } from "@/lib/uiVocabulary"
 import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 import { useAdaptiveIntervals } from "@/hooks/useAdaptiveIntervals";
 import { MarketIntelPanel } from "@/components/MarketIntelPanel";
+import { ContractPreferenceToolbar } from "@/components/ContractPreferenceToolbar";
+import { useContractPreference } from "@/hooks/useContractPreference";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Daily AI Picks — Momentum Options Scanner" }] }),
@@ -231,9 +233,10 @@ function Dashboard() {
     [],
   );
 
+  const { mode: preferenceMode, maxContractCost } = useContractPreference();
   const pickKey = useMemo(
-    () => picks.map((p) => `${p.ticker}:${p.direction}`).join(","),
-    [picks],
+    () => `${picks.map((p) => `${p.ticker}:${p.direction}`).join(",")}|${preferenceMode}|${maxContractCost}`,
+    [picks, preferenceMode, maxContractCost],
   );
   // Hydrate cached scan snapshot. `loadScanSnapshot` is wrapped with
   // `createIsomorphicFn`: server returns `null`, client reads localStorage.
@@ -256,7 +259,7 @@ function Dashboard() {
     dataUpdatedAt,
   } = useQuery<EnrichmentResult>({
     queryKey: ["dashboard-chain", pickKey],
-    queryFn: () => enrichFn({ data: { picks } }),
+    queryFn: () => enrichFn({ data: { picks, preferenceMode, maxContractCost } }),
     enabled: picks.length > 0,
     initialData: cachedSnapshot?.result,
     initialDataUpdatedAt: cachedSnapshot?.savedAt,
@@ -533,6 +536,8 @@ function Dashboard() {
       </div>
 
       <MarketIntelPanel />
+
+      <ContractPreferenceToolbar />
 
       <RefreshBar
         lastFullScanAt={lastFullScanAt}
