@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 import { freshness, sectorStrength, sentimentScore, type CommentaryInput } from "@/lib/aiCommentary";
 import { isMarketOpen } from "@/lib/marketHours";
+import { readSnapshotHealth, type SnapshotHealthEntry } from "@/lib/marketSnapshots";
 
 // Primary nav focuses on next-day prep + swing tracking. /live is a
 // secondary surface, only shown when the market is open or dev mode is on.
