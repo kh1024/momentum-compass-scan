@@ -74,11 +74,10 @@ export function snapshotFromCandidate(t: TradeCandidate): WatchlistItem {
     addedAt: Date.now(),
     entryStockPrice: t.price,
     entryScore: t.finalScore ?? t.score,
-    entryThesis: t.aiSummary,
+    entryThesis: t.thesis,
     target1: t.target1,
     target2: t.target2,
     invalidation: t.invalidation,
-    expectedMovePct: c?.expectedMovePct,
     contract: c
       ? {
           strike: c.strike,
@@ -86,7 +85,7 @@ export function snapshotFromCandidate(t: TradeCandidate): WatchlistItem {
           type: t.direction === "CALL" ? "call" : "put",
           bid: c.bid,
           ask: c.ask,
-          mark: c.mark ?? (c.bid + c.ask) / 2,
+          mark: c.mid ?? (c.bid + c.ask) / 2,
           breakevenMovePct: c.breakevenMovePct,
           dte: c.dte,
           occSymbol: c.occSymbol,
