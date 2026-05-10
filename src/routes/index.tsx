@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { scanIntervalMs, isMarketOpen } from "@/lib/marketHours";
-import { MOCK_CANDIDATES, MOCK_REGIME } from "@/lib/mockData";
+import { MOCK_CANDIDATES } from "@/lib/mockData";
 import { freshness, marketCommentary } from "@/lib/aiCommentary";
 import { Radio } from "lucide-react";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
