@@ -257,11 +257,11 @@ function IOData() {
   const events = healthLog?.events ?? [];
   const apiStats = useMemo(() => ({
     total: events.length,
-    success: events.filter(e => e.status >= 200 && e.status < 300).length,
-    failed: events.filter(e => e.status >= 400).length,
-    rate429: events.filter(e => e.status === 429).length,
+    success: events.filter(e => (e.statusCode ?? 0) >= 200 && (e.statusCode ?? 0) < 300).length,
+    failed: events.filter(e => (e.statusCode ?? 0) >= 400).length,
+    rate429: events.filter(e => e.statusCode === 429).length,
     cached: events.filter(e => e.cached).length,
-    avgMs: events.length ? Math.round(events.reduce((s, e) => s + (e.durationMs ?? 0), 0) / events.length) : 0,
+    avgMs: events.length ? Math.round(events.reduce((s, e) => s + (e.responseTimeMs ?? 0), 0) / events.length) : 0,
   }), [events]);
 
   const scanInputsJson = {
