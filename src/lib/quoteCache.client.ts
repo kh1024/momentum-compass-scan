@@ -8,16 +8,8 @@
  * Cache is keyed by the sorted symbol list so different watchlists / scans
  * don't clobber each other.
  */
-export interface ConsensusQuote {
-  symbol: string;
-  price: number;
-  change?: number;
-  changePct?: number;
-  prevClose?: number;
-  ts?: number;
-  source?: string;
-  [k: string]: unknown;
-}
+export type { ConsensusQuote } from "@/lib/quote-types";
+import type { ConsensusQuote } from "@/lib/quote-types";
 
 const PREFIX = "lq:v1:";
 const MAX_AGE_MS = 48 * 60 * 60 * 1000; // 48h — covers a long weekend
