@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Momentum Options Scanner — Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ── Design tokens ── */
+:root {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card:       #18181b;
+  --border:     #27272a;
+  --muted:      #27272a;
+  --muted-fg:   #71717a;
+  --accent:     #3f3f46;
+  --sidebar:    #111113;
+  --primary:    #10b981;
+  --bull:       #10b981;
+  --bear:       #ef4444;
+  --watch:      #f59e0b;
+  --lotto:      #8b5cf6;
+  --radius:     6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  min-height: 100vh;
+}
+
+.mono {
+  font-family: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
+
+/* ── Sidebar ── */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 224px;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+}
+
+.sidebar-logo {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo-icon {
+  width: 28px; height: 28px;
+  background: rgba(16,185,129,.12);
+  border: 1px solid rgba(16,185,129,.25);
+  border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.logo-dot {
+  width: 10px; height: 10px;
+  background: var(--bull);
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,100% { opacity:1; }
+  50% { opacity: .4; }
+}
+
+.logo-text { font-size: 13px; font-weight: 600; line-height: 1.1; letter-spacing: -.015em; }
+.logo-sub  { font-size: 10px; color: var(--muted-fg); margin-top: 2px; }
+
+.nav-primary { flex: 1; overflow-y: auto; padding: 12px; }
+.nav-group { display: flex; flex-direction: column; gap: 2px; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+  color: var(--muted-fg);
+  text-decoration: none;
+}
+.nav-item:hover { background: rgba(63,63,70,.5); color: var(--foreground); }
+.nav-item.active { background: var(--accent); color: var(--foreground); }
+.nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+.nav-item .chevron { margin-left: auto; opacity: .5; width: 12px; height: 12px; }
+
+/* Market snapshot */
+.market-snap {
+  border-top: 1px solid var(--border);
+  padding: 12px;
+}
+.market-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.market-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted-fg);
+}
+.live-badge {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--bull);
+}
+.live-dot-sm {
+  width: 6px; height: 6px;
+  background: var(--bull);
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+.market-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px;
+  padding: 2px 0;
+}
+.market-sym { font-weight: 500; color: var(--muted-fg); }
+.market-price { font-family: "JetBrains Mono", monospace; font-weight: 600; }
+.market-chg { font-family: "JetBrains Mono", monospace; font-size: 10px; }
+.up { color: var(--bull); }
+.dn { color: var(--bear); }
+
+.regime-pill-sidebar {
+  margin-top: 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  background: rgba(16,185,129,.08);
+  color: var(--bull);
+}
+
+.nav-bottom {
+  border-top: 1px solid var(--border);
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+
+/* ── Main content ── */
+.main {
+  margin-left: 224px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.page {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+/* Page header */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+h1 { font-size: 24px; font-weight: 700; letter-spacing: -.025em; }
+.page-sub { margin-top: 4px; font-size: 13px; color: var(--muted-fg); }
+
+.regime-pill {
+  display: flex; align-items: center; gap: 6px;
+  border-radius: 9999px;
+  padding: 6px 14px;
+  font-size: 13px; font-weight: 600;
+  background: rgba(16,185,129,.08);
+  color: var(--bull);
+}
+
+/* Stat row */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 12px;
+}
+.stat-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+  text-align: center;
+}
+.stat-btn:hover { background: rgba(63,63,70,.4); }
+.stat-btn.active { background: var(--accent); border-color: var(--accent); }
+.stat-num { font-size: 20px; font-weight: 700; font-family: "JetBrains Mono", monospace; }
+.stat-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-fg); }
+.c-buy-now   { color: var(--bull); }
+.c-watchlist { color: #60a5fa; }
+.c-trigger   { color: #38bdf8; }
+.c-agg       { color: var(--watch); }
+.c-lotto     { color: var(--lotto); }
+.c-near      { color: #e879f9; }
+.c-avoid-c   { color: #f97316; }
+.c-avoid-t   { color: var(--bear); }
+
+/* Refresh bar */
+.refresh-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+  font-size: 11px;
+  color: var(--muted-fg);
+}
+.refresh-bar .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bull); animation: pulse-dot 2s ease-in-out infinite; flex-shrink: 0; }
+.refresh-bar .sep { color: var(--border); }
+.refresh-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--muted-fg);
+  font-size: 11px; font-weight: 500;
+  cursor: pointer;
+  transition: border-color .12s, color .12s;
+}
+.refresh-btn:hover { border-color: #52525b; color: var(--foreground); }
+.refresh-btn.primary { border-color: rgba(16,185,129,.4); color: var(--bull); }
+
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.filter-group { display: flex; align-items: center; gap: 6px; }
+.filter-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-fg); }
+.filter-sep { width: 1px; height: 16px; background: var(--border); }
+.filter-pill {
+  padding: 2px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--muted-fg);
+  font-size: 11px; font-weight: 500;
+  cursor: pointer;
+  transition: all .12s;
+}
+.filter-pill:hover { color: var(--foreground); }
+.filter-pill.active { border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.08); color: var(--bull); }
+.filter-right { margin-left: auto; display: flex; align-items: center; gap: 12px; color: var(--muted-fg); font-size: 11px; }
+.filter-select {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--background); color: var(--foreground);
+  font-size: 11px; padding: 3px 8px;
+  cursor: pointer;
+}
+
+/* Trade card grid */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+/* Trade card */
+.trade-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.trade-card:hover {
+  border-color: #52525b;
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+
+.card-accent {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 3px;
+}
+.accent-buy-now   { background: var(--bull); }
+.accent-watchlist { background: #60a5fa; }
+.accent-trigger   { background: #38bdf8; }
+.accent-agg       { background: var(--watch); }
+.accent-lotto     { background: var(--lotto); }
+.accent-near      { background: #e879f9; }
+.accent-avoid-c   { background: #f97316; }
+.accent-avoid-t   { background: var(--bear); }
+
+.card-body { padding: 12px 12px 12px 16px; }
+
+/* Row 1 */
+.card-row1 { display: flex; align-items: center; gap: 8px; }
+.card-ticker { font-family: "JetBrains Mono", monospace; font-size: 15px; font-weight: 700; letter-spacing: -.02em; }
+.card-price  { font-family: "JetBrains Mono", monospace; font-size: 13px; font-weight: 600; margin-left: auto; }
+.card-row2 { margin-top: 4px; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted-fg); }
+.card-setup { font-weight: 500; color: rgba(250,250,250,.6); }
+
+/* Chips */
+.chip {
+  display: inline-flex; align-items: center;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: .04em;
+  border: 1px solid;
+}
+.chip-buy-now   { background: rgba(16,185,129,.12); color: #10b981; border-color: rgba(16,185,129,.3); }
+.chip-watchlist { background: rgba(96,165,250,.12); color: #60a5fa; border-color: rgba(96,165,250,.3); }
+.chip-trigger   { background: rgba(56,189,248,.12); color: #38bdf8; border-color: rgba(56,189,248,.3); }
+.chip-agg       { background: rgba(245,158,11,.12); color: #f59e0b; border-color: rgba(245,158,11,.3); }
+.chip-lotto     { background: rgba(139,92,246,.12); color: #8b5cf6; border-color: rgba(139,92,246,.3); }
+.chip-near      { background: rgba(232,121,249,.12); color: #e879f9; border-color: rgba(232,121,249,.3); }
+.chip-avoid-c   { background: rgba(249,115,22,.12); color: #f97316; border-color: rgba(249,115,22,.3); }
+.chip-avoid-t   { background: rgba(239,68,68,.12); color: #ef4444; border-color: rgba(239,68,68,.3); }
+
+.dir-call { background: rgba(16,185,129,.1); color: #10b981; border-color: rgba(16,185,129,.25); }
+.dir-put  { background: rgba(239,68,68,.1); color: #ef4444; border-color: rgba(239,68,68,.25); }
+
+.score-badge {
+  display: inline-flex; align-items: center;
+  border-radius: 9999px;
+  padding: 1px 7px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px; font-weight: 700;
+  background: rgba(16,185,129,.1); color: var(--bull);
+}
+
+.source-badge {
+  display: inline-flex; align-items: center;
+  border-radius: var(--radius);
+  padding: 1px 5px;
+  font-size: 9px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .06em;
+  background: rgba(63,63,70,.5); color: var(--muted-fg);
+}
+
+/* Contract data grid */
+.data-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px 12px;
+}
+.data-cell { display: flex; flex-direction: column; gap: 1px; }
+.data-k { font-size: 9px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted-fg); }
+.data-v { font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 600; }
+.data-warn { color: var(--bear); }
+
+/* Card footer */
+.card-footer {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.trigger-dot { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted-fg); }
+.tdot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.tdot.active { background: var(--bull); animation: pulse-dot 1.5s ease-in-out infinite; }
+.target-cell { font-size: 11px; color: var(--muted-fg); }
+.target-cell span { font-family: "JetBrains Mono", monospace; font-weight: 600; color: var(--foreground); }
+.details-btn {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--muted-fg);
+  font-size: 11px; font-weight: 500;
+  cursor: pointer;
+  transition: border-color .12s, color .12s;
+}
+.details-btn:hover { border-color: #52525b; color: var(--foreground); }
+
+/* Footer */
+footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted-fg);
+  background: var(--card);
+}
+
+/* ── Tabs (page switcher demo) ── */
+.page-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.page-tab {
+  padding: 5px 14px;
+  border-radius: var(--radius);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+  color: var(--muted-fg);
+  transition: background .12s, color .12s;
+  border: none; background: none;
+}
+.page-tab:hover { background: rgba(63,63,70,.4); color: var(--foreground); }
+.page-tab.active { background: rgba(16,185,129,.1); color: var(--bull); }
+
+/* Scanner page extras */
+.scanner-stat-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+  flex-wrap: wrap;
+}
+.ss-item {
+  display: flex; align-items: center; gap: 5px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all .12s;
+}
+.ss-item:hover { background: rgba(63,63,70,.4); }
+.ss-num { font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 13px; }
+.ss-lbl { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-fg); }
+
+/* Mode switch */
+.mode-switch {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.mode-btn {
+  padding: 4px 12px;
+  font-size: 11px; font-weight: 500;
+  cursor: pointer;
+  color: var(--muted-fg);
+  background: transparent;
+  border: none;
+  transition: background .12s, color .12s;
+}
+.mode-btn.active { background: var(--accent); color: var(--foreground); }
+
+/* Hidden: scanner/watchlist/perf/patterns/settings/api-health pages */
+.page-view { display: none; }
+.page-view.visible { display: flex; }
+
+/* Watchlist empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 80px 24px;
+}
+.empty-icon {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+}
+.empty-icon svg { color: var(--muted-fg); }
+.empty-title { font-weight: 600; }
+.empty-sub { font-size: 13px; color: var(--muted-fg); margin-top: 4px; text-align: center; }
+
+/* API Health table */
+.data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.data-table th {
+  padding: 6px 12px;
+  background: rgba(63,63,70,.25);
+  color: var(--muted-fg);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  text-align: left;
+}
+.data-table td { padding: 6px 12px; border-top: 1px solid var(--border); }
+.data-table tr:hover td { background: rgba(63,63,70,.15); }
+
+/* Settings */
+.settings-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+}
+.settings-row:first-child { border-top: none; }
+.settings-label { font-size: 13px; font-weight: 500; }
+.settings-sub { font-size: 11px; color: var(--muted-fg); margin-top: 2px; }
+.toggle {
+  width: 36px; height: 20px;
+  border-radius: 9999px;
+  background: var(--bull);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: white;
+  transition: transform .2s;
+}
+.toggle.off { background: var(--muted); }
+.toggle.off::after { transform: none; }
+.toggle.on::after { transform: translateX(16px); }
+
+/* Patterns */
+.pattern-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.pattern-card-header { display: flex; align-items: center; justify-content: space-between; }
+.bias-pill {
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+}
+.bias-bull { background: rgba(16,185,129,.12); color: var(--bull); }
+.bias-bear { background: rgba(239,68,68,.12); color: var(--bear); }
+
+/* Performance summary */
+.perf-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+.perf-stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.perf-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted-fg); }
+.perf-value { font-size: 18px; font-weight: 600; font-family: "JetBrains Mono", monospace; margin-top: 4px; }
+.perf-sub { font-size: 11px; color: var(--muted-fg); margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<aside class="sidebar">
+  <!-- Logo -->
+  <div class="sidebar-logo">
+    <div class="logo-icon">
+      <div class="logo-dot"></div>
+    </div>
+    <div>
+      <div class="logo-text">Momentum</div>
+      <div class="logo-sub">Options Scanner</div>
+    </div>
+  </div>
+
+  <!-- Primary nav -->
+  <nav class="nav-primary">
+    <div class="nav-group" id="nav-group">
+      <a class="nav-item active" onclick="showPage('dashboard',this)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" /></svg>
+        Dashboard
+        <svg class="chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+      </a>
+      <a class="nav-item" onclick="showPage('scanner',this)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
+        Scanner
+      </a>
+      <a class="nav-item" onclick="showPage('watchlist',this)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /></svg>
+        Watchlist
+      </a>
+      <a class="nav-item" onclick="showPage('performance',this)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" /></svg>
+        Performance
+      </a>
+      <a class="nav-item" onclick="showPage('patterns',this)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" /></svg>
+        Patterns
+      </a>
+    </div>
+  </nav>
+
+  <!-- Market snapshot -->
+  <div class="market-snap">
+    <div class="market-header">
+      <span class="market-label">Market</span>
+      <span class="live-badge"><span class="live-dot-sm"></span> Live</span>
+    </div>
+    <div class="market-row">
+      <span class="market-sym">SPY</span>
+      <span class="market-price mono">$528.14</span>
+      <span class="market-chg mono up">+0.82%</span>
+    </div>
+    <div class="market-row">
+      <span class="market-sym">QQQ</span>
+      <span class="market-price mono">$452.67</span>
+      <span class="market-chg mono up">+1.14%</span>
+    </div>
+    <div class="market-row">
+      <span class="market-sym">SMH</span>
+      <span class="market-price mono">$248.40</span>
+      <span class="market-chg mono dn">−0.31%</span>
+    </div>
+    <div class="regime-pill-sidebar">Risk-on</div>
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="nav-bottom">
+    <a class="nav-item" onclick="showPage('settings',this)">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+      Settings
+    </a>
+    <a class="nav-item" onclick="showPage('apihealth',this)">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" /></svg>
+      API Health
+    </a>
+  </div>
+</aside>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<main class="main">
+
+  <!-- ── DASHBOARD PAGE ── -->
+  <div id="page-dashboard" class="page page-view visible" style="display:flex; flex-direction:column; gap:20px;">
+
+    <div class="page-header">
+      <div>
+        <h1>Dashboard</h1>
+        <p class="page-sub">Bull flag momentum bias · Full scan every 10m</p>
+      </div>
+      <div class="regime-pill">
+        <svg style="width:14px;height:14px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" /></svg>
+        Risk-on
+      </div>
+    </div>
+
+    <!-- Stat row -->
+    <div class="stat-row">
+      <button class="stat-btn active">
+        <span class="stat-num c-buy-now">3</span>
+        <span class="stat-lbl">Buy Now</span>
+      </button>
+      <button class="stat-btn">
+        <span class="stat-num c-watchlist">5</span>
+        <span class="stat-lbl">Watchlist</span>
+      </button>
+      <button class="stat-btn">
+        <span class="stat-num c-trigger">4</span>
+        <span class="stat-lbl">On Trigger</span>
+      </button>
+      <button class="stat-btn">
+        <span class="stat-num c-agg">2</span>
+        <span class="stat-lbl">Aggressive</span>
+      </button>
+      <button class="stat-btn">
+        <span class="stat-num c-lotto">6</span>
+        <span class="stat-lbl">Lotto</span>
+      </button>
+      <button class="stat-btn">
+        <span class="stat-num c-near">3</span>
+        <span class="stat-lbl">Near Miss</span>
+      </button>
+      <button class="stat-btn">
+        <span class="stat-num c-avoid-c">2</span>
+        <span class="stat-lbl">Avoid Contract</span>
+      </button>
+      <button class="stat-btn">
+        <span class="stat-num c-avoid-t">4</span>
+        <span class="stat-lbl">Avoid Ticker</span>
+      </button>
+    </div>
+
+    <!-- Refresh bar -->
+    <div class="refresh-bar">
+      <div class="dot"></div>
+      <span>Scan 2m ago</span>
+      <span class="sep">·</span>
+      <span>Next in 8m</span>
+      <span class="sep">·</span>
+      <span>Quotes live</span>
+      <span style="margin-left:auto;display:flex;gap:8px;">
+        <button class="refresh-btn primary">
+          <svg style="width:11px;height:11px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" /></svg>
+          Scan Now
+        </button>
+        <button class="refresh-btn">
+          <svg style="width:11px;height:11px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+          Refresh Quotes
+        </button>
+        <button class="refresh-btn">⏸ Pause</button>
+      </span>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-lbl">Dir</span>
+        <button class="filter-pill active">ALL</button>
+        <button class="filter-pill">CALL</button>
+        <button class="filter-pill">PUT</button>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-lbl">Setup</span>
+        <select class="filter-select">
+          <option>All setups</option>
+          <option>Bull Flag</option>
+          <option>Breakout</option>
+          <option>LEAPS</option>
+        </select>
+      </div>
+      <div class="filter-right">
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+          <input type="checkbox" checked style="accent-color:var(--bull);" />
+          Hide avoids
+        </label>
+        <span>17 of 29</span>
+      </div>
+    </div>
+
+    <!-- Trade cards -->
+    <div class="card-grid">
+
+      <!-- Card 1 — Buy Now -->
+      <div class="trade-card">
+        <div class="card-accent accent-buy-now"></div>
+        <div class="card-body">
+          <div class="card-row1">
+            <span class="card-ticker mono">NVDA</span>
+            <span class="chip dir-call">CALL</span>
+            <span class="chip chip-buy-now">Buy Now</span>
+            <span class="source-badge" style="margin-left:auto;">Demo</span>
+            <span class="score-badge">87</span>
+            <span class="card-price mono">$874.20</span>
+          </div>
+          <div class="card-row2">
+            <span class="card-setup">Bull Flag</span>
+            <span>·</span>
+            <span>Consolidation breakout above $870 with volume surge</span>
+          </div>
+          <div class="data-grid">
+            <div class="data-cell"><span class="data-k">EXP</span><span class="data-v mono">Jun 20</span></div>
+            <div class="data-cell"><span class="data-k">STRIKE</span><span class="data-v mono">$880</span></div>
+            <div class="data-cell"><span class="data-k">ASK</span><span class="data-v mono">$14.80</span></div>
+            <div class="data-cell"><span class="data-k">COST</span><span class="data-v mono">$1480</span></div>
+            <div class="data-cell"><span class="data-k">DTE</span><span class="data-v mono">41d</span></div>
+            <div class="data-cell"><span class="data-k">Δ</span><span class="data-v mono">0.38</span></div>
+            <div class="data-cell"><span class="data-k">IV</span><span class="data-v mono">44%</span></div>
+            <div class="data-cell"><span class="data-k">BE+</span><span class="data-v mono">6.8%</span></div>
+            <div class="data-cell"><span class="data-k">VOL</span><span class="data-v mono">8.2K</span></div>
+            <div class="data-cell"><span class="data-k">OI</span><span class="data-v mono">42.1K</span></div>
+            <div class="data-cell"><span class="data-k">SPRD</span><span class="data-v mono">3.2%</span></div>
+            <div class="data-cell"><span class="data-k">θ/d</span><span class="data-v mono">2.1%</span></div>
+          </div>
+          <div class="card-footer">
+            <div class="trigger-dot"><div class="tdot active"></div>Triggered</div>
+            <div class="target-cell">T1 <span>$895</span></div>
+            <div class="target-cell">T2 <span>$920</span></div>
+            <button class="details-btn">Details →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2 — Watchlist -->
+      <div class="trade-card">
+        <div class="card-accent accent-watchlist"></div>
+        <div class="card-body">
+          <div class="card-row1">
+            <span class="card-ticker mono">TSLA</span>
+            <span class="chip dir-call">CALL</span>
+            <span class="chip chip-watchlist">Watchlist</span>
+            <span class="source-badge" style="margin-left:auto;">Demo</span>
+            <span class="score-badge" style="background:rgba(96,165,250,.1);color:#60a5fa;">74</span>
+            <span class="card-price mono">$172.40</span>
+          </div>
+          <div class="card-row2">
+            <span class="card-setup">Breakout</span>
+            <span>·</span>
+            <span>Cup-and-handle forming — wait for $175 reclaim</span>
+          </div>
+          <div class="data-grid">
+            <div class="data-cell"><span class="data-k">EXP</span><span class="data-v mono">Jun 6</span></div>
+            <div class="data-cell"><span class="data-k">STRIKE</span><span class="data-v mono">$175</span></div>
+            <div class="data-cell"><span class="data-k">ASK</span><span class="data-v mono">$5.20</span></div>
+            <div class="data-cell"><span class="data-k">COST</span><span class="data-v mono">$520</span></div>
+            <div class="data-cell"><span class="data-k">DTE</span><span class="data-v mono">27d</span></div>
+            <div class="data-cell"><span class="data-k">Δ</span><span class="data-v mono">0.35</span></div>
+            <div class="data-cell"><span class="data-k">IV</span><span class="data-v mono">68%</span></div>
+            <div class="data-cell"><span class="data-k">BE+</span><span class="data-v mono">4.5%</span></div>
+            <div class="data-cell"><span class="data-k">VOL</span><span class="data-v mono">12.4K</span></div>
+            <div class="data-cell"><span class="data-k">OI</span><span class="data-v mono">38.2K</span></div>
+            <div class="data-cell"><span class="data-k">SPRD</span><span class="data-v mono">5.8%</span></div>
+            <div class="data-cell"><span class="data-k">θ/d</span><span class="data-v mono">3.4%</span></div>
+          </div>
+          <div class="card-footer">
+            <div class="trigger-dot"><div class="tdot"></div>Waiting</div>
+            <div class="target-cell">T1 <span>$182</span></div>
+            <div class="target-cell">T2 <span>$195</span></div>
+            <button class="details-btn">Details →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3 — Lotto -->
+      <div class="trade-card">
+        <div class="card-accent accent-lotto"></div>
+        <div class="card-body">
+          <div class="card-row1">
+            <span class="card-ticker mono">PLTR</span>
+            <span class="chip dir-call">CALL</span>
+            <span class="chip chip-lotto">Lotto</span>
+            <span class="source-badge" style="margin-left:auto;">Demo</span>
+            <span class="score-badge" style="background:rgba(139,92,246,.1);color:#8b5cf6;">61</span>
+            <span class="card-price mono">$24.80</span>
+          </div>
+          <div class="card-row2">
+            <span class="card-setup">Reddit YOLO</span>
+            <span>·</span>
+            <span>High retail interest, elevated IV — high-risk lottery play</span>
+          </div>
+          <div class="data-grid">
+            <div class="data-cell"><span class="data-k">EXP</span><span class="data-v mono">May 17</span></div>
+            <div class="data-cell"><span class="data-k">STRIKE</span><span class="data-v mono">$26</span></div>
+            <div class="data-cell"><span class="data-k">ASK</span><span class="data-v mono">$0.48</span></div>
+            <div class="data-cell"><span class="data-k">COST</span><span class="data-v mono">$48</span></div>
+            <div class="data-cell"><span class="data-k">DTE</span><span class="data-v mono">7d</span></div>
+            <div class="data-cell"><span class="data-k">Δ</span><span class="data-v mono">0.22</span></div>
+            <div class="data-cell"><span class="data-k">IV</span><span class="data-v mono">112%</span></div>
+            <div class="data-cell"><span class="data-k">BE+</span><span class="data-v mono" style="color:var(--bear)">9.6%</span></div>
+            <div class="data-cell"><span class="data-k">VOL</span><span class="data-v mono">4.8K</span></div>
+            <div class="data-cell"><span class="data-k">OI</span><span class="data-v mono">18.4K</span></div>
+            <div class="data-cell"><span class="data-k">SPRD</span><span class="data-v mono" style="color:var(--bear)">18.4%</span></div>
+            <div class="data-cell"><span class="data-k">θ/d</span><span class="data-v mono">8.2%</span></div>
+          </div>
+          <div class="card-footer">
+            <div class="trigger-dot"><div class="tdot"></div>Waiting</div>
+            <div class="target-cell">T1 <span>$28</span></div>
+            <span style="margin-left:auto;font-size:10px;color:rgba(239,68,68,.7);">⚠ Wide spread</span>
+            <button class="details-btn">Details →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4 — Aggressive -->
+      <div class="trade-card">
+        <div class="card-accent accent-agg"></div>
+        <div class="card-body">
+          <div class="card-row1">
+            <span class="card-ticker mono">AMD</span>
+            <span class="chip dir-call">CALL</span>
+            <span class="chip chip-agg">Aggressive</span>
+            <span class="source-badge" style="margin-left:auto;">Demo</span>
+            <span class="score-badge" style="background:rgba(245,158,11,.1);color:#f59e0b;">69</span>
+            <span class="card-price mono">$162.80</span>
+          </div>
+          <div class="card-row2">
+            <span class="card-setup">Momentum Swing</span>
+            <span>·</span>
+            <span>Strong sector tailwinds — entry timing aggressive</span>
+          </div>
+          <div class="data-grid">
+            <div class="data-cell"><span class="data-k">EXP</span><span class="data-v mono">Jun 20</span></div>
+            <div class="data-cell"><span class="data-k">STRIKE</span><span class="data-v mono">$170</span></div>
+            <div class="data-cell"><span class="data-k">ASK</span><span class="data-v mono">$4.60</span></div>
+            <div class="data-cell"><span class="data-k">COST</span><span class="data-v mono">$460</span></div>
+            <div class="data-cell"><span class="data-k">DTE</span><span class="data-v mono">41d</span></div>
+            <div class="data-cell"><span class="data-k">Δ</span><span class="data-v mono">0.31</span></div>
+            <div class="data-cell"><span class="data-k">IV</span><span class="data-v mono">52%</span></div>
+            <div class="data-cell"><span class="data-k">BE+</span><span class="data-v mono">7.2%</span></div>
+            <div class="data-cell"><span class="data-k">VOL</span><span class="data-v mono">6.1K</span></div>
+            <div class="data-cell"><span class="data-k">OI</span><span class="data-v mono">22.8K</span></div>
+            <div class="data-cell"><span class="data-k">SPRD</span><span class="data-v mono">4.6%</span></div>
+            <div class="data-cell"><span class="data-k">θ/d</span><span class="data-v mono">2.8%</span></div>
+          </div>
+          <div class="card-footer">
+            <div class="trigger-dot"><div class="tdot"></div>Waiting</div>
+            <div class="target-cell">T1 <span>$178</span></div>
+            <div class="target-cell">T2 <span>$188</span></div>
+            <button class="details-btn">Details →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 5 — Waiting on Trigger -->
+      <div class="trade-card">
+        <div class="card-accent accent-trigger"></div>
+        <div class="card-body">
+          <div class="card-row1">
+            <span class="card-ticker mono">META</span>
+            <span class="chip dir-call">CALL</span>
+            <span class="chip chip-trigger">Waiting on Trigger</span>
+            <span class="source-badge" style="margin-left:auto;">Demo</span>
+            <span class="score-badge" style="background:rgba(56,189,248,.1);color:#38bdf8;">77</span>
+            <span class="card-price mono">$488.60</span>
+          </div>
+          <div class="card-row2">
+            <span class="card-setup">Bull Flag</span>
+            <span>·</span>
+            <span>Needs $492 reclaim before entry — trigger not yet fired</span>
+          </div>
+          <div class="data-grid">
+            <div class="data-cell"><span class="data-k">EXP</span><span class="data-v mono">Jun 6</span></div>
+            <div class="data-cell"><span class="data-k">STRIKE</span><span class="data-v mono">$495</span></div>
+            <div class="data-cell"><span class="data-k">ASK</span><span class="data-v mono">$9.40</span></div>
+            <div class="data-cell"><span class="data-k">COST</span><span class="data-v mono">$940</span></div>
+            <div class="data-cell"><span class="data-k">DTE</span><span class="data-v mono">27d</span></div>
+            <div class="data-cell"><span class="data-k">Δ</span><span class="data-v mono">0.36</span></div>
+            <div class="data-cell"><span class="data-k">IV</span><span class="data-v mono">38%</span></div>
+            <div class="data-cell"><span class="data-k">BE+</span><span class="data-v mono">4.2%</span></div>
+            <div class="data-cell"><span class="data-k">VOL</span><span class="data-v mono">3.4K</span></div>
+            <div class="data-cell"><span class="data-k">OI</span><span class="data-v mono">19.6K</span></div>
+            <div class="data-cell"><span class="data-k">SPRD</span><span class="data-v mono">2.9%</span></div>
+            <div class="data-cell"><span class="data-k">θ/d</span><span class="data-v mono">1.9%</span></div>
+          </div>
+          <div class="card-footer">
+            <div class="trigger-dot"><div class="tdot"></div>Waiting for $492</div>
+            <div class="target-cell">T1 <span>$512</span></div>
+            <div class="target-cell">T2 <span>$530</span></div>
+            <button class="details-btn">Details →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 6 — Near Miss -->
+      <div class="trade-card">
+        <div class="card-accent accent-near"></div>
+        <div class="card-body">
+          <div class="card-row1">
+            <span class="card-ticker mono">COIN</span>
+            <span class="chip dir-call">CALL</span>
+            <span class="chip chip-near">Near Miss</span>
+            <span class="source-badge" style="margin-left:auto;">Demo</span>
+            <span class="score-badge" style="background:rgba(232,121,249,.1);color:#e879f9;">58</span>
+            <span class="card-price mono">$214.40</span>
+          </div>
+          <div class="card-row2">
+            <span class="card-setup">Momentum Swing</span>
+            <span>·</span>
+            <span>Almost qualifies — spread too wide, monitor for improvement</span>
+          </div>
+          <div class="data-grid">
+            <div class="data-cell"><span class="data-k">EXP</span><span class="data-v mono">Jun 6</span></div>
+            <div class="data-cell"><span class="data-k">STRIKE</span><span class="data-v mono">$220</span></div>
+            <div class="data-cell"><span class="data-k">ASK</span><span class="data-v mono">$7.20</span></div>
+            <div class="data-cell"><span class="data-k">COST</span><span class="data-v mono">$720</span></div>
+            <div class="data-cell"><span class="data-k">DTE</span><span class="data-v mono">27d</span></div>
+            <div class="data-cell"><span class="data-k">Δ</span><span class="data-v mono">0.32</span></div>
+            <div class="data-cell"><span class="data-k">IV</span><span class="data-v mono">84%</span></div>
+            <div class="data-cell"><span class="data-k">BE+</span><span class="data-v mono">6.1%</span></div>
+            <div class="data-cell"><span class="data-k">VOL</span><span class="data-v mono">2.1K</span></div>
+            <div class="data-cell"><span class="data-k">OI</span><span class="data-v mono">9.8K</span></div>
+            <div class="data-cell"><span class="data-k">SPRD</span><span class="data-v mono" style="color:var(--bear)">16.2%</span></div>
+            <div class="data-cell"><span class="data-k">θ/d</span><span class="data-v mono">4.1%</span></div>
+          </div>
+          <div class="card-footer">
+            <div class="trigger-dot"><div class="tdot"></div>Waiting</div>
+            <div class="target-cell">T1 <span>$235</span></div>
+            <span style="margin-left:auto;font-size:10px;color:rgba(239,68,68,.7);">⚠ Spread 16%</span>
+            <button class="details-btn">Details →</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /card-grid -->
+  </div><!-- /dashboard -->
+
+  <!-- ── SCANNER PAGE ── -->
+  <div id="page-scanner" class="page page-view" style="display:none; flex-direction:column; gap:20px;">
+    <div class="page-header">
+      <div>
+        <h1>Scanner</h1>
+        <p class="page-sub">58 tickers · 4 groups · Strict mode</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div class="mode-switch">
+          <button class="mode-btn active">Strict</button>
+          <button class="mode-btn">Balanced</button>
+          <button class="mode-btn">Discovery</button>
+        </div>
+        <div class="mode-switch">
+          <button class="mode-btn active">
+            <svg style="width:12px;height:12px;display:inline;margin-right:3px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" /></svg>
+            Cards
+          </button>
+          <button class="mode-btn">Table</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stat strip -->
+    <div class="scanner-stat-strip">
+      <div class="ss-item">
+        <span class="ss-num c-buy-now">3</span>
+        <span class="ss-lbl">Buy Now</span>
+      </div>
+      <div class="ss-item">
+        <span class="ss-num c-watchlist">5</span>
+        <span class="ss-lbl">Watchlist</span>
+      </div>
+      <div class="ss-item">
+        <span class="ss-num c-trigger">4</span>
+        <span class="ss-lbl">Trigger</span>
+      </div>
+      <div class="ss-item">
+        <span class="ss-num c-agg">2</span>
+        <span class="ss-lbl">Aggressive</span>
+      </div>
+      <div class="ss-item">
+        <span class="ss-num c-lotto">6</span>
+        <span class="ss-lbl">Lotto</span>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+        <button class="refresh-btn">
+          <svg style="width:11px;height:11px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" /></svg>
+          Filters
+        </button>
+        <button class="refresh-btn primary">Scan Now</button>
+      </div>
+    </div>
+
+    <!-- Universe group pills -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-fg);display:flex;align-items:center;margin-right:4px;">Groups</span>
+      <button class="filter-pill active">Mega/Large (18)</button>
+      <button class="filter-pill active">ETFs (10)</button>
+      <button class="filter-pill active">Mid Momentum (16)</button>
+      <button class="filter-pill active">YOLO/Reddit (14)</button>
+    </div>
+
+    <!-- DTE bucket section header -->
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-fg);">Short-term Swing</span>
+        <span style="font-size:10px;color:var(--muted-fg);">14–30 DTE</span>
+        <div style="flex:1;height:1px;background:var(--border);"></div>
+        <span style="font-size:10px;color:var(--muted-fg);">6 picks</span>
+      </div>
+      <div class="card-grid">
+        <div class="trade-card">
+          <div class="card-accent accent-buy-now"></div>
+          <div class="card-body">
+            <div class="card-row1">
+              <span class="card-ticker mono">AAPL</span>
+              <span class="chip dir-call">CALL</span>
+              <span class="chip chip-buy-now">Buy Now</span>
+              <span class="source-badge" style="margin-left:auto;">Demo</span>
+              <span class="score-badge">83</span>
+              <span class="card-price mono">$187.40</span>
+            </div>
+            <div class="card-row2"><span class="card-setup">Bull Flag</span><span>·</span><span>ATH breakout setup</span></div>
+            <div class="data-grid">
+              <div class="data-cell"><span class="data-k">EXP</span><span class="data-v mono">May 31</span></div>
+              <div class="data-cell"><span class="data-k">STRIKE</span><span class="data-v mono">$190</span></div>
+              <div class="data-cell"><span class="data-k">ASK</span><span class="data-v mono">$3.20</span></div>
+              <div class="data-cell"><span class="data-k">COST</span><span class="data-v mono">$320</span></div>
+              <div class="data-cell"><span class="data-k">DTE</span><span class="data-v mono">21d</span></div>
+              <div class="data-cell"><span class="data-k">Δ</span><span class="data-v mono">0.33</span></div>
+              <div class="data-cell"><span class="data-k">IV</span><span class="data-v mono">28%</span></div>
+              <div class="data-cell"><span class="data-k">BE+</span><span class="data-v mono">3.1%</span></div>
+              <div class="data-cell"><span class="data-k">VOL</span><span class="data-v mono">24.1K</span></div>
+              <div class="data-cell"><span class="data-k">OI</span><span class="data-v mono">88.4K</span></div>
+              <div class="data-cell"><span class="data-k">SPRD</span><span class="data-v mono">2.1%</span></div>
+              <div class="data-cell"><span class="data-k">θ/d</span><span class="data-v mono">2.8%</span></div>
+            </div>
+            <div class="card-footer">
+              <div class="trigger-dot"><div class="tdot active"></div>Triggered</div>
+              <div class="target-cell">T1 <span>$196</span></div>
+              <button class="details-btn">Details →</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="trade-card">
+          <div class="card-accent accent-watchlist"></div>
+          <div class="card-body">
+            <div class="card-row1">
+              <span class="card-ticker mono">MSFT</span>
+              <span class="chip dir-call">CALL</span>
+              <span class="chip chip-watchlist">Watchlist</span>
+              <span class="source-badge" style="margin-left:auto;">Demo</span>
+              <span class="score-badge" style="background:rgba(96,165,250,.1);color:#60a5fa;">72</span>
+              <span class="card-price mono">$412.80</span>
+            </div>
+            <div class="card-row2"><span class="card-setup">Momentum Swing</span><span>·</span><span>Cloud segment re-rating</span></div>
+            <div class="data-grid">
+              <div class="data-cell"><span class="data-k">EXP</span><span class="data-v mono">May 31</span></div>
+              <div class="data-cell"><span class="data-k">STRIKE</span><span class="data-v mono">$420</span></div>
+              <div class="data-cell"><span class="data-k">ASK</span><span class="data-v mono">$4.80</span></div>
+              <div class="data-cell"><span class="data-k">COST</span><span class="data-v mono">$480</span></div>
+              <div class="data-cell"><span class="data-k">DTE</span><span class="data-v mono">21d</span></div>
+              <div class="data-cell"><span class="data-k">Δ</span><span class="data-v mono">0.34</span></div>
+              <div class="data-cell"><span class="data-k">IV</span><span class="data-v mono">24%</span></div>
+              <div class="data-cell"><span class="data-k">BE+</span><span class="data-v mono">2.9%</span></div>
+              <div class="data-cell"><span class="data-k">VOL</span><span class="data-v mono">11.2K</span></div>
+              <div class="data-cell"><span class="data-k">OI</span><span class="data-v mono">44.8K</span></div>
+              <div class="data-cell"><span class="data-k">SPRD</span><span class="data-v mono">2.4%</span></div>
+              <div class="data-cell"><span class="data-k">θ/d</span><span class="data-v mono">2.2%</span></div>
+            </div>
+            <div class="card-footer">
+              <div class="trigger-dot"><div class="tdot"></div>Waiting</div>
+              <div class="target-cell">T1 <span>$432</span></div>
+              <button class="details-btn">Details →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /scanner -->
+
+  <!-- ── WATCHLIST PAGE ── -->
+  <div id="page-watchlist" class="page page-view" style="display:none; flex-direction:column; gap:20px;">
+    <div class="page-header">
+      <div>
+        <h1>Watchlist</h1>
+        <p class="page-sub">Save candidates and track whether the trigger fired.</p>
+      </div>
+      <button class="refresh-btn" style="opacity:.5;cursor:not-allowed;">
+        <svg style="width:13px;height:13px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+        Add ticker
+      </button>
+    </div>
+    <div class="empty-state">
+      <div class="empty-icon">
+        <svg style="width:24px;height:24px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /></svg>
+      </div>
+      <div>
+        <p class="empty-title">No saved candidates yet</p>
+        <p class="empty-sub">Open any trade from the Scanner and save it to your watchlist.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PERFORMANCE PAGE ── -->
+  <div id="page-performance" class="page page-view" style="display:none; flex-direction:column; gap:20px;">
+    <div class="page-header">
+      <div>
+        <h1>Performance</h1>
+        <p class="page-sub">AI-graded scanner picks, setup analytics, and rule-improvement suggestions.</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="refresh-btn">Export CSV</button>
+        <button class="refresh-btn primary">Generate Scanner Improvements</button>
+      </div>
+    </div>
+    <div style="border-radius:var(--radius);border:1px solid rgba(245,158,11,.25);background:rgba(245,158,11,.04);padding:8px 12px;font-size:11px;color:#fbbf24;">
+      ⚠ Past scanner performance does not guarantee future results. Options are high risk. Demo data shown for illustration.
+    </div>
+    <div class="perf-stat-grid">
+      <div class="perf-stat-card"><div class="perf-label">Tracked picks</div><div class="perf-value mono">24</div></div>
+      <div class="perf-stat-card"><div class="perf-label">Win rate</div><div class="perf-value mono" style="color:var(--bull)">62.5%</div></div>
+      <div class="perf-stat-card"><div class="perf-label">Avg return</div><div class="perf-value mono" style="color:var(--bull)">+18.4%</div></div>
+      <div class="perf-stat-card"><div class="perf-label">Median return</div><div class="perf-value mono" style="color:var(--bull)">+12.1%</div></div>
+      <div class="perf-stat-card"><div class="perf-label">Best trade</div><div class="perf-value mono" style="color:var(--bull)">+142%</div></div>
+      <div class="perf-stat-card"><div class="perf-label">Worst trade</div><div class="perf-value mono" style="color:var(--bear)">−84%</div></div>
+      <div class="perf-stat-card"><div class="perf-label">Avg MFE</div><div class="perf-value mono">34.2%</div></div>
+      <div class="perf-stat-card"><div class="perf-label">Avg MAE</div><div class="perf-value mono" style="color:var(--bear)">−21.8%</div></div>
+      <div class="perf-stat-card"><div class="perf-label">Score · Winners</div><div class="perf-value mono">81.4</div></div>
+      <div class="perf-stat-card"><div class="perf-label">Score · Losers</div><div class="perf-value mono">67.2</div></div>
+      <div class="perf-stat-card"><div class="perf-label">Best setup</div><div class="perf-value" style="font-size:13px;">Bull Flag</div></div>
+      <div class="perf-stat-card"><div class="perf-label">Best regime</div><div class="perf-value" style="font-size:13px;color:var(--bull)">Risk-on</div></div>
+    </div>
+    <!-- Picks table preview -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;">Recent Picks</div>
+      <div style="overflow-x:auto;">
+        <table class="data-table" style="min-width:800px;">
+          <thead>
+            <tr>
+              <th>Date</th><th>Ticker</th><th>Setup</th><th>Label</th>
+              <th style="text-align:right">Score</th><th style="text-align:right">Δ</th>
+              <th style="text-align:right">DTE</th><th style="text-align:right">Final</th>
+              <th style="text-align:right">MFE</th><th>Grade</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="color:var(--muted-fg)">2026-05-09</td>
+              <td style="font-weight:700;" class="mono">NVDA</td>
+              <td>Bull Flag</td>
+              <td><span class="chip chip-buy-now">Buy Now</span></td>
+              <td style="text-align:right;" class="mono">87</td><td style="text-align:right;" class="mono">0.38</td>
+              <td style="text-align:right;" class="mono">41</td>
+              <td style="text-align:right;font-weight:600;color:var(--bull);" class="mono">+48.2%</td>
+              <td style="text-align:right;" class="mono">62%</td>
+              <td><span class="chip" style="background:rgba(16,185,129,.1);color:var(--bull);border-color:rgba(16,185,129,.3);">A</span></td>
+            </tr>
+            <tr>
+              <td style="color:var(--muted-fg)">2026-05-08</td>
+              <td style="font-weight:700;" class="mono">TSLA</td>
+              <td>Breakout</td>
+              <td><span class="chip chip-watchlist">Watchlist</span></td>
+              <td style="text-align:right;" class="mono">74</td><td style="text-align:right;" class="mono">0.35</td>
+              <td style="text-align:right;" class="mono">27</td>
+              <td style="text-align:right;font-weight:600;color:var(--bear);" class="mono">−32.1%</td>
+              <td style="text-align:right;" class="mono">18%</td>
+              <td><span class="chip" style="background:rgba(239,68,68,.1);color:var(--bear);border-color:rgba(239,68,68,.3);">D</span></td>
+            </tr>
+            <tr>
+              <td style="color:var(--muted-fg)">2026-05-07</td>
+              <td style="font-weight:700;" class="mono">AAPL</td>
+              <td>Bull Flag</td>
+              <td><span class="chip chip-buy-now">Buy Now</span></td>
+              <td style="text-align:right;" class="mono">83</td><td style="text-align:right;" class="mono">0.33</td>
+              <td style="text-align:right;" class="mono">21</td>
+              <td style="text-align:right;font-weight:600;color:var(--bull);" class="mono">+24.8%</td>
+              <td style="text-align:right;" class="mono">38%</td>
+              <td><span class="chip" style="background:rgba(16,185,129,.1);color:var(--bull);border-color:rgba(16,185,129,.3);">B</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PATTERNS PAGE ── -->
+  <div id="page-patterns" class="page page-view" style="display:none; flex-direction:column; gap:20px;">
+    <div class="page-header">
+      <div>
+        <h1>Patterns</h1>
+        <p class="page-sub">Daily chart-pattern detection + behavioral seasonality on 25 symbols.</p>
+      </div>
+      <span class="chip" style="background:rgba(16,185,129,.08);color:var(--bull);border-color:rgba(16,185,129,.25);padding:4px 10px;">
+        <span class="live-dot-sm" style="display:inline-block;margin-right:4px;"></span> Live
+      </span>
+    </div>
+    <!-- Bias filters -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <input placeholder="Filter by symbol…" style="border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:12px;padding:5px 12px;width:200px;" />
+      <button class="filter-pill active">All</button>
+      <button class="filter-pill" style="border-color:rgba(16,185,129,.3);color:var(--bull);background:rgba(16,185,129,.08);">Bullish</button>
+      <button class="filter-pill" style="border-color:rgba(239,68,68,.3);color:var(--bear);background:rgba(239,68,68,.08);">Bearish</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+      <div class="pattern-card">
+        <div class="pattern-card-header">
+          <span style="font-size:15px;font-weight:700;" class="mono">NVDA</span>
+          <span class="bias-pill bias-bull">Bullish</span>
+        </div>
+        <div style="margin-top:4px;font-size:13px;">Bull Flag</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
+          <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-fg);">Confidence</div><div style="font-family:monospace;font-size:13px;font-weight:600;">88%</div></div>
+          <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-fg);">Trigger</div><div style="font-family:monospace;font-size:13px;font-weight:600;">$870.00</div></div>
+          <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-fg);">Target</div><div style="font-family:monospace;font-size:13px;font-weight:600;">$920.00</div></div>
+        </div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-card-header">
+          <span style="font-size:15px;font-weight:700;" class="mono">TSLA</span>
+          <span class="bias-pill bias-bear">Bearish</span>
+        </div>
+        <div style="margin-top:4px;font-size:13px;">Head & Shoulders</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
+          <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-fg);">Confidence</div><div style="font-family:monospace;font-size:13px;font-weight:600;">72%</div></div>
+          <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-fg);">Trigger</div><div style="font-family:monospace;font-size:13px;font-weight:600;">$168.00</div></div>
+          <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-fg);">Target</div><div style="font-family:monospace;font-size:13px;font-weight:600;">$148.00</div></div>
+        </div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-card-header">
+          <span style="font-size:15px;font-weight:700;" class="mono">AAPL</span>
+          <span class="bias-pill bias-bull">Bullish</span>
+        </div>
+        <div style="margin-top:4px;font-size:13px;">Cup and Handle</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
+          <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-fg);">Confidence</div><div style="font-family:monospace;font-size:13px;font-weight:600;">81%</div></div>
+          <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-fg);">Trigger</div><div style="font-family:monospace;font-size:13px;font-weight:600;">$189.50</div></div>
+          <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-fg);">Target</div><div style="font-family:monospace;font-size:13px;font-weight:600;">$204.00</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SETTINGS PAGE ── -->
+  <div id="page-settings" class="page page-view" style="display:none; flex-direction:column; gap:20px;">
+    <div>
+      <h1>Settings</h1>
+      <p class="page-sub">Scanner configuration, universe groups, and display preferences.</p>
+    </div>
+    <div class="settings-section">
+      <div class="settings-row" style="border-top:none;padding:12px 16px;background:rgba(63,63,70,.2);">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-fg);">Scanner</span>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Extended Swing (31–45 DTE)</div><div class="settings-sub">Allow extended swing trades in discipline gate</div></div>
+        <div class="toggle on"></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Auto-refresh scan</div><div class="settings-sub">Automatically run full scan on interval</div></div>
+        <div class="toggle on"></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Full scan interval</div><div class="settings-sub">How often the option chain scan runs</div></div>
+        <select class="filter-select"><option>10 minutes</option><option>5 minutes</option><option>15 minutes</option></select>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-row" style="border-top:none;padding:12px 16px;background:rgba(63,63,70,.2);">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-fg);">Universe Groups</span>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Mega/Large (18 tickers)</div><div class="settings-sub">NVDA, MSFT, AAPL, AMZN, META, GOOGL…</div></div>
+        <div class="toggle on"></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">ETFs (10 tickers)</div><div class="settings-sub">SPY, QQQ, IWM, SMH, SOXX, XLE…</div></div>
+        <div class="toggle on"></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Mid Momentum (16 tickers)</div><div class="settings-sub">PLTR, COIN, HOOD, RBLX, SOFI…</div></div>
+        <div class="toggle on"></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">YOLO/Reddit (14 tickers)</div><div class="settings-sub">GME, RIVN, LCID, MARA, RIOT…</div></div>
+        <div class="toggle off"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── API HEALTH PAGE ── -->
+  <div id="page-apihealth" class="page page-view" style="display:none; flex-direction:column; gap:20px;">
+    <div class="page-header">
+      <div>
+        <h1>API Health</h1>
+        <p class="page-sub">Massive and chain request audit trail with cache, retry, and rate-limit status.</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="refresh-btn primary">Refresh</button>
+        <button class="refresh-btn">Clear</button>
+      </div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+      <div style="overflow-x:auto;">
+        <table class="data-table" style="min-width:1100px;">
+          <thead>
+            <tr>
+              <th>Time</th><th>Method</th><th>Endpoint / URL</th><th>Ticker</th>
+              <th style="text-align:right">Status</th><th style="text-align:right">Retry-After</th>
+              <th style="text-align:right">Latency</th><th style="text-align:right">Cached</th>
+              <th style="text-align:right">Retries</th><th style="text-align:right">Rate limited</th><th>Error</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="color:var(--muted-fg);" class="mono">14:32:18</td>
+              <td style="font-weight:600;" class="mono">GET</td>
+              <td style="max-width:280px;"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">/chains/NVDA</div></td>
+              <td style="font-weight:600;" class="mono">NVDA</td>
+              <td style="text-align:right;color:var(--bull);" class="mono">200 <span style="font-size:9px;color:var(--muted-fg);">OK</span></td>
+              <td style="text-align:right;color:var(--muted-fg);" class="mono">—</td>
+              <td style="text-align:right;color:var(--muted-fg);" class="mono">284ms</td>
+              <td style="text-align:right;" class="mono">false</td>
+              <td style="text-align:right;" class="mono">0</td>
+              <td style="text-align:right;color:var(--muted-fg);" class="mono">false</td>
+              <td style="color:var(--muted-fg);">—</td>
+            </tr>
+            <tr>
+              <td style="color:var(--muted-fg);" class="mono">14:32:14</td>
+              <td style="font-weight:600;" class="mono">GET</td>
+              <td><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">/quote/TSLA</div></td>
+              <td style="font-weight:600;" class="mono">TSLA</td>
+              <td style="text-align:right;color:var(--bull);" class="mono">200</td>
+              <td style="text-align:right;color:var(--muted-fg);" class="mono">—</td>
+              <td style="text-align:right;color:var(--muted-fg);" class="mono">142ms</td>
+              <td style="text-align:right;" class="mono">true</td>
+              <td style="text-align:right;" class="mono">0</td>
+              <td style="text-align:right;color:var(--muted-fg);" class="mono">false</td>
+              <td style="color:var(--muted-fg);">—</td>
+            </tr>
+            <tr>
+              <td style="color:var(--muted-fg);" class="mono">14:31:58</td>
+              <td style="font-weight:600;" class="mono">GET</td>
+              <td><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">/chains/PLTR</div></td>
+              <td style="font-weight:600;" class="mono">PLTR</td>
+              <td style="text-align:right;color:var(--bear);" class="mono">429 <span style="font-size:9px;color:var(--muted-fg);">Too Many</span></td>
+              <td style="text-align:right;" class="mono">5000ms</td>
+              <td style="text-align:right;color:var(--muted-fg);" class="mono">12ms</td>
+              <td style="text-align:right;" class="mono">false</td>
+              <td style="text-align:right;" class="mono">1</td>
+              <td style="text-align:right;color:var(--watch);" class="mono">true</td>
+              <td style="color:var(--muted-fg);">Rate limited by upstream</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Options involve significant risk and are not suitable for all investors. Demo data only — not financial advice. Momentum Options Scanner.
+  </footer>
+</main>
+
+<script>
+function showPage(id, el) {
+  // hide all pages
+  document.querySelectorAll('.page-view').forEach(p => { p.style.display = 'none'; });
+  // show target
+  const target = document.getElementById('page-' + id);
+  if (target) { target.style.display = 'flex'; }
+  // update nav
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  // remove chevrons from all
+  document.querySelectorAll('.nav-item .chevron').forEach(c => c.remove());
+  if (el) {
+    el.classList.add('active');
+    // add chevron
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'chevron');
+    svg.setAttribute('style', 'width:12px;height:12px;margin-left:auto;opacity:.5;');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke', 'currentColor');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('d', 'm8.25 4.5 7.5 7.5-7.5 7.5');
+    svg.appendChild(path);
+    el.appendChild(svg);
+  }
+}
+</script>
+
+</body>
+</html>
