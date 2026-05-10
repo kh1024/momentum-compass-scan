@@ -61,8 +61,8 @@ function validateContractRules(t: TradeCandidate): RuleResult[] {
   return [
     {
       id: 1, name: "Real option ticker exists",
-      pass: !!c.optionTicker && !c.optionTicker.startsWith("MOCK"),
-      detail: c.optionTicker ?? "—",
+      pass: !!c.occSymbol && !c.occSymbol.startsWith("MOCK"),
+      detail: c.occSymbol ?? "—",
     },
     {
       id: 2, name: "Strike from options chain",
@@ -257,11 +257,11 @@ function IOData() {
   const events = healthLog?.events ?? [];
   const apiStats = useMemo(() => ({
     total: events.length,
-    success: events.filter(e => e.status >= 200 && e.status < 300).length,
-    failed: events.filter(e => e.status >= 400).length,
-    rate429: events.filter(e => e.status === 429).length,
+    success: events.filter(e => (e.statusCode ?? 0) >= 200 && (e.statusCode ?? 0) < 300).length,
+    failed: events.filter(e => (e.statusCode ?? 0) >= 400).length,
+    rate429: events.filter(e => e.statusCode === 429).length,
     cached: events.filter(e => e.cached).length,
-    avgMs: events.length ? Math.round(events.reduce((s, e) => s + (e.durationMs ?? 0), 0) / events.length) : 0,
+    avgMs: events.length ? Math.round(events.reduce((s, e) => s + (e.responseTimeMs ?? 0), 0) / events.length) : 0,
   }), [events]);
 
   const scanInputsJson = {
@@ -355,7 +355,7 @@ function IOData() {
 
           <Section title="Scanner Settings">
             <Table rows={[
-              ["Max contract cost", `$${scannerSettings?.maxCost ?? 1000}`],
+              ["Max contract cost", `$1000`],
               ["Max tickers/scan", String(scannerSettings?.maxTickersPerScan ?? 12)],
               ["Full scan interval", `${Math.round((scannerSettings?.fullScanIntervalMs ?? 600000) / 60000)} min`],
               ["DTE range (short-term)", "14–30d"],
@@ -387,7 +387,7 @@ function IOData() {
           {chainData?.rateLimited && (
             <div className="rounded-lg border border-[var(--color-bear)]/30 bg-[var(--color-bear)]/5 px-4 py-3 text-sm font-medium text-[var(--color-bear)]">
               429 Rate limited — retry/backoff required. Showing cached or demo data meanwhile.
-              {chainData.cooldownMs > 0 && <span className="ml-2 text-xs font-normal">Cooldown: {Math.ceil(chainData.cooldownMs / 1000)}s</span>}
+              {chainData.retryInMs > 0 && <span className="ml-2 text-xs font-normal">Cooldown: {Math.ceil(chainData.retryInMs / 1000)}s</span>}
             </div>
           )}
 
@@ -417,7 +417,7 @@ function IOData() {
                       <tr key={c.id} className="hover:bg-muted/10">
                         <td className="px-3 py-1.5 font-bold">{c.ticker}</td>
                         <td className={cn("px-3 py-1.5 font-bold text-[10px]", c.direction === "CALL" ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]")}>{c.direction}</td>
-                        <td className="px-3 py-1.5 font-mono text-[9px] text-muted-foreground max-w-[12rem] truncate">{contract.optionTicker ?? "—"}</td>
+                        <td className="px-3 py-1.5 font-mono text-[9px] text-muted-foreground max-w-[12rem] truncate">{contract.occSymbol ?? "—"}</td>
                         <td className="px-3 py-1.5">
                           {isChain
                             ? <Badge kind="verified" label="200 OK" />
@@ -718,7 +718,7 @@ function IOData() {
 
           {chainData?.rateLimited && (
             <div className="rounded-lg border border-[var(--color-bear)]/30 bg-[var(--color-bear)]/5 px-4 py-3 text-xs text-[var(--color-bear)]">
-              Rate limit hit. Retry in {Math.ceil((chainData.cooldownMs ?? 0) / 1000)}s. Scanner is showing demo / cached data.
+              Rate limit hit. Retry in {Math.ceil((chainData.retryInMs ?? 0) / 1000)}s. Scanner is showing demo / cached data.
             </div>
           )}
 
@@ -738,16 +738,16 @@ function IOData() {
                   <tbody className="divide-y divide-border/40">
                     {events.slice(-100).reverse().map((e, i) => (
                       <tr key={i} className="hover:bg-muted/10">
-                        <td className="px-2 py-1 whitespace-nowrap text-muted-foreground">{e.ts ? new Date(e.ts).toLocaleTimeString() : "—"}</td>
+                        <td className="px-2 py-1 whitespace-nowrap text-muted-foreground">{e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : "—"}</td>
                         <td className="px-2 py-1 max-w-[14rem] truncate">{e.endpoint ?? "—"}</td>
                         <td className="px-2 py-1 font-bold">{e.ticker ?? "—"}</td>
-                        <td className={cn("px-2 py-1 font-bold", e.status >= 400 ? "text-[var(--color-bear)]" : e.status >= 200 ? "text-[var(--color-bull)]" : "text-muted-foreground")}>
-                          {e.status}
+                        <td className={cn("px-2 py-1 font-bold", (e.statusCode ?? 0) >= 400 ? "text-[var(--color-bear)]" : (e.statusCode ?? 0) >= 200 ? "text-[var(--color-bull)]" : "text-muted-foreground")}>
+                          {e.statusCode ?? "—"}
                         </td>
-                        <td className="px-2 py-1">{e.durationMs ?? "—"}</td>
+                        <td className="px-2 py-1">{e.responseTimeMs ?? "—"}</td>
                         <td className="px-2 py-1">{e.cached ? <Badge kind="cached" label="HIT" /> : "—"}</td>
                         <td className="px-2 py-1">{e.retryCount ?? 0}</td>
-                        <td className="px-2 py-1 max-w-[16rem] truncate text-[var(--color-bear)]/80">{e.error ?? "—"}</td>
+                        <td className="px-2 py-1 max-w-[16rem] truncate text-[var(--color-bear)]/80">{e.errorMessage ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>
