@@ -269,7 +269,10 @@ function Dashboard() {
     () => Array.from(new Set(["SPY", "QQQ", "SMH", ...MOCK_CANDIDATES.map((c) => c.ticker)])),
     [],
   );
-  const quoteRefreshIntervalMs = isMarketOpen() ? 30_000 : 24 * 60 * 60_000;
+  // During market hours: refresh quotes every 30s for live updates.
+  // Off-hours: still refresh hourly so overnight/weekend data stays current
+  // for the next-day swing scanner (not stale for days).
+  const quoteRefreshIntervalMs = isMarketOpen() ? 30_000 : 60 * 60_000;
   const { get: getLive, anyLive } = useMarketQuotesCompat(symbols, { refetchIntervalMs: quoteRefreshIntervalMs });
   // Crypto trades 24/7 — refresh every 60s regardless of equity hours.
   const { get: getCrypto } = useMarketQuotesCompat(["BTC-USD", "SOL-USD"], { refetchIntervalMs: 60_000 });
