@@ -267,7 +267,7 @@ function Scanner() {
       if (dl !== 0) return dl;
       return (b.finalScore ?? b.score) - (a.finalScore ?? a.score);
     });
-  }, [candidates, dir, capFilter, dteFilter, maxCost, triggerActiveOnly, verifiedOnly, hideTrueAvoids, hiddenLabels, includeLeaps, includeYolo]);
+  }, [candidates, dir, capFilter, dteFilter, maxCost, verifiedOnly, hideTrueAvoids, hiddenLabels, includeLeaps, includeYolo]);
 
   // ---- DTE-bucketed groups for sectioned view ------------------------------
   const BUCKET_ORDER: ExpirationBucket[] = [
