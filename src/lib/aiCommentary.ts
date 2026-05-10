@@ -50,6 +50,17 @@ export function aiInsights(i: CommentaryInput): string[] {
   const smh = i.smh?.changePct ?? 0;
   const out: string[] = [];
 
+  // If no provider returned a non-zero change, we have no meaningful tape —
+  // surface a truthful "awaiting data" line rather than fake commentary.
+  const hasMove = Math.abs(spy) + Math.abs(qqq) + Math.abs(smh) > 0.0001;
+  if (!hasMove) {
+    return [
+      "Market quiet — waiting for live tape to move.",
+      "No directional bias yet today.",
+      "Scanner armed — will surface setups once tape activates.",
+    ];
+  }
+
   if (smh > 0.5) out.push("Unusual call flow building in semis.");
   if (qqq > 0.4) out.push("Mega-cap tech showing relative strength.");
   if (spy > 0.3 && qqq > 0.3 && smh > 0.3) out.push("All three majors green — momentum aligned.");
@@ -58,10 +69,13 @@ export function aiInsights(i: CommentaryInput): string[] {
   if (qqq - spy > 0.3) out.push("Growth > value rotation accelerating.");
   if (spy - qqq > 0.3) out.push("Defensives bid — value outperforming growth.");
 
-  // Always-on background insights so the feed never feels empty.
+  if (out.length === 0) {
+    out.push("Mixed tape — AI watching for momentum confirmation.");
+  }
+
+  // Context-aware background lines that only run when there IS real movement.
   out.push("Scanner active — refreshing high-quality setups.");
   out.push("AI evaluating momentum continuation probability.");
-  out.push("Tracking implied volatility across watchlist.");
   return out;
 }
 
