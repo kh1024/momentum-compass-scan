@@ -345,18 +345,39 @@ export function classifyContract(opts: {
   quality: QualityFloorInput;
   premium: number;
   dte: number;
+  /** User-selected preference mode (Balanced / Conservative / Aggressive / Lottery). */
+  mode?: PreferenceMode;
+  /** User-configured max premium per contract in $. Default 500. */
+  maxContractCost?: number;
 }): ContractClassification {
+  const mode = opts.mode;
+  const maxCost = opts.maxContractCost ?? 500;
   const m = classifyMoneyness(opts.direction, opts.strike, opts.underlyingPrice, opts.breakeven);
   const allowed = allowedMoneyness({
     entryMode: opts.entryMode,
     isLeaps: opts.isLeaps,
     isYolo: opts.isYolo,
     highConviction: opts.highConviction,
+    mode,
   });
   const fits = allowed.includes(m.moneyness);
-  const reason = fits
-    ? undefined
-    : `${m.moneyness} contract is not ideal for ${opts.highConviction ? "High Conviction" : opts.entryMode} setups (expected: ${allowed.join(", ")}).`;
+
+  // ---- Premium-heavy + break-even-unrealistic checks ----
+  const premiumHeavy = !opts.isLeaps && opts.premium > maxCost;
+  const beCeiling = mode ? breakevenCeilingPct(mode, opts.dte) : 0.12;
+  const breakevenUnrealistic =
+    !opts.isLeaps && !opts.isYolo && Math.abs(m.breakevenMovePct) > beCeiling;
+
+  let reason: string | undefined;
+  if (!fits) {
+    const label = mode ?? (opts.highConviction ? "High Conviction" : opts.entryMode);
+    reason = `${m.moneyness} contract doesn't fit ${label} mode (expected: ${allowed.join(", ")}).`;
+  } else if (premiumHeavy) {
+    reason = `Premium $${opts.premium.toFixed(0)} exceeds your $${maxCost} per-contract budget.`;
+  } else if (breakevenUnrealistic) {
+    reason = `Needs ${(Math.abs(m.breakevenMovePct) * 100).toFixed(1)}% move in ${opts.dte}d — unrealistic for ${mode ?? "this"} setup.`;
+  }
+  const finalFits = fits && !premiumHeavy && !breakevenUnrealistic;
 
   const qf = passesQualityFloor(opts.quality);
   const tags = contractStyleTags({
@@ -368,24 +389,39 @@ export function classifyContract(opts: {
     premium: opts.premium,
     dte: opts.dte,
   });
-  const explanation = explainContractChoice({
+  if (premiumHeavy && !tags.includes("Premium Heavy")) tags.push("Premium Heavy");
+  if (breakevenUnrealistic) tags.push("Break-even Too Far");
+
+  let explanation = explainContractChoice({
     moneyness: m.moneyness,
     delta: opts.delta,
     entryMode: opts.entryMode,
     isLeaps: opts.isLeaps,
     isYolo: opts.isYolo,
-    fitsEntryMode: fits,
+    fitsEntryMode: finalFits,
     fitsEntryModeReason: reason,
     breakevenMovePct: m.breakevenMovePct,
     direction: opts.direction,
   });
+  // Prepend mode-aware framing when fit OK.
+  if (finalFits && mode) {
+    const prefix =
+      mode === "Conservative" ? "Conservative pick — "
+      : mode === "Aggressive" ? "Aggressive pick — "
+      : mode === "Lottery" ? "Lottery pick — "
+      : "Balanced swing pick — ";
+    explanation = prefix + explanation.charAt(0).toLowerCase() + explanation.slice(1);
+  }
 
   return {
     ...m,
     tags,
     explanation,
     qualityFloor: qf,
-    fitsEntryMode: fits,
+    fitsEntryMode: finalFits,
     fitsEntryModeReason: reason,
+    premiumHeavy,
+    breakevenUnrealistic,
+    preferenceMode: mode,
   };
 }
