@@ -425,7 +425,7 @@ function Dashboard() {
             </span>
           </div>
         </div>
-        <RegimeCard bias={MOCK_REGIME.bias} spy={spyQ} qqq={qqqQ} smh={smhQ} updatedAt={regimeUpdatedAt} live={regimeLive} />
+        <RegimeCard spy={spyQ} qqq={qqqQ} smh={smhQ} updatedAt={regimeUpdatedAt} live={regimeLive} />
       </div>
 
       <RefreshBar
