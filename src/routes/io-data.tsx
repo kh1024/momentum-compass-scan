@@ -718,7 +718,7 @@ function IOData() {
 
           {chainData?.rateLimited && (
             <div className="rounded-lg border border-[var(--color-bear)]/30 bg-[var(--color-bear)]/5 px-4 py-3 text-xs text-[var(--color-bear)]">
-              Rate limit hit. Retry in {Math.ceil((chainData.cooldownMs ?? 0) / 1000)}s. Scanner is showing demo / cached data.
+              Rate limit hit. Retry in {Math.ceil((chainData.retryInMs ?? 0) / 1000)}s. Scanner is showing demo / cached data.
             </div>
           )}
 
