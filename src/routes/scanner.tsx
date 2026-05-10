@@ -55,6 +55,7 @@ const ALL_TIER_LABELS: Label[] = [
 
 const DTE_FILTER_OPTIONS: Array<[DteBucketFilter, string]> = [
   ["ALL", "All"],
+  ["7day", "🗓️ 7-Day (4–10D)"],
   ["weekly-lotto", "0–6D"],
   ["lotto-aggressive", "7–13D"],
   ["short-term-swing", "14–30D"],
