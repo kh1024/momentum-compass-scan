@@ -134,7 +134,7 @@ function Scanner() {
     setDir("ALL");
     setCapFilter("ALL");
     setDteFilter("ALL");
-    setMaxCost(5000);
+    // Preset reset must NOT clobber the user's global max-cost preference.
     if (p === "lottos") {
       setHiddenLabels(new Set<Label>(["Buy Now", "Watchlist", "Waiting on Trigger", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
       setDteFilter("weekly-lotto");
