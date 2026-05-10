@@ -1,6 +1,17 @@
 export type Direction = "CALL" | "PUT";
 export type CapBucket = "Mega" | "Large" | "Mid" | "Small";
-export type Label = "Buy Now" | "Watchlist" | "Aggressive" | "Lotto" | "Find Better Strike" | "Avoid";
+export type Label =
+  | "Buy Now"
+  | "Watchlist"
+  | "Waiting on Trigger"
+  | "Aggressive"
+  | "Lotto"
+  | "Near Miss"
+  | "Find Better Strike"
+  | "Avoid Contract"
+  | "Avoid Ticker"
+  /** Legacy alias — emitted by older code paths and translated by the discipline gate. */
+  | "Avoid";
 export type SetupType =
   | "Pullback-to-Support"
   | "Pivot/Base Breakout"
