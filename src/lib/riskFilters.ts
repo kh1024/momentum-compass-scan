@@ -180,6 +180,7 @@ export function passesRiskFilters(t: TradeCandidate, f: RiskFilters): boolean {
   return true;
 }
 
-export function applyRiskFilters<T extends TradeCandidate>(list: T[], f: RiskFilters): T[] {
+export function applyRiskFilters<T extends TradeCandidate>(list: T[], f: RiskFilters, auto = false): T[] {
+  if (auto) return list;
   return list.filter((t) => passesRiskFilters(t, f));
 }
