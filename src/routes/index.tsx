@@ -139,12 +139,8 @@ function Dashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [devMode] = useDeveloperMode();
 
-  // Tick once per second so refresh-bar / freshness labels update.
-  const [nowTick, setNowTick] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNowTick(Date.now()), 1_000);
-    return () => clearInterval(id);
-  }, []);
+  // Freshness labels self-tick. Don't trigger a per-second dashboard re-render
+  // — that re-mounts every trade card and causes the visible "flicker".
 
   const qc = useQueryClient();
   const enrichFn = useServerFn(enrichWithPublicChain);
