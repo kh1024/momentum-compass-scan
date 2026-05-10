@@ -9,7 +9,7 @@ import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeTable } from "@/components/TradeTable";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
 import { ScanBar } from "@/components/ScanBar";
-import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
+import { useOptionsChain } from "@/hooks/useOptionsChain";
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { CapBucket, Direction, Label, TradeCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -155,7 +155,6 @@ function Scanner() {
   const allMockCandidates = useMemo(() => buildUniverseCandidates(activeTickers), [activeTickers]);
 
   const qc = useQueryClient();
-  const enrichFn = useServerFn(enrichWithPublicChain);
   const fetchScannerSettings = useServerFn(getScannerSettingsFn);
   const { data: scannerSettings } = useQuery({
     queryKey: ["scanner-settings"],
@@ -181,21 +180,17 @@ function Scanner() {
   const scanPicks = useMemo(() => picks.slice(0, max), [picks, max]);
 
   const {
-    data: chainData,
+    envelopes: chainEnvelopes,
+    raw: chainData,
+    status: chainStatus,
+    rateLimited: chainRateLimited,
+    message: chainMessage,
+    retryInMs: chainRetryInMs,
     isFetching: isScanning,
     refetch: refetchChain,
     error: chainError,
     dataUpdatedAt,
-  } = useQuery<EnrichmentResult>({
-    queryKey: ["scanner-chain", scanPicks.map((p) => `${p.ticker}:${p.direction}:${p.isLeaps?1:0}:${p.isYolo?1:0}:${p.entryMode ?? ""}:${p.targetStrike ?? ""}`).join(",")],
-    queryFn: () => enrichFn({ data: { picks: scanPicks } }),
-    enabled: scanPicks.length > 0,
-    refetchInterval: false,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: false,
-    staleTime: 60 * 60_000, // 1 hour — results are stable until you re-scan
-    placeholderData: (previousData) => previousData,
-  });
+  } = useOptionsChain(scanPicks, { staleTime: 60 * 60_000 });
 
   const lastFullScanAt = dataUpdatedAt || null;
 
@@ -212,20 +207,19 @@ function Scanner() {
 
   const lastRateLimitedRef = useRef(false);
   useEffect(() => {
-    if (!chainData) return;
-    const now = chainData.rateLimited;
+    const now = chainRateLimited;
     if (now && !lastRateLimitedRef.current) {
       toast.warning("Public.com rate limit hit", {
         description:
-          chainData.message ??
-          `Backing off for ${Math.ceil(chainData.retryInMs / 1000)}s. Showing demo data meanwhile.`,
+          chainMessage ??
+          `Backing off for ${Math.ceil(chainRetryInMs / 1000)}s. Showing demo data meanwhile.`,
         duration: 6000,
       });
     } else if (!now && lastRateLimitedRef.current) {
       toast.success("Public.com live data restored");
     }
     lastRateLimitedRef.current = now;
-  }, [chainData]);
+  }, [chainRateLimited, chainMessage, chainRetryInMs]);
 
   const symbols = useMemo(
     () => Array.from(new Set(allMockCandidates.map((c) => c.ticker))),
@@ -236,14 +230,19 @@ function Scanner() {
 
   // ---- Core trace pipeline -------------------------------------------------
   const traces: { c: TradeCandidate; gate: DisciplineGateResult }[] = useMemo(() => {
-    const enriched = chainData?.enriched ?? {};
     return allMockCandidates.map((c) => {
       const isLeaps = c.setupType === "LEAPS";
       const isYolo = c.setupType === "Reddit YOLO";
       const base = applyRedditSignal(applyLiveQuote(c, getLive(c.ticker)), getReddit(c.ticker));
       const entryMode = entryModeFromSetup(c.setupType);
       const key = chainPickKey(c.ticker, c.direction, { isLeaps, isYolo, entryMode });
-      const withChain = applyLiveChain(base, enriched[key] ?? null);
+      // Read through TrustEnvelope so we never apply an unvalidated/stale chain.
+      const envelope = chainEnvelopes[key];
+      const enrichedForChain =
+        envelope && envelope.value && envelope.validated && envelope.status !== "stale"
+          ? envelope.value
+          : null;
+      const withChain = applyLiveChain(base, enrichedForChain);
       const finalized = finalizeCandidate(withChain);
       const gate = runDisciplineGate(finalized, { extendedSwingEnabled, mode: scannerMode });
 
@@ -262,7 +261,7 @@ function Scanner() {
       };
       return { c: merged, gate };
     });
-  }, [chainData, getLive, getReddit, extendedSwingEnabled, scannerMode, allMockCandidates]);
+  }, [chainEnvelopes, getLive, getReddit, extendedSwingEnabled, scannerMode, allMockCandidates]);
 
   const candidates = useMemo(
     () => traces.filter((t) => t.gate.visible).map((t) => t.c),
@@ -338,14 +337,16 @@ function Scanner() {
   }, [traces]);
   const open = openId ? traceById.get(openId) ?? null : null;
 
-  const liveCount = chainData
-    ? Object.values(chainData.enriched).filter((v) => v !== null).length
-    : 0;
+  const liveCount = Object.values(chainEnvelopes).filter(
+    (e) => e.value && e.validated && (e.status === "live" || e.status === "delayed"),
+  ).length;
 
   void getLive;
   const dataMode: "live" | "cached" | "delayed" | "demo" =
-    chainData?.rateLimited ? "delayed"
-    : chainData && Object.values(chainData.enriched).some((v) => v !== null) ? "live"
+    chainRateLimited ? "delayed"
+    : chainStatus === "live" ? "live"
+    : chainStatus === "delayed" ? "delayed"
+    : chainStatus === "stale" ? "cached"
     : anyLive ? "cached"
     : "demo";
 
