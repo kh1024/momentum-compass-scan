@@ -14,7 +14,7 @@ import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functi
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { Direction, TradeCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useLiveQuotes } from "@/hooks/useLiveQuotes";
+import { useMarketQuotesCompat } from "@/hooks/useMarketQuotesCompat";
 import { useRedditSentiment } from "@/hooks/useRedditSentiment";
 import { useEarnings } from "@/hooks/useEarnings";
 import { applyLiveChain, applyLiveQuote, applyRedditSignal, finalizeCandidate } from "@/lib/applyLiveQuote";
@@ -277,9 +277,9 @@ function Dashboard() {
 
   const symbols = useMemo(() => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.ticker))), []);
   const quoteRefreshIntervalMs = isMarketOpen() ? 30_000 : 24 * 60 * 60_000;
-  const { get: getLive, anyLive } = useLiveQuotes(symbols, { refetchIntervalMs: quoteRefreshIntervalMs });
+  const { get: getLive, anyLive, status: quoteStatus } = useMarketQuotesCompat(symbols, { refetchIntervalMs: quoteRefreshIntervalMs });
   // Crypto trades 24/7 — refresh every 60s regardless of equity hours.
-  const { get: getCrypto } = useLiveQuotes(["BTC-USD", "SOL-USD"], { refetchIntervalMs: 60_000 });
+  const { get: getCrypto } = useMarketQuotesCompat(["BTC-USD", "SOL-USD"], { refetchIntervalMs: 60_000 });
   const { get: getReddit } = useRedditSentiment(symbols);
   const { get: getEarnings } = useEarnings(symbols, 60);
   void getEarnings;
