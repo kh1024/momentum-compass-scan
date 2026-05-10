@@ -25,75 +25,104 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
   --color-bull: var(--bull);
   --color-bear: var(--bear);
   --color-watch: var(--watch);
-  --color-avoid: var(--avoid);
   --color-lotto: var(--lotto);
+  --color-avoid: var(--avoid);
   --color-buy-now: var(--buy-now);
   --color-aggressive: var(--aggressive);
-  --color-demo: var(--demo);
 }
 
 :root {
-  /* Bloomberg terminal — sharp, deep, professional */
-  --radius: 0.125rem; /* 2px — near-square corners */
+  --radius: 0.375rem;
 
-  /* Backgrounds: true near-black with subtle cool tint */
-  --background:        #080b10;
-  --foreground:        #c9d1d9;
-  --card:              #0d1117;
-  --card-foreground:   #c9d1d9;
-  --popover:           #0d1117;
-  --popover-foreground: #c9d1d9;
-  --primary:           #00d97e;
-  --primary-foreground: #000;
-  --secondary:         #161b22;
-  --secondary-foreground: #c9d1d9;
-  --muted:             #161b22;
-  --muted-foreground:  #484f58;
-  --accent:            #1c2128;
-  --accent-foreground: #c9d1d9;
-  --destructive:       #f85149;
-  --destructive-foreground: #fff;
-  --border:            #21262d;
-  --input:             #161b22;
-  --ring:              #00d97e;
+  /* Base surfaces — zinc dark */
+  --background:        #09090b;
+  --foreground:        #fafafa;
+  --card:              #18181b;
+  --card-foreground:   #fafafa;
+  --popover:           #18181b;
+  --popover-foreground: #fafafa;
 
-  /* Trading semantic tokens */
-  --bull:       #00d97e;   /* bright terminal green */
-  --bear:       #f85149;   /* bright terminal red */
-  --watch:      #e3b341;   /* amber / warning */
-  --avoid:      #484f58;   /* muted gray */
-  --lotto:      #bc8cff;   /* purple */
-  --buy-now:    #00d97e;
-  --aggressive: #e3b341;
-  --demo:       #e3b341;
+  /* Interactive */
+  --primary:           #10b981;
+  --primary-foreground: #ffffff;
+  --secondary:         #27272a;
+  --secondary-foreground: #a1a1aa;
+  --muted:             #27272a;
+  --muted-foreground:  #71717a;
+  --accent:            #3f3f46;
+  --accent-foreground: #fafafa;
+  --destructive:       #ef4444;
+  --border:            #27272a;
+  --input:             #27272a;
+  --ring:              #10b981;
+  --sidebar:           #111113;
+
+  /* Trading semantic */
+  --bull:       #10b981;
+  --bear:       #ef4444;
+  --watch:      #f59e0b;
+  --lotto:      #8b5cf6;
+  --avoid:      #71717a;
+  --buy-now:    #10b981;
+  --aggressive: #f59e0b;
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
+  * {
+    border-color: var(--color-border);
+    box-sizing: border-box;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    /* Use Inter for UI, monospace for numbers */
-    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-    font-size: 13px;
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
   .mono {
+    font-family: "Geist Mono", "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
     font-variant-numeric: tabular-nums;
-    font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
-  /* Scrollbar terminal style */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: var(--background); }
-  ::-webkit-scrollbar-thumb { background: #21262d; border-radius: 0; }
-  ::-webkit-scrollbar-thumb:hover { background: #30363d; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
 }
+
+/* ---- Label color utilities ---- */
+.label-buy-now    { color: var(--bull); }
+.label-watchlist  { color: #60a5fa; }
+.label-trigger    { color: #38bdf8; }
+.label-aggressive { color: var(--watch); }
+.label-lotto      { color: var(--lotto); }
+.label-near-miss  { color: #e879f9; }
+.label-find-strike{ color: #fb923c; }
+.label-avoid-contract { color: #f97316; }
+.label-avoid-ticker   { color: var(--bear); }
+
+/* ---- Subtle animations ---- */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ---- Score ring gradient ---- */
+.score-high   { color: var(--bull); }
+.score-mid    { color: var(--watch); }
+.score-low    { color: var(--muted-foreground); }

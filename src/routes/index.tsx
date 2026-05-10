@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { TrendingUp, TrendingDown, Minus, BarChart3 } from "lucide-react";
 import { MOCK_CANDIDATES } from "@/lib/mockData";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
@@ -19,37 +20,41 @@ import { expirationBucketFor } from "@/lib/optionQualityValidator";
 import { entryModeFromSetup } from "@/lib/entryMode";
 import { chainPickKey } from "@/lib/chainKeys";
 import { runDisciplineGate, type DisciplineGateResult } from "@/lib/disciplineGate";
+import { LabelChip } from "@/components/Badges";
+import { MOCK_REGIME } from "@/lib/mockData";
 
 export const Route = createFileRoute("/")({
-  head: () => ({ meta: [{ title: "Dashboard — Momentum Options Scanner" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — Momentum Scanner" }] }),
   component: Dashboard,
 });
 
 const LABEL_ORDER: Record<Label, number> = {
-  "Buy Now": 0,
-  "Watchlist": 1,
-  "Waiting on Trigger": 2,
-  "Aggressive": 3,
-  "Lotto": 4,
-  "Near Miss": 5,
-  "Find Better Strike": 6,
-  "Avoid Contract": 7,
-  "Avoid Ticker": 8,
-  "Avoid": 9,
+  "Buy Now": 0, "Watchlist": 1, "Waiting on Trigger": 2, "Aggressive": 3,
+  "Lotto": 4, "Near Miss": 5, "Find Better Strike": 6,
+  "Avoid Contract": 7, "Avoid Ticker": 8, "Avoid": 9,
 };
 
-function Stat({ label, value, tone }: { label: string; value: number | string; tone?: "bull" | "watch" | "warn" | "bear" }) {
-  const cls =
-    tone === "bull" ? "text-[var(--color-bull)]"
-    : tone === "watch" ? "text-[var(--color-watch)]"
-    : tone === "warn" ? "text-amber-500"
-    : tone === "bear" ? "text-[var(--color-bear)]"
-    : "text-foreground";
+const STAT_LABELS: Array<{ label: Label | "ALL"; display: string; color: string }> = [
+  { label: "Buy Now", display: "Buy Now", color: "text-[var(--color-bull)]" },
+  { label: "Watchlist", display: "Watchlist", color: "text-blue-400" },
+  { label: "Waiting on Trigger", display: "On Trigger", color: "text-sky-400" },
+  { label: "Aggressive", display: "Aggressive", color: "text-[var(--color-watch)]" },
+  { label: "Lotto", display: "Lotto", color: "text-[var(--color-lotto)]" },
+  { label: "Near Miss", display: "Near Miss", color: "text-fuchsia-400" },
+  { label: "Avoid Contract", display: "Avoid Contract", color: "text-orange-500" },
+  { label: "Avoid Ticker", display: "Avoid Ticker", color: "text-[var(--color-bear)]" },
+];
+
+function RegimePill({ bias }: { bias: string }) {
+  const { text, bg, icon: Icon } =
+    bias === "Risk-on"  ? { text: "text-[var(--color-bull)]",  bg: "bg-[var(--color-bull)]/10",  icon: TrendingUp }
+    : bias === "Risk-off" ? { text: "text-[var(--color-bear)]",  bg: "bg-[var(--color-bear)]/10",  icon: TrendingDown }
+    : { text: "text-[var(--color-watch)]", bg: "bg-[var(--color-watch)]/10", icon: Minus };
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={cn("text-lg font-semibold tabular-nums leading-none mt-1", cls)}>{value}</div>
-    </div>
+    <span className={cn("flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold", bg, text)}>
+      <Icon className="h-3.5 w-3.5" />
+      {bias}
+    </span>
   );
 }
 
@@ -60,9 +65,8 @@ function Dashboard() {
   const [hideAvoids, setHideAvoids] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-
-  // Tick once per second so the refresh bar's "Ns ago" / "in Ns" labels update.
   const [, setNowTick] = useState(0);
+
   useEffect(() => {
     const id = setInterval(() => setNowTick((n) => n + 1), 1_000);
     return () => clearInterval(id);
@@ -76,58 +80,39 @@ function Dashboard() {
     queryFn: () => fetchScannerSettings(),
     staleTime: 60_000,
   });
-  // Default 10 minutes. 0 = manual only.
   const fullScanIntervalMs = scannerSettings?.fullScanIntervalMs ?? 10 * 60_000;
 
   const picks = useMemo(
-    () =>
-      MOCK_CANDIDATES.map((c) => ({
-        ticker: c.ticker,
-        direction: c.direction,
-        isLeaps: c.setupType === "LEAPS",
-        isYolo: c.setupType === "Reddit YOLO",
-        entryMode: entryModeFromSetup(c.setupType),
-        targetStrike: entryModeFromSetup(c.setupType) === "Breakout" ? c.levels.baseHigh : c.price,
-      })),
-    [],
+    () => MOCK_CANDIDATES.map((c) => ({
+      ticker: c.ticker, direction: c.direction,
+      isLeaps: c.setupType === "LEAPS", isYolo: c.setupType === "Reddit YOLO",
+      entryMode: entryModeFromSetup(c.setupType),
+      targetStrike: entryModeFromSetup(c.setupType) === "Breakout" ? c.levels.baseHigh : c.price,
+    })), [],
   );
 
-  const {
-    data: chainData,
-    isFetching: isScanning,
-    refetch: refetchChain,
-    error: chainError,
-    dataUpdatedAt,
-  } = useQuery<EnrichmentResult>({
-    queryKey: ["dashboard-chain", picks.map((p) => `${p.ticker}:${p.direction}`).join(",")],
-    queryFn: () => enrichFn({ data: { picks } }),
-    enabled: picks.length > 0,
-    refetchInterval: autoRefresh && fullScanIntervalMs > 0 ? fullScanIntervalMs : false,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: false,
-    // Stability: keep the same contract picks across quote refreshes — only
-    // a fresh full scan (manual or scheduled) replaces selected contracts.
-    staleTime: fullScanIntervalMs > 0 ? Math.max(fullScanIntervalMs - 10_000, 60_000) : 24 * 60 * 60_000,
-    placeholderData: (previousData) => previousData,
-  });
+  const { data: chainData, isFetching: isScanning, refetch: refetchChain, error: chainError, dataUpdatedAt } =
+    useQuery<EnrichmentResult>({
+      queryKey: ["dashboard-chain", picks.map((p) => `${p.ticker}:${p.direction}`).join(",")],
+      queryFn: () => enrichFn({ data: { picks } }),
+      enabled: picks.length > 0,
+      refetchInterval: autoRefresh && fullScanIntervalMs > 0 ? fullScanIntervalMs : false,
+      refetchIntervalInBackground: false,
+      refetchOnWindowFocus: false,
+      staleTime: fullScanIntervalMs > 0 ? Math.max(fullScanIntervalMs - 10_000, 60_000) : 24 * 60 * 60_000,
+      placeholderData: (prev) => prev,
+    });
 
   useEffect(() => {
-    if (chainError) {
-      toast.error("Scanner request failed", {
-        description: chainError instanceof Error ? chainError.message : String(chainError),
-      });
-    }
+    if (chainError) toast.error("Scan failed", { description: chainError instanceof Error ? chainError.message : String(chainError) });
   }, [chainError]);
 
   const lastRateLimitedRef = useRef(false);
   useEffect(() => {
     if (!chainData) return;
     const now = chainData.rateLimited;
-    if (now && !lastRateLimitedRef.current) {
-      toast.warning("Rate limit hit", { description: chainData.message ?? "Showing demo data meanwhile.", duration: 6000 });
-    } else if (!now && lastRateLimitedRef.current) {
-      toast.success("Live data restored");
-    }
+    if (now && !lastRateLimitedRef.current) toast.warning("Rate limit hit", { description: "Showing demo data.", duration: 6000 });
+    else if (!now && lastRateLimitedRef.current) toast.success("Live data restored");
     lastRateLimitedRef.current = now;
   }, [chainData]);
 
@@ -166,26 +151,19 @@ function Dashboard() {
   }, [chainData, getLive, getReddit]);
 
   const candidates = useMemo(() => traces.map((t) => t.c), [traces]);
-
-  const setupOptions = useMemo(
-    () => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.setupType))) as SetupType[],
-    [],
-  );
+  const setupOptions = useMemo(() => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.setupType))) as SetupType[], []);
 
   const filtered = useMemo(() => {
-    const rows = candidates
+    return candidates
       .filter((c) => dir === "ALL" || c.direction === dir)
       .filter((c) => labelF === "ALL" || c.label === labelF)
       .filter((c) => setupF === "ALL" || c.setupType === setupF)
-      .filter((c) => !hideAvoids || c.label !== "Avoid Ticker");
-    return rows.sort((a, b) => {
-      const dl = (LABEL_ORDER[a.label] ?? 9) - (LABEL_ORDER[b.label] ?? 9);
-      if (dl !== 0) return dl;
-      const ta = a.triggerStatus === "active" ? 0 : 1;
-      const tb = b.triggerStatus === "active" ? 0 : 1;
-      if (ta !== tb) return ta - tb;
-      return (b.finalScore ?? b.score) - (a.finalScore ?? a.score);
-    });
+      .filter((c) => !hideAvoids || c.label !== "Avoid Ticker")
+      .sort((a, b) => {
+        const dl = (LABEL_ORDER[a.label] ?? 9) - (LABEL_ORDER[b.label] ?? 9);
+        if (dl !== 0) return dl;
+        return (b.finalScore ?? b.score) - (a.finalScore ?? a.score);
+      });
   }, [candidates, dir, labelF, setupF, hideAvoids]);
 
   const labelCounts = useMemo(() => {
@@ -201,57 +179,57 @@ function Dashboard() {
   }, [traces]);
   const open = openId ? traceById.get(openId) ?? null : null;
 
-  // Latest live-quote update timestamp (across all symbols).
   const liveQuoteUpdatedAt = useMemo(() => {
     let max = 0;
-    for (const s of symbols) {
-      const q = getLive(s);
-      if (q?.ts) max = Math.max(max, q.ts);
-    }
+    for (const s of symbols) { const q = getLive(s); if (q?.ts) max = Math.max(max, q.ts); }
     return max || null;
   }, [symbols, getLive]);
 
   const lastFullScanAt = dataUpdatedAt || null;
-  const nextFullScanAt =
-    autoRefresh && fullScanIntervalMs > 0 && lastFullScanAt
-      ? lastFullScanAt + fullScanIntervalMs
-      : null;
-
+  const nextFullScanAt = autoRefresh && fullScanIntervalMs > 0 && lastFullScanAt ? lastFullScanAt + fullScanIntervalMs : null;
   const dataMode: "live" | "cached" | "delayed" | "demo" =
     chainData?.rateLimited ? "delayed"
-    : anyLive && (chainData?.enriched && Object.values(chainData.enriched).some((v) => v !== null)) ? "live"
+    : anyLive && chainData?.enriched && Object.values(chainData.enriched).some((v) => v !== null) ? "live"
     : anyLive ? "cached"
     : "demo";
 
-  const onRunScanNow = () => { void refetchChain(); };
-  const onRefreshQuotesOnly = () => {
-    void qc.invalidateQueries({ queryKey: ["live-quotes"] });
-    toast.success("Refreshing quotes…");
-  };
-
-  const Pill = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
-    <button
-      onClick={onClick}
-      className={cn(
-        "rounded-md border px-2.5 py-1 text-xs transition-colors",
-        active ? "border-foreground bg-foreground text-background" : "border-border bg-background hover:bg-muted",
-      )}
-    >
-      {children}
-    </button>
-  );
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-end justify-between">
+    <div className="flex flex-col gap-5 px-6 py-6">
+      {/* Page header */}
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-xs text-muted-foreground">
-            Stable picks. Full scan reranks {fullScanIntervalMs > 0 ? `every ${Math.round(fullScanIntervalMs / 60_000)} min` : "only on demand"}; quotes refresh continuously without changing contracts.
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+            {MOCK_REGIME.scannerBias} · Full scan every {Math.round(fullScanIntervalMs / 60_000)}m
           </p>
         </div>
+        <RegimePill bias={MOCK_REGIME.bias} />
       </div>
 
+      {/* Stat row */}
+      <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
+        {STAT_LABELS.map(({ label, display, color }) => (
+          <button
+            key={label}
+            onClick={() => setLabelF(labelF === label ? "ALL" : label as Label)}
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-colors",
+              labelF === label
+                ? "border-[var(--color-accent)] bg-[var(--color-accent)]"
+                : "border-[var(--color-border)] bg-[var(--color-card)] hover:bg-[var(--color-accent)]/30",
+            )}
+          >
+            <span className={cn("text-xl font-bold tabular-nums", color)}>
+              {labelCounts[label as Label] ?? 0}
+            </span>
+            <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
+              {display}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Refresh bar */}
       <RefreshBar
         lastFullScanAt={lastFullScanAt}
         nextFullScanAt={nextFullScanAt}
@@ -260,59 +238,57 @@ function Dashboard() {
         dataMode={dataMode}
         autoRefresh={autoRefresh && fullScanIntervalMs > 0}
         isScanning={isScanning}
-        onRunScanNow={onRunScanNow}
-        onRefreshQuotesOnly={onRefreshQuotesOnly}
+        onRunScanNow={() => void refetchChain()}
+        onRefreshQuotesOnly={() => { void qc.invalidateQueries({ queryKey: ["live-quotes"] }); toast.success("Refreshing quotes…"); }}
         onToggleAutoRefresh={() => setAutoRefresh((v) => !v)}
       />
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-9">
-        <Stat label="Total" value={candidates.length} />
-        <Stat label="Buy Now" value={labelCounts["Buy Now"] ?? 0} tone="bull" />
-        <Stat label="Watchlist" value={labelCounts["Watchlist"] ?? 0} tone="watch" />
-        <Stat label="On Trigger" value={labelCounts["Waiting on Trigger"] ?? 0} tone="watch" />
-        <Stat label="Aggressive" value={labelCounts["Aggressive"] ?? 0} tone="warn" />
-        <Stat label="Lotto" value={labelCounts["Lotto"] ?? 0} tone="warn" />
-        <Stat label="Near Miss" value={labelCounts["Near Miss"] ?? 0} tone="warn" />
-        <Stat label="Avoid Contract" value={labelCounts["Avoid Contract"] ?? 0} tone="bear" />
-        <Stat label="Avoid Ticker" value={labelCounts["Avoid Ticker"] ?? 0} tone="bear" />
-      </div>
-
-      {/* Filter row */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2.5">
-        <div className="flex items-center gap-1">
-          <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Dir</span>
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2.5">
+        <FilterGroup label="Dir">
           {(["ALL", "CALL", "PUT"] as const).map((d) => (
-            <Pill key={d} active={dir === d} onClick={() => setDir(d)}>{d}</Pill>
+            <FilterPill key={d} active={dir === d} onClick={() => setDir(d)}>{d}</FilterPill>
           ))}
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Label</span>
-          {(["ALL", "Buy Now", "Watchlist", "Waiting on Trigger", "Aggressive", "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract"] as const).map((l) => (
-            <Pill key={l} active={labelF === l} onClick={() => setLabelF(l as Label | "ALL")}>{l}</Pill>
-          ))}
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Setup</span>
+        </FilterGroup>
+
+        <div className="h-4 w-px bg-[var(--color-border)]" />
+
+        <FilterGroup label="Setup">
           <select
             value={setupF}
             onChange={(e) => setSetupF(e.target.value as SetupType | "ALL")}
-            className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+            className="rounded border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-0.5 text-xs text-[var(--color-foreground)]"
           >
             <option value="ALL">All setups</option>
             {setupOptions.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
+        </FilterGroup>
+
+        <div className="ml-auto flex items-center gap-3">
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[var(--color-muted-foreground)]">
+            <input
+              type="checkbox"
+              checked={hideAvoids}
+              onChange={(e) => setHideAvoids(e.target.checked)}
+              className="h-3.5 w-3.5 accent-[var(--color-bull)]"
+            />
+            Hide avoids
+          </label>
+          <span className="text-xs text-[var(--color-muted-foreground)]">
+            {filtered.length} of {candidates.length}
+          </span>
         </div>
-        <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-          <input type="checkbox" checked={hideAvoids} onChange={(e) => setHideAvoids(e.target.checked)} className="h-3.5 w-3.5 accent-[var(--color-bull)]" />
-          Hide Ticker Avoids
-        </label>
       </div>
 
-      {/* Cards modern grid */}
+      {/* Trade cards */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          No clean trades match your filters.
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-[var(--color-border)] py-16">
+          <BarChart3 className="h-8 w-8 text-[var(--color-muted-foreground)]" />
+          <p className="text-sm text-[var(--color-muted-foreground)]">No candidates match your filters.</p>
+          <button onClick={() => { setDir("ALL"); setLabelF("ALL"); setSetupF("ALL"); setHideAvoids(false); }}
+            className="text-xs text-[var(--color-bull)] underline-offset-2 hover:underline">
+            Clear filters
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -334,5 +310,30 @@ function Dashboard() {
         gate={open?.gate ?? null}
       />
     </div>
+  );
+}
+
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-muted-foreground)]">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function FilterPill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-md border px-2.5 py-0.5 text-xs font-medium transition-colors",
+        active
+          ? "border-[var(--color-bull)]/50 bg-[var(--color-bull)]/10 text-[var(--color-bull)]"
+          : "border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]",
+      )}
+    >
+      {children}
+    </button>
   );
 }
