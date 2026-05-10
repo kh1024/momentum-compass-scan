@@ -139,7 +139,7 @@ function Settings() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">Data Sources</h2>
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            {data?.anyLive ? "● Live data flowing" : "○ Demo only"}
+            {data?.anyLive ? "● Live data flowing" : "○ Awaiting live feed"}
           </span>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">

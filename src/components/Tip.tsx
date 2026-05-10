@@ -294,8 +294,8 @@ export const TIPS = {
     ),
     demo: (
       <div>
-        <div className="mb-1 font-bold text-amber-400">Demo Data</div>
-        Strike, expiration, and Greeks are estimated (synthetic). Not suitable for placing real trades. Verify everything in your broker before acting.
+        <div className="mb-1 font-bold text-amber-400">Last Verified Snapshot</div>
+        Showing the most recent verified contract data. Provider feed is briefly unavailable — values will refresh on the next successful poll. Always confirm in your broker before acting.
       </div>
     ),
     delayed: (
