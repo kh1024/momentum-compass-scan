@@ -78,8 +78,9 @@ export type ExpirationBucket =
   | "lotto-aggressive"  // 7–13 DTE
   | "short-term-swing"  // 14–30 DTE
   | "extended-swing"    // 31–45 DTE
+  | "swing-plus"        // 46–60 DTE
   | "leaps"             // 180–730 DTE
-  | "excluded";         // 46–179 DTE or other
+  | "excluded";         // 61–179 DTE or other
 
 export interface OptionContract {
   expiration: string;
