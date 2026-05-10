@@ -785,10 +785,9 @@ function ScoringCard({ c, gate }: { c: TradeCandidate; gate: DisciplineGateResul
 
       {open && (
         <div className="border-t border-border px-4 py-3">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             <ScoreBlock label="Setup" value={gate.setupScore} max={30} />
             <ScoreBlock label="Contract" value={gate.contractScore} max={35} />
-            <ScoreBlock label="Trigger" value={gate.triggerScore} max={10} />
             <ScoreBlock label="Risk/Reward" value={gate.riskRewardScore} max={10} />
             <ScoreBlock label="Data Quality" value={gate.dataQualityScore} max={10} />
           </div>

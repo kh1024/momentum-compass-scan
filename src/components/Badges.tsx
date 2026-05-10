@@ -16,9 +16,12 @@ const labelStyles: Record<Label, string> = {
 };
 
 export function LabelChip({ label, className }: { label: Label; className?: string }) {
+  // Hide the "Waiting on Trigger" concept — render it as Watchlist.
+  const display = label === "Waiting on Trigger" ? "Watchlist" : label;
+  const styleKey = label === "Waiting on Trigger" ? "Watchlist" : label;
   return (
-    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide", labelStyles[label], className)}>
-      {label}
+    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide", labelStyles[styleKey], className)}>
+      {display}
     </span>
   );
 }

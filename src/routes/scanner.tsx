@@ -49,7 +49,7 @@ const LABEL_ORDER: Record<Label, number> = {
 };
 
 const ALL_TIER_LABELS: Label[] = [
-  "Buy Now", "Watchlist", "Waiting on Trigger", "Aggressive",
+  "Buy Now", "Watchlist", "Aggressive",
   "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract",
 ];
 
@@ -333,8 +333,7 @@ function Scanner() {
           </span>
           <span className="h-3 w-px bg-border" />
           <Stat label="Buy Now" value={labelCounts["Buy Now"] ?? 0} tone="bull" />
-          <Stat label="Watchlist" value={labelCounts["Watchlist"] ?? 0} tone="watch" />
-          <Stat label="On Trigger" value={labelCounts["Waiting on Trigger"] ?? 0} tone="sky" />
+          <Stat label="Watchlist" value={((labelCounts["Watchlist"] ?? 0) + (labelCounts["Waiting on Trigger"] ?? 0))} tone="watch" />
           <Stat label="Aggressive" value={labelCounts["Aggressive"] ?? 0} tone="warn" />
           <Stat label="Lotto" value={labelCounts["Lotto"] ?? 0} tone="warn" />
           <Stat label="Near Miss" value={labelCounts["Near Miss"] ?? 0} tone="fuchsia" />

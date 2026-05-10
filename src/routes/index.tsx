@@ -218,9 +218,6 @@ function Dashboard() {
     return rows.sort((a, b) => {
       const dl = (LABEL_ORDER[a.label] ?? 9) - (LABEL_ORDER[b.label] ?? 9);
       if (dl !== 0) return dl;
-      const ta = a.triggerStatus === "active" ? 0 : 1;
-      const tb = b.triggerStatus === "active" ? 0 : 1;
-      if (ta !== tb) return ta - tb;
       return (b.finalScore ?? b.score) - (a.finalScore ?? a.score);
     });
   }, [candidates, dir, labelF, setupF, hideAvoids]);
@@ -324,8 +321,7 @@ function Dashboard() {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-9">
         <Stat label="Total" value={candidates.length} />
         <Stat label="Buy Now" value={labelCounts["Buy Now"] ?? 0} tone="bull" />
-        <Stat label="Watchlist" value={labelCounts["Watchlist"] ?? 0} tone="watch" />
-        <Stat label="On Trigger" value={labelCounts["Waiting on Trigger"] ?? 0} tone="watch" />
+        <Stat label="Watchlist" value={((labelCounts["Watchlist"] ?? 0) + (labelCounts["Waiting on Trigger"] ?? 0))} tone="watch" />
         <Stat label="Aggressive" value={labelCounts["Aggressive"] ?? 0} tone="warn" />
         <Stat label="Lotto" value={labelCounts["Lotto"] ?? 0} tone="warn" />
         <Stat label="Near Miss" value={labelCounts["Near Miss"] ?? 0} tone="warn" />
@@ -343,7 +339,7 @@ function Dashboard() {
         </div>
         <div className="flex items-center gap-1">
           <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Label</span>
-          {(["ALL", "Buy Now", "Watchlist", "Waiting on Trigger", "Aggressive", "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract"] as const).map((l) => (
+          {(["ALL", "Buy Now", "Watchlist", "Aggressive", "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract"] as const).map((l) => (
             <Pill key={l} active={labelF === l} onClick={() => setLabelF(l as Label | "ALL")}>{l}</Pill>
           ))}
         </div>

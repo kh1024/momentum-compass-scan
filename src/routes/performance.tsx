@@ -237,7 +237,7 @@ function PerformancePage() {
                     <th className="px-3 py-2 text-right">DTE</th>
                     <th className="px-3 py-2 text-right">IV</th>
                     <th className="px-3 py-2 text-right">θ-burn</th>
-                    <th className="px-3 py-2 text-center">Trig</th>
+                    
                     <th className="px-3 py-2 text-right">Final</th>
                     <th className="px-3 py-2 text-right">MFE</th>
                     <th className="px-3 py-2 text-right">MAE</th>
@@ -260,7 +260,7 @@ function PerformancePage() {
                         <td className="px-3 py-2 text-right tabular-nums">{p.dte}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{(p.iv*100).toFixed(0)}%</td>
                         <td className="px-3 py-2 text-right tabular-nums">{(p.thetaBurnPct*100).toFixed(1)}%</td>
-                        <td className="px-3 py-2 text-center">{t.triggerFired ? "✓" : "—"}</td>
+                        
                         <td className={`px-3 py-2 text-right tabular-nums font-medium ${win ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]"}`}>
                           {signed(t.finalReturnPct)}
                         </td>
@@ -385,7 +385,7 @@ function PerformancePage() {
                   <KV label="θ-burn" value={`${(selected.thetaBurnPct*100).toFixed(1)}%`} />
                   <KV label="Spread" value={`${(selected.spreadPct*100).toFixed(1)}%`} />
                   <KV label="OI / Vol" value={`${selected.openInterest.toLocaleString()} / ${selected.volume.toLocaleString()}`} />
-                  <KV label="Trigger" value={selected.tracked.triggerFired ? `fired ${selected.tracked.triggerTime}` : "did not fire"} />
+                  
                   <KV label="Final return" value={signed(selected.tracked.finalReturnPct)} />
                   <KV label="MFE / MAE" value={`${pct(selected.tracked.maxGainPct)} / ${signed(selected.tracked.maxDrawdownPct)}`} />
                   <KV label="Hold time" value={`${selected.tracked.holdTimeMin} min`} />
