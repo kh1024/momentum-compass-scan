@@ -42,31 +42,6 @@ function regimeSummary(bias: string, spy: { changePct: number }, qqq: { changePc
 
 type RegimeQuote = { price: number; changePct: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
 
-function SourceBadge({ q }: { q: RegimeQuote }) {
-  const count = q.sources ? Object.keys(q.sources).filter((k) => isFinite(q.sources![k])).length : 0;
-  if (count >= 2) {
-    const ok = q.agreement === "verified" || q.agreement === "close";
-    return (
-      <div
-        className={cn(
-          "mt-1 inline-flex items-center gap-1 rounded px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider",
-          ok ? "bg-[var(--color-bull)]/10 text-[var(--color-bull)]" : "bg-amber-500/10 text-amber-500",
-        )}
-        title={Object.entries(q.sources ?? {}).map(([s, p]) => `${s}: $${(p as number).toFixed(2)}`).join(" · ")}
-      >
-        {ok ? "✓" : "≠"} {count} src
-      </div>
-    );
-  }
-  return (
-    <div
-      className="mt-1 inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-amber-500"
-      title="Only one source available — needs a second source to verify"
-    >
-      ⚠ {count || "0"} src
-    </div>
-  );
-}
 
 function RegimeCard({
   bias, spy, qqq, smh,
@@ -83,23 +58,15 @@ function RegimeCard({
     : "text-amber-500 bg-amber-500/10 border-amber-500/30";
   return (
     <div className="rounded-xl border border-border bg-card p-4 min-w-[300px]">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Market Regime</span>
-        <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-bold", biasCls)}>{plain}</span>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Market Regime
+        </span>
+        <span className={cn("rounded-full border px-3 py-1 text-xs font-bold", biasCls)}>
+          {plain}
+        </span>
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        {[{ sym: "SPY", q: spy }, { sym: "QQQ", q: qqq }, { sym: "SMH", q: smh }].map(({ sym, q }) => (
-          <div key={sym}>
-            <div className="text-[10px] font-semibold text-muted-foreground">{sym}</div>
-            <div className="mt-0.5 font-mono text-sm font-semibold">${q.price.toFixed(2)}</div>
-            <div className={cn("font-mono text-[11px]", q.changePct >= 0 ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]")}>
-              {q.changePct >= 0 ? "+" : ""}{q.changePct.toFixed(2)}%
-            </div>
-            <SourceBadge q={q} />
-          </div>
-        ))}
-      </div>
-      <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+      <p className="mt-3 text-[12px] leading-snug text-foreground/90">
         {regimeSummary(bias, spy, qqq, smh)}
       </p>
     </div>
