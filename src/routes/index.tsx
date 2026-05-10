@@ -244,6 +244,8 @@ function Dashboard() {
   // hydration mismatches.
   const [snapshotMounted, setSnapshotMounted] = useState(false);
   useEffect(() => {
+    // Sweep stale-schema / legacy snapshot keys BEFORE we attempt to hydrate.
+    purgeLegacySnapshots();
     setSnapshotMounted(true);
   }, []);
   const cachedSnapshot = useMemo(
