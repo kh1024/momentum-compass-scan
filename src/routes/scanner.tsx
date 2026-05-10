@@ -222,44 +222,50 @@ function Scanner() {
     ? Object.values(chainData.enriched).filter((v) => v !== null).length
     : 0;
 
+  const symbolsForQuotes = symbols;
+  const { get: getLiveQuote, anyLive } = { get: getLive, anyLive: chainData ? !chainData.rateLimited : false };
+  void symbolsForQuotes; void getLiveQuote;
+  const dataMode: "live" | "cached" | "delayed" | "demo" =
+    chainData?.rateLimited ? "delayed"
+    : chainData && Object.values(chainData.enriched).some((v) => v !== null) ? "live"
+    : anyLive ? "cached"
+    : "demo";
+  const onRefreshQuotesOnly = () => {
+    void qc.invalidateQueries({ queryKey: ["live-quotes"] });
+    toast.success("Refreshing quotes…");
+  };
+
   return (
     <div className="space-y-4">
-      {/* Top summary bar */}
-      <div className="rounded-xl border border-border bg-card p-3">
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <h1 className="text-base font-semibold">Scanner</h1>
-          <Stat label="Total" value={candidates.length} />
-          <Stat label="Buy Now" value={labelCounts["Buy Now"]} tone="bull" />
-          <Stat label="Watchlist" value={labelCounts.Watchlist} tone="watch" />
-          <Stat label="Aggressive" value={labelCounts.Aggressive} tone="warn" />
-          <Stat label="Avoid" value={labelCounts.Avoid} tone="bear" />
-          <span className="hidden text-muted-foreground sm:inline">·</span>
-          <span className="text-muted-foreground">Regime: <span className="text-foreground">Risk-on</span></span>
-          <span className="ml-auto flex items-center gap-2">
-            <span
-              className={cn(
-                "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                isStale ? "border-amber-500/50 bg-amber-500/10 text-amber-500"
-                : ageMs != null ? "border-[var(--color-bull)]/40 bg-[var(--color-bull)]/5 text-[var(--color-bull)]"
-                : "border-border text-muted-foreground",
-              )}
-              title={chainData?.message ?? undefined}
-            >
-              {isScanning ? "↻ syncing"
-                : chainData?.rateLimited ? "⚠ rate-limited"
-                : ageMs == null ? "○ no data"
-                : `● live ${liveCount}/${picks.length} · ${Math.round(ageMs / 1000)}s ago`}
-            </span>
-            <span className="text-muted-foreground">Updated <span className="mono text-foreground">{lastSyncLabel}</span></span>
-            <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <input type="checkbox" checked={autoSync} onChange={(e) => setAutoSync(e.target.checked)} className="h-3 w-3 accent-[var(--color-bull)]" />
-              Auto 30s
-            </label>
-            <button onClick={runScan} disabled={isScanning} className="rounded-md border border-border bg-background px-2 py-1 text-[10px] font-semibold hover:bg-muted disabled:opacity-50">
-              {isScanning ? "Syncing…" : "Sync now"}
-            </button>
-          </span>
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Scanner</h1>
+          <p className="text-xs text-muted-foreground">
+            Full scan reranks {fullScanIntervalMs > 0 ? `every ${Math.round(fullScanIntervalMs / 60_000)} min` : "only on demand"} · {liveCount}/{picks.length} live · Regime: <span className="text-foreground">Risk-on</span>
+            {isStale ? " · ⚠ stale" : ""}
+          </p>
         </div>
+      </div>
+
+      <RefreshBar
+        lastFullScanAt={lastFullScanAt}
+        nextFullScanAt={nextFullScanAt}
+        marketDataUpdatedAt={lastFullScanAt}
+        optionQuoteUpdatedAt={lastFullScanAt}
+        dataMode={dataMode}
+        autoRefresh={autoRefresh && fullScanIntervalMs > 0}
+        isScanning={isScanning}
+        onRunScanNow={runScan}
+        onRefreshQuotesOnly={onRefreshQuotesOnly}
+        onToggleAutoRefresh={() => setAutoRefresh((v) => !v)}
+      />
+
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 text-xs">
+        <Stat label="Total" value={candidates.length} />
+        <Stat label="Buy Now" value={labelCounts["Buy Now"]} tone="bull" />
+        <Stat label="Watchlist" value={labelCounts.Watchlist} tone="watch" />
+        <Stat label="Aggressive" value={labelCounts.Aggressive} tone="warn" />
+        <Stat label="Avoid" value={labelCounts.Avoid} tone="bear" />
       </div>
 
       {/* Filter bar */}
