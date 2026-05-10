@@ -21,7 +21,9 @@ export function useEarnings(symbols: string[], daysAhead = 60) {
     enabled: unique.length > 0,
     staleTime: 60 * 60 * 1000,        // 1h — earnings dates rarely change intraday
     refetchInterval: 60 * 60 * 1000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
     retry: 0,
   });
   const map = data?.earnings ?? {};

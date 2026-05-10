@@ -26,8 +26,10 @@ export function useRedditSentiment(symbols: string[], options: UseRedditSentimen
     queryFn: () => fetchFn({ data: { symbols: unique } }),
     enabled: unique.length > 0,
     refetchInterval: refetchIntervalMs,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
+    placeholderData: (prev) => prev,
     staleTime:
       typeof refetchIntervalMs === "number"
         ? Math.max(Math.min(refetchIntervalMs - 5_000, refetchIntervalMs), 60_000)

@@ -31,8 +31,11 @@ export function useMarketQuotes(
     queryKey: ["market-quotes", key],
     queryFn: () => fetchQuotesEnvelope(key),
     refetchInterval: refetchIntervalMs,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
     enabled: enabled && key.length > 0,
     staleTime: 30_000,
+    placeholderData: (prev) => prev,
   });
 
   const quotes = q.data?.quotes ?? {};
