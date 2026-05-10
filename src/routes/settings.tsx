@@ -420,10 +420,6 @@ function ToggleRow({ label, value, onChange }: { label: string; value: boolean; 
   );
 }
 
-function _RowUnused() { return null; }
-    </div>
-  );
-}
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
