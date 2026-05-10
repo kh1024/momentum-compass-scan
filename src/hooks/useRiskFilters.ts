@@ -21,6 +21,7 @@ export function useRiskFilters() {
   const [state, setState] = useState(() => ({
     preset: DEFAULT_PRESET as ReturnType<typeof readRiskState>["preset"],
     filters: { ...RISK_PRESETS[DEFAULT_PRESET] },
+    auto: true,
   }));
 
   useEffect(() => {
@@ -30,24 +31,33 @@ export function useRiskFilters() {
   }, []);
 
   const applyPreset = useCallback((key: RiskPresetKey) => {
-    writeRiskState({ preset: key, filters: { ...RISK_PRESETS[key] } });
+    const cur = readRiskState();
+    writeRiskState({ preset: key, filters: { ...RISK_PRESETS[key] }, auto: cur.auto });
   }, []);
 
   const setFilter = useCallback(<K extends keyof RiskFilters>(key: K, value: RiskFilters[K]) => {
     const current = readRiskState();
     const next: RiskFilters = { ...current.filters, [key]: value };
-    writeRiskState({ preset: "Custom", filters: next });
+    // Touching a manual filter switches off auto mode so the change takes effect.
+    writeRiskState({ preset: "Custom", filters: next, auto: false });
+  }, []);
+
+  const setAuto = useCallback((auto: boolean) => {
+    const cur = readRiskState();
+    writeRiskState({ ...cur, auto });
   }, []);
 
   const reset = useCallback(() => {
-    writeRiskState({ preset: DEFAULT_PRESET, filters: { ...RISK_PRESETS[DEFAULT_PRESET] } });
+    writeRiskState({ preset: DEFAULT_PRESET, filters: { ...RISK_PRESETS[DEFAULT_PRESET] }, auto: true });
   }, []);
 
   return {
     filters: state.filters,
     preset: state.preset,
+    auto: state.auto,
     applyPreset,
     setFilter,
+    setAuto,
     reset,
   };
 }
