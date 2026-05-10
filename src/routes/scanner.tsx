@@ -30,6 +30,8 @@ import type { ExpirationBucket } from "@/lib/types";
 import { useRiskFilters } from "@/hooks/useRiskFilters";
 import { useAdaptiveIntervals } from "@/hooks/useAdaptiveIntervals";
 import { applyRiskFilters } from "@/lib/riskFilters";
+import { useContractPreference } from "@/hooks/useContractPreference";
+import { ContractPreferenceToolbar } from "@/components/ContractPreferenceToolbar";
 
 export const Route = createFileRoute("/scanner")({
   head: () => ({ meta: [{ title: "Scanner Results — Momentum Options Scanner" }] }),
