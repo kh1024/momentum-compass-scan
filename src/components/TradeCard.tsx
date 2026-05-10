@@ -254,3 +254,19 @@ function Pill({ tone, children }: { tone: "muted" | "info" | "bear" | "bull"; ch
   return <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 font-medium", cls)}>{children}</span>;
 }
 
+
+function MoneynessChip({ moneyness }: { moneyness: Moneyness }) {
+  const tone =
+    moneyness === "Deep ITM" || moneyness === "ITM"
+      ? "bg-[var(--color-bull)]/20 text-[var(--color-bull)] border-[var(--color-bull)]/40"
+      : moneyness === "Slightly ITM" || moneyness === "ATM" || moneyness === "Slightly OTM"
+        ? "bg-foreground/10 text-foreground border-foreground/30"
+        : moneyness === "OTM"
+          ? "bg-[var(--color-watch)]/20 text-[var(--color-watch)] border-[var(--color-watch)]/40"
+          : "bg-[var(--color-bear)]/20 text-[var(--color-bear)] border-[var(--color-bear)]/40";
+  return (
+    <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 font-semibold uppercase tracking-wide", tone)}>
+      {moneyness}
+    </span>
+  );
+}
