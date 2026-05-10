@@ -32,8 +32,13 @@ import {
 } from "./optionQualityValidator";
 import { strikeIsBreakoutOnlyBeforeTrigger } from "./entryMode";
 
+export type ScannerMode = "Strict" | "Balanced" | "Discovery";
+
 export interface DisciplineGateOptions {
   extendedSwingEnabled: boolean;
+  /** Scanner mode — controls warning bands for Watchlist/Aggressive without
+   *  loosening the hard Buy Now rules. Default: "Balanced". */
+  mode?: ScannerMode;
 }
 
 export interface InvariantCheck {
