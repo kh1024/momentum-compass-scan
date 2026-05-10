@@ -96,10 +96,13 @@ export function snapshotFromCandidate(t: TradeCandidate): WatchlistItem {
 }
 
 export function useWatchlist() {
-  const [items, setItems] = useState<WatchlistItem[]>(() => read());
+  // Initialize empty so SSR and first client render agree. Hydrate from
+  // localStorage in an effect — fixes the React #418 hydration mismatch
+  // when WatchlistButton's active state differs between server and client.
+  const [items, setItems] = useState<WatchlistItem[]>([]);
 
-  // Sync across tabs and other instances of the hook in the same tab.
   useEffect(() => {
+    setItems(read());
     if (typeof window === "undefined") return;
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) setItems(read());
