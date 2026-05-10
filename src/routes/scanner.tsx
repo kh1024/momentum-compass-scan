@@ -9,6 +9,7 @@ import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeTable } from "@/components/TradeTable";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
 import { ScanBar } from "@/components/ScanBar";
+import { BackendHealthPanel, useBackendHealth } from "@/components/BackendHealthBadge";
 import { useOptionsChain } from "@/hooks/useOptionsChain";
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { CapBucket, Direction, Label, TradeCandidate } from "@/lib/types";
