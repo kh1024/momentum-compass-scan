@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { MOCK_REGIME } from "@/lib/mockData";
+// MOCK_REGIME no longer used — sidebar runs on live data only.
 import { aiInsights } from "@/lib/aiCommentary";
 import { isMarketOpen } from "@/lib/marketHours";
 import { useLiveQuotes } from "@/hooks/useLiveQuotes";
