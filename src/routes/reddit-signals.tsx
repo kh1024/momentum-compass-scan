@@ -82,8 +82,8 @@ function RedditSignalsPage() {
     return {
       topTrending: [...sorted].sort((a, b) => b.mentions - a.mentions).slice(0, 5),
       fastestRising: [...sorted].sort((a, b) => b.mentionsDeltaPct - a.mentionsDeltaPct).slice(0, 5),
-      mostBullish: [...sorted].filter(e => e.sentiment === "Bullish").sort((a, b) => b.bullishRatio - a.bullishRatio).slice(0, 5),
-      mostBearish: [...sorted].filter(e => e.sentiment === "Bearish").sort((a, b) => a.bullishRatio - b.bullishRatio).slice(0, 5),
+      mostBullish: [...sorted].filter(e => e.sentiment === "Bullish").sort((a, b) => (b.bullishRatio * b.mentions) - (a.bullishRatio * a.mentions)).slice(0, 5),
+      mostBearish: [...sorted].filter(e => e.sentiment === "Bearish").sort((a, b) => ((1 - b.bullishRatio) * b.mentions) - ((1 - a.bullishRatio) * a.mentions)).slice(0, 5),
       optionsHype: [...sorted].filter(e => e.optionsFocus).sort((a, b) => b.mentions - a.mentions).slice(0, 5),
       speculative: [...sorted].filter(e => e.category === "Lottery Watch" || e.category === "Too Much Hype").slice(0, 5),
     };
