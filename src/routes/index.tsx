@@ -271,11 +271,10 @@ function Dashboard() {
       ? lastFullScanAt + fullScanIntervalMs
       : null;
 
-  const dataMode: "live" | "cached" | "delayed" | "demo" =
+  const dataMode: "live" | "cached" | "delayed" =
     chainData?.rateLimited ? "delayed"
     : anyLive && (chainData?.enriched && Object.values(chainData.enriched).some((v) => v !== null)) ? "live"
-    : anyLive ? "cached"
-    : "demo";
+    : "cached";
 
   type RQ = { price: number; changePct: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
   const regimeData = qc.getQueryData<{ live: boolean; quotes?: { SPY?: RQ; QQQ?: RQ; SMH?: RQ } }>(["regime-quotes"]);
@@ -332,7 +331,7 @@ function Dashboard() {
           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
             <span>
               <span className={cn("font-semibold", dataMode === "live" ? "text-[var(--color-bull)]" : dataMode === "delayed" ? "text-amber-500" : "text-muted-foreground")}>
-                {dataMode === "live" ? "Live" : dataMode === "delayed" ? "Rate-limited" : dataMode === "cached" ? "Cached" : "Demo"}
+                {dataMode === "live" ? "Live" : dataMode === "delayed" ? "Rate-limited" : "Cached"}
               </span>
               {" "}data
             </span>
