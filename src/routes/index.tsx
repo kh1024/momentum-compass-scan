@@ -5,11 +5,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { scanIntervalMs, isMarketOpen } from "@/lib/marketHours";
 import { MOCK_CANDIDATES } from "@/lib/mockData";
-import { freshness, marketCommentary } from "@/lib/aiCommentary";
-import { Radio } from "lucide-react";
+import { marketCommentary } from "@/lib/aiCommentary";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
 import { RefreshBar } from "@/components/RefreshBar";
+import { StatusPill } from "@/components/trust/StatusPill";
+import { deriveLiveState, LIVE_STATE_EXPLAIN, formatAgo } from "@/lib/liveStatus";
 import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { Direction, TradeCandidate } from "@/lib/types";
@@ -96,13 +97,13 @@ function deriveBias(spy: RegimeQuote | null, qqq: RegimeQuote | null, smh: Regim
 }
 
 function RegimeCard({
-  spy, qqq, smh, updatedAt, live,
+  spy, qqq, smh, updatedAt, isFetching,
 }: {
   spy: RegimeQuote | null;
   qqq: RegimeQuote | null;
   smh: RegimeQuote | null;
   updatedAt: number | null;
-  live: boolean;
+  isFetching: boolean;
 }) {
   const bias = deriveBias(spy, qqq, smh);
   const plain = bias === "Unknown" ? "Unknown" : regimePlainLabel(bias);
@@ -112,6 +113,7 @@ function RegimeCard({
     : plain === "Unknown" ? "text-muted-foreground bg-muted/40 border-border"
     : "text-amber-500 bg-amber-500/10 border-amber-500/30";
   const haveAny = !!(spy || qqq || smh);
+  const liveState = deriveLiveState({ updatedAt, isFetching });
   const aiLine = haveAny
     ? marketCommentary({
         spy: spy ? { symbol: "SPY", changePct: spy.changePct } : undefined,
@@ -119,7 +121,7 @@ function RegimeCard({
         smh: smh ? { symbol: "SMH", changePct: smh.changePct } : undefined,
         bias,
       })
-    : "Live market data unavailable — waiting on quote provider.";
+    : LIVE_STATE_EXPLAIN[liveState];
   const tickerCell = (sym: string, q: RegimeQuote | null) => (
     <div className="flex items-baseline justify-between gap-2 text-[11px]">
       <span className="font-semibold text-muted-foreground">{sym}</span>
@@ -137,7 +139,7 @@ function RegimeCard({
         </>
       ) : (
         <span className="mono w-full text-right tabular-nums text-[10px] uppercase tracking-wider text-muted-foreground/60">
-          unavailable
+          {liveState === "connecting" ? "connecting…" : "waiting for quote"}
         </span>
       )}
     </div>
@@ -159,26 +161,11 @@ function RegimeCard({
       </div>
       <p className="mt-3 text-[11px] leading-snug text-foreground/80">{aiLine}</p>
       <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-wider text-muted-foreground/70">
-        <span className={cn("flex items-center gap-1", live ? "text-[var(--color-bull)]" : "text-muted-foreground/60")}>
-          <Radio className={cn("h-2.5 w-2.5", live && "animate-pulse-dot")} />
-          {live ? "Live" : haveAny ? "Delayed" : "Offline"}
-        </span>
-        <FreshnessLabel ts={updatedAt} />
+        <StatusPill state={liveState} updatedAt={updatedAt} showAge={false} />
+        <span>{updatedAt ? `Updated ${formatAgo(updatedAt)}` : "No successful refresh yet"}</span>
       </div>
     </div>
   );
-}
-
-/** Self-ticking freshness label — re-renders only itself, not the parent tree. */
-function FreshnessLabel({ ts }: { ts: number | null }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!ts) return;
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, [ts]);
-  if (!ts) return <span>—</span>;
-  return <span>Updated {freshness(ts, now)}</span>;
 }
 
 function Stat({ label, value, tone }: { label: string; value: number | string; tone?: "bull" | "watch" | "warn" }) {
@@ -389,19 +376,27 @@ function Dashboard() {
       qqqLive?.ts ?? 0,
       smhLive?.ts ?? 0,
     ) || null;
-  // Sticky live flag — once we've ever seen live data, stay "Live" until an
-  // explicit error. Prevents the Live ↔ Stale flicker on every refetch tick.
-  const everLiveRef = useRef(false);
-  if (spyLive || qqqLive || smhLive) everLiveRef.current = true;
-  const regimeLive = everLiveRef.current || Boolean(spyLive || qqqLive || smhLive);
 
   // Unified freshness across SPY/QQQ/SMH regime quotes + per-ticker live quotes.
   const marketDataUpdatedAt =
     Math.max(regimeUpdatedAt ?? 0, liveQuoteUpdatedAt ?? 0) || null;
 
+  // Truthful live states — NEVER show "live" without a recent successful fetch.
+  const quoteState = deriveLiveState({
+    updatedAt: marketDataUpdatedAt,
+    isFetching: isScanning,
+    rateLimited: chainData?.rateLimited === true,
+  });
+  const chainState = deriveLiveState({
+    updatedAt: lastFullScanAt,
+    isFetching: isScanning,
+    rateLimited: chainData?.rateLimited === true,
+    hasError: !!chainError,
+  });
+
   const dataMode: "live" | "cached" | "delayed" =
     chainData?.rateLimited ? "delayed"
-    : (regimeLive || anyLive) ? "live"
+    : quoteState === "live" ? "live"
     : "cached";
 
   const onRunScanNow = () => { void refetchChain(); };
@@ -454,13 +449,8 @@ function Dashboard() {
           <p className="text-xs text-muted-foreground">
             Best options opportunities for the next few days · ranked by AI confidence
           </p>
-          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-            <span>
-              <span className={cn("font-semibold", dataMode === "live" ? "text-[var(--color-bull)]" : dataMode === "delayed" ? "text-amber-500" : "text-muted-foreground")}>
-                {dataMode === "live" ? "Live" : dataMode === "delayed" ? "Rate-limited" : "Cached"}
-              </span>
-              {" "}data
-            </span>
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <StatusPill state={quoteState} updatedAt={marketDataUpdatedAt} source="market" />
             <span className="h-3 w-px bg-border" />
             <span>{counts.total} ideas · {counts.highConviction} high conviction</span>
             <span className="h-3 w-px bg-border" />
@@ -473,7 +463,7 @@ function Dashboard() {
             </span>
           </div>
         </div>
-        <RegimeCard spy={spyQ} qqq={qqqQ} smh={smhQ} updatedAt={regimeUpdatedAt} live={regimeLive} />
+        <RegimeCard spy={spyQ} qqq={qqqQ} smh={smhQ} updatedAt={regimeUpdatedAt} isFetching={isScanning} />
       </div>
 
       <RefreshBar
@@ -482,6 +472,8 @@ function Dashboard() {
         marketDataUpdatedAt={marketDataUpdatedAt}
         optionQuoteUpdatedAt={lastFullScanAt}
         dataMode={dataMode}
+        quoteState={quoteState}
+        chainState={chainState}
         autoRefresh={autoRefresh && fullScanIntervalMs > 0}
         isScanning={isScanning}
         onRunScanNow={onRunScanNow}
@@ -489,13 +481,19 @@ function Dashboard() {
         onToggleAutoRefresh={() => setAutoRefresh((v) => !v)}
       />
 
-      {!regimeLive && !anyLive && (
+      {(quoteState === "unavailable" || quoteState === "connecting" || quoteState === "error" || quoteState === "stale") && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.04] px-4 py-3 text-xs">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse-dot" />
-            <span className="font-semibold uppercase tracking-wider text-amber-500">Live market data unavailable</span>
+            <span className="font-semibold uppercase tracking-wider text-amber-500">
+              {quoteState === "connecting" ? "Connecting to market data"
+                : quoteState === "stale" ? "Market data is stale"
+                : quoteState === "error" ? "Quote provider unreachable"
+                : "Waiting for live quote provider"}
+            </span>
             <span className="text-muted-foreground">
-              {isMarketOpen() ? "Quote provider is not responding — retrying." : "Market closed — last verified scan shown below once available."}
+              {LIVE_STATE_EXPLAIN[quoteState]}
+              {marketDataUpdatedAt ? ` · Last refresh ${formatAgo(marketDataUpdatedAt)}` : ""}
             </span>
           </div>
           <button
