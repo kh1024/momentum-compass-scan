@@ -240,53 +240,8 @@ export function Sidebar({
         )}
       </nav>
 
-      {/* Market snapshot */}
-      {markets.length > 0 && (
-        <div className="border-t border-[var(--color-border)] px-3 py-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-muted-foreground)]">Market</span>
-            <span
-              className={cn(
-                "flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider",
-                liveSticky ? "text-[var(--color-bull)]" : "text-muted-foreground/60",
-              )}
-              title={liveSticky ? `Live · updated ${fresh}` : `Loading market data…`}
-            >
-              <Radio className={cn("h-2.5 w-2.5", liveSticky && "animate-pulse-dot")} />
-              {liveSticky ? "Live" : "Loading"}
-            </span>
-          </div>
-          <div className="space-y-1">
-            {markets.map((m) => (
-              <div key={m.symbol} className="flex items-center justify-between gap-2 text-xs">
-                <span className="font-medium text-[var(--color-muted-foreground)]">{m.symbol}</span>
-                <FlashPrice value={m.price} />
-                <span
-                  className={cn(
-                    "mono w-14 text-right text-[10px] tabular-nums",
-                    m.changePct > 0 ? "text-[var(--color-bull)]"
-                    : m.changePct < 0 ? "text-[var(--color-bear)]"
-                    : "text-[var(--color-muted-foreground)]",
-                  )}
-                >
-                  {m.changePct >= 0 ? "+" : ""}{m.changePct.toFixed(2)}%
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-1.5 text-right text-[9px] text-muted-foreground/60">Updated {fresh}</div>
-          {regime && (
-            <div className={cn(
-              "mt-2 rounded px-2 py-1 text-center text-[10px] font-bold uppercase tracking-widest",
-              regime === "Risk-on" ? "bg-[var(--color-bull)]/10 text-[var(--color-bull)]"
-              : regime === "Risk-off" ? "bg-[var(--color-bear)]/10 text-[var(--color-bear)]"
-              : "bg-[var(--color-watch)]/10 text-[var(--color-watch)]",
-            )}>
-              {regime === "Risk-on" ? "Risk On" : regime === "Risk-off" ? "Risk Off" : "Neutral"}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Market snapshot removed — Market Regime card on the dashboard is the
+          single source of truth. Keeping two widgets caused stale/live drift. */}
 
       {/* Bottom nav */}
       <div className="border-t border-[var(--color-border)] px-3 py-3">
