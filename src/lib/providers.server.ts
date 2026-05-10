@@ -55,10 +55,9 @@ async function getYahooCrumb(force = false): Promise<{ crumb: string; cookie: st
     if (!crumb) return null;
     // Collect Set-Cookie headers (Yahoo sets A1/A3 session cookies)
     const setCookies: string[] = [];
-    // @ts-expect-error — Workers/undici expose getSetCookie()
-    if (typeof r.headers.getSetCookie === "function") {
-      // @ts-expect-error
-      setCookies.push(...r.headers.getSetCookie());
+    const headersAny = r.headers as Headers & { getSetCookie?: () => string[] };
+    if (typeof headersAny.getSetCookie === "function") {
+      setCookies.push(...headersAny.getSetCookie());
     } else {
       const sc = r.headers.get("set-cookie");
       if (sc) setCookies.push(sc);
