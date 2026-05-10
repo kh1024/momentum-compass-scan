@@ -98,7 +98,10 @@ function Scanner() {
   const [dir, setDir] = useState<Direction | "ALL">("ALL");
   const [capFilter, setCapFilter] = useState<CapBucket | "ALL">("ALL");
   const [dteFilter, setDteFilter] = useState<DteBucketFilter>("ALL");
-  const [maxCost, setMaxCost] = useState(1000);
+  // Global contract preference (mode + max cost) — shared across pages.
+  const { mode: preferenceMode, maxContractCost, setMaxCost: setGlobalMaxCost } = useContractPreference();
+  const maxCost = maxContractCost;
+  const setMaxCost = setGlobalMaxCost;
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [hideTrueAvoids, setHideTrueAvoids] = useState(true);
   const [hiddenLabels, setHiddenLabels] = useState<Set<Label>>(new Set());
