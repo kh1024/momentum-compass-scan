@@ -301,7 +301,8 @@ function Dashboard() {
     : anyLive ? "cached"
     : "demo";
 
-  const regimeData = qc.getQueryData<{ live: boolean; quotes?: { SPY?: { price: number; changePct: number }; QQQ?: { price: number; changePct: number }; SMH?: { price: number; changePct: number } } }>(["regime-quotes"]);
+  type RQ = { price: number; changePct: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
+  const regimeData = qc.getQueryData<{ live: boolean; quotes?: { SPY?: RQ; QQQ?: RQ; SMH?: RQ } }>(["regime-quotes"]);
   const spyQ = regimeData?.quotes?.SPY ?? MOCK_REGIME.spy;
   const qqqQ = regimeData?.quotes?.QQQ ?? MOCK_REGIME.qqq;
   const smhQ = regimeData?.quotes?.SMH ?? MOCK_REGIME.smh;
