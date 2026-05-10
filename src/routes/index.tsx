@@ -330,6 +330,16 @@ function Dashboard() {
     ) || null;
   const regimeLive = Boolean(regimeData?.live);
 
+  // Unified freshness across SPY/QQQ/SMH regime quotes + per-ticker live quotes.
+  const marketDataUpdatedAt =
+    Math.max(regimeUpdatedAt ?? 0, liveQuoteUpdatedAt ?? 0) || null;
+
+  const dataMode: "live" | "cached" | "delayed" =
+    chainData?.rateLimited ? "delayed"
+    : (regimeLive || anyLive) && (chainData?.enriched && Object.values(chainData.enriched).some((v) => v !== null)) ? "live"
+    : (regimeLive || anyLive) ? "live"
+    : "cached";
+
   const onRunScanNow = () => { void refetchChain(); };
   const onRefreshQuotesOnly = () => {
     void qc.invalidateQueries({ queryKey: ["live-quotes"] });
