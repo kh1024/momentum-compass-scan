@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import type { HealthResponse, BackendStatus } from "@/routes/api/health";
+import type { HealthResponse, BackendStatus } from "@/routes/api/health-check";
 
 async function fetchHealth(): Promise<HealthResponse> {
   const res = await fetch("/api/health", { headers: { Accept: "application/json" } });
