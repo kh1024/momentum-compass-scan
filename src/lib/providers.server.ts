@@ -1,6 +1,7 @@
 /**
  * Multi-source quote provider — server-only.
- * Aggregates Massive (keyed) + Yahoo + Stooq (free, no key).
+ * Aggregates Massive (keyed) + Public.com (keyed) + Finnhub (keyed)
+ *   + Yahoo + Stooq + CoinGecko (all free, no key).
  * Consensus rule: freshest timestamp wins. Cross-checked across sources.
  */
 
@@ -9,7 +10,7 @@ import { fetchPublicQuote, publicConfigured, getPublicCooldownStatus, type Publi
 import { fetchWithRetry } from "./fetchRetry.server";
 import { normalizeTickers } from "./scannerQueue";
 
-export type SourceName = "massive" | "public" | "finnhub" | "yahoo" | "stooq";
+export type SourceName = "massive" | "public" | "finnhub" | "yahoo" | "stooq" | "coingecko";
 
 export interface SourceQuote {
   source: SourceName;
@@ -78,29 +79,39 @@ async function getYahooCrumb(force = false): Promise<{ crumb: string; cookie: st
   }
 }
 
-// ── Yahoo (free, chart endpoint — requires crumb + cookie since 2024) ──
+// ── Yahoo (free) ──
+// Strategy:
+//   1) Try the crumb-free `query1` chart endpoint first. From Cloudflare
+//      Workers the crumb/cookie flow on `query2` is unreliable (set-cookie
+//      isn't always echoed), but `query1` returns chart data anonymously.
+//   2) Fall back to `query2` with a fresh crumb only if `query1` blocks.
 async function fetchYahoo(symbol: string): Promise<SourceQuote | null> {
   const sym = symbol.toUpperCase();
-  const doFetch = async (session: { crumb: string; cookie: string } | null) => {
+  // Anonymous query1 path (works without crumb in most regions).
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=5d`;
+    const r = await fetchWithRetry(url, {
+      headers: { "User-Agent": YAHOO_UA, Accept: "application/json" },
+    });
+    if (r.ok) {
+      const parsed = parseYahooChart(await r.json(), sym);
+      if (parsed) return parsed;
+    }
+  } catch (e) {
+    console.warn(`[yahoo q1] ${sym}`, e);
+  }
+  // Crumb fallback path.
+  try {
+    const session = await getYahooCrumb(true);
     const qs = `interval=1d&range=5d${session?.crumb ? `&crumb=${encodeURIComponent(session.crumb)}` : ""}`;
     const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?${qs}`;
     const headers: Record<string, string> = { "User-Agent": YAHOO_UA, Accept: "application/json" };
     if (session?.cookie) headers["Cookie"] = session.cookie;
-    return fetchWithRetry(url, { headers });
-  };
-  try {
-    let session = await getYahooCrumb();
-    let r = await doFetch(session);
-    if (r.status === 401 || r.status === 403) {
-      // Stale crumb — invalidate and retry once with a fresh session.
-      yahooCrumbCache = null;
-      session = await getYahooCrumb(true);
-      r = await doFetch(session);
-    }
+    const r = await fetchWithRetry(url, { headers });
     if (!r.ok) return null;
     return parseYahooChart(await r.json(), sym);
   } catch (e) {
-    console.warn(`[yahoo] ${sym}`, e);
+    console.warn(`[yahoo q2] ${sym}`, e);
     return null;
   }
 }
@@ -199,19 +210,75 @@ function publicAdapter(q: PublicQuote): SourceQuote {
   };
 }
 
+// ── CoinGecko (free, no key — crypto only) ──
+// Public free tier: ~10–30 req/min from a given IP. We hit the simple-price
+// endpoint which is the cheapest and serves USD price + 24h change in one call.
+const COINGECKO_ID_MAP: Record<string, string> = {
+  "BTC-USD": "bitcoin",
+  "ETH-USD": "ethereum",
+  "SOL-USD": "solana",
+  "BNB-USD": "binancecoin",
+  "XRP-USD": "ripple",
+  "ADA-USD": "cardano",
+  "DOGE-USD": "dogecoin",
+  "AVAX-USD": "avalanche-2",
+  "LINK-USD": "chainlink",
+  "MATIC-USD": "matic-network",
+  "DOT-USD": "polkadot",
+  "LTC-USD": "litecoin",
+};
+
+function coingeckoId(symbol: string): string | null {
+  const upper = symbol.toUpperCase();
+  return COINGECKO_ID_MAP[upper] ?? null;
+}
+
+async function fetchCoinGecko(symbol: string): Promise<SourceQuote | null> {
+  const id = coingeckoId(symbol);
+  if (!id) return null;
+  const sym = symbol.toUpperCase();
+  try {
+    const url =
+      `https://api.coingecko.com/api/v3/simple/price?ids=${id}` +
+      `&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true`;
+    const r = await fetchWithRetry(url, {
+      headers: { Accept: "application/json", "User-Agent": "MomentumAI/1.0" },
+    });
+    if (!r.ok) return null;
+    const j = (await r.json()) as Record<
+      string,
+      { usd?: number; usd_24h_change?: number; usd_24h_vol?: number; last_updated_at?: number }
+    >;
+    const row = j[id];
+    const price = Number(row?.usd);
+    if (!isFinite(price) || price <= 0) return null;
+    const changePct = Number(row?.usd_24h_change ?? 0);
+    const change = isFinite(changePct) ? price * (changePct / 100) : 0;
+    const volume = Number(row?.usd_24h_vol ?? 0);
+    const ts = Number(row?.last_updated_at) > 0 ? Number(row?.last_updated_at) * 1000 : Date.now();
+    return { source: "coingecko", symbol: sym, price, change, changePct, volume, ts };
+  } catch (e) {
+    console.warn(`[coingecko] ${sym}`, e);
+    return null;
+  }
+}
+
 /**
- * Pull from every available source in parallel. Free sources (Yahoo, Stooq)
- * are ALWAYS queried so we degrade gracefully when Massive is disabled,
- * cooling down, or returning errors. Massive is only attempted when it is
- * configured, enabled in Settings, and not currently rate-limited.
+ * Pull from every available source in parallel. Free sources (Yahoo, Stooq,
+ * CoinGecko) are ALWAYS queried so we degrade gracefully when Massive is
+ * disabled, cooling down, or returning errors. Massive is only attempted when
+ * it is configured, enabled in Settings, and not currently rate-limited.
  */
 async function fetchAllSources(symbol: string): Promise<SourceQuote[]> {
-  // Crypto pairs (e.g. BTC-USD, SOL-USD) are only supported by Yahoo. Skip the
-  // equity-only providers to avoid burning rate limits on guaranteed errors.
+  // Crypto pairs (e.g. BTC-USD, SOL-USD) — query CoinGecko (primary, no key)
+  // and Yahoo (fallback). Stooq/Finnhub/Massive don't carry crypto.
   const isCrypto = /-USD$/i.test(symbol);
   if (isCrypto) {
-    const y = await fetchYahoo(symbol).catch(() => null);
-    return y ? [y] : [];
+    const [cg, y] = await Promise.all([
+      fetchCoinGecko(symbol).catch(() => null),
+      fetchYahoo(symbol).catch(() => null),
+    ]);
+    return [cg, y].filter((q): q is SourceQuote => q !== null);
   }
 
   // Free fallbacks first — these never depend on Massive's state.
@@ -350,5 +417,6 @@ export async function probeAllProviders(): Promise<ProviderHealth[]> {
     probe("finnhub", () => fetchFinnhub("SPY"), finnhubConfigured(), "Real-time quotes — FINNHUB_API_KEY"),
     probe("yahoo", () => fetchYahoo("SPY"), true, "Quotes feed — free, no key required"),
     probe("stooq", () => fetchStooq("SPY"), true, "EOD quotes — free, no key required"),
+    probe("coingecko", () => fetchCoinGecko("BTC-USD"), true, "Crypto quotes — free, no key required"),
   ]);
 }
