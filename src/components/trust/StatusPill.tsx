@@ -5,6 +5,21 @@ import {
   formatAgo,
 } from "@/lib/liveStatus";
 import { useEffect, useState } from "react";
+import { useStableValue } from "@/hooks/useStableValue";
+
+// Transient states that flip rapidly during refresh cycles. We hold the
+// previous state briefly before allowing them to take over, and we let
+// "important" terminal states (error/unavailable/stale) override immediately.
+const TRANSIENT: ReadonlySet<LiveState> = new Set([
+  "refreshing",
+  "connecting",
+]);
+const URGENT: ReadonlySet<LiveState> = new Set([
+  "error",
+  "unavailable",
+  "stale",
+  "market-closed",
+]);
 
 const TONE: Record<LiveState, string> = {
   live: "border-[var(--color-bull)]/40 bg-[var(--color-bull)]/10 text-[var(--color-bull)]",
