@@ -9,15 +9,7 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
-import { Disclaimer } from "@/components/NavBar";
-import { Sidebar } from "@/components/Sidebar";
-import { MOCK_REGIME } from "@/lib/mockData";
-
-const SIDEBAR_MARKETS = [
-  { symbol: "SPY", price: MOCK_REGIME.spy.price, changePct: MOCK_REGIME.spy.changePct, trend: MOCK_REGIME.spy.trend },
-  { symbol: "QQQ", price: MOCK_REGIME.qqq.price, changePct: MOCK_REGIME.qqq.changePct, trend: MOCK_REGIME.qqq.trend },
-  { symbol: "SMH", price: MOCK_REGIME.smh.price, changePct: MOCK_REGIME.smh.changePct, trend: MOCK_REGIME.smh.trend },
-];
+import { NavBar, Disclaimer } from "@/components/NavBar";
 
 function NotFoundComponent() {
   return (
