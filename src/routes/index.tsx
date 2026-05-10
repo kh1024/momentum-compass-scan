@@ -44,24 +44,48 @@ function regimeSummary(bias: string, spy: { changePct: number }, qqq: { changePc
   return "Mixed tape — selectivity matters; lean on strongest setups only.";
 }
 
-type RegimeQuote = { price: number; changePct: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
+type RegimeQuote = { price: number; changePct: number; ts?: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
 
 
 function RegimeCard({
-  bias, spy, qqq, smh,
+  bias, spy, qqq, smh, updatedAt, live, nowTick,
 }: {
   bias: string;
   spy: RegimeQuote;
   qqq: RegimeQuote;
   smh: RegimeQuote;
+  updatedAt: number | null;
+  live: boolean;
+  nowTick: number;
 }) {
   const plain = regimePlainLabel(bias);
   const biasCls =
     plain === "Risk On" ? "text-[var(--color-bull)] bg-[var(--color-bull)]/10 border-[var(--color-bull)]/30"
     : plain === "Risk Off" ? "text-[var(--color-bear)] bg-[var(--color-bear)]/10 border-[var(--color-bear)]/30"
     : "text-amber-500 bg-amber-500/10 border-amber-500/30";
+  const fresh = freshness(updatedAt, nowTick || Date.now());
+  const aiLine = marketCommentary({
+    spy: { symbol: "SPY", changePct: spy.changePct },
+    qqq: { symbol: "QQQ", changePct: qqq.changePct },
+    smh: { symbol: "SMH", changePct: smh.changePct },
+    bias,
+  });
+  const tickerCell = (sym: string, q: RegimeQuote) => (
+    <div className="flex items-baseline justify-between gap-2 text-[11px]">
+      <span className="font-semibold text-muted-foreground">{sym}</span>
+      <span className="mono tabular-nums text-foreground/90">${q.price.toFixed(2)}</span>
+      <span className={cn(
+        "mono w-14 text-right tabular-nums",
+        q.changePct > 0 ? "text-[var(--color-bull)]"
+        : q.changePct < 0 ? "text-[var(--color-bear)]"
+        : "text-muted-foreground",
+      )}>
+        {q.changePct >= 0 ? "+" : ""}{q.changePct.toFixed(2)}%
+      </span>
+    </div>
+  );
   return (
-    <div className="rounded-xl border border-border bg-card p-4 min-w-[300px]">
+    <div className="rounded-xl border border-border bg-card p-4 min-w-[320px]">
       <div className="flex items-center justify-between gap-3">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Market Regime
@@ -70,9 +94,19 @@ function RegimeCard({
           {plain}
         </span>
       </div>
-      <p className="mt-3 text-[12px] leading-snug text-foreground/90">
-        {regimeSummary(bias, spy, qqq, smh)}
-      </p>
+      <div className="mt-3 grid grid-cols-1 gap-1">
+        {tickerCell("SPY", spy)}
+        {tickerCell("QQQ", qqq)}
+        {tickerCell("SMH", smh)}
+      </div>
+      <p className="mt-3 text-[11px] leading-snug text-foreground/80">{aiLine}</p>
+      <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-wider text-muted-foreground/70">
+        <span className={cn("flex items-center gap-1", live ? "text-[var(--color-bull)]" : "text-amber-500")}>
+          <Radio className={cn("h-2.5 w-2.5", live && "animate-pulse-dot")} />
+          {live ? "Live" : "Stale"}
+        </span>
+        <span>Updated {fresh}</span>
+      </div>
     </div>
   );
 }
