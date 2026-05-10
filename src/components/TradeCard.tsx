@@ -215,27 +215,6 @@ function basisLabel(basis: TradeCandidate["contract"]["priceBasis"]): string {
   return "Unknown";
 }
 
-function TriggerRow({ label, trigger }: { label: string; trigger?: TradeCandidate["supportReclaimTrigger"] }) {
-  const status = trigger?.status ?? "not-active";
-  const tone = status === "active" ? "bull" : status === "failed" || status === "stale" ? "bear" : "muted";
-  return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="mono text-foreground">
-        {trigger?.level ? trigger.level.toFixed(2) : "—"} · <span className={tone === "bull" ? "text-[var(--color-bull)]" : tone === "bear" ? "text-[var(--color-bear)]" : "text-muted-foreground"}>{triggerLabel(status)}</span>
-      </span>
-    </div>
-  );
-}
-
-function triggerLabel(status: NonNullable<TradeCandidate["triggerStatus"]>): string {
-  if (status === "active") return "Active";
-  if (status === "waiting-retest") return "Waiting";
-  if (status === "failed") return "Failed";
-  if (status === "stale") return "Stale";
-  return "Not Active";
-}
-
 function Pill({ tone, children }: { tone: "muted" | "info" | "bear" | "bull"; children: React.ReactNode }) {
   const cls = tone === "bear"
     ? "border-[var(--color-bear)]/40 bg-[var(--color-bear)]/10 text-[var(--color-bear)]"
@@ -247,12 +226,3 @@ function Pill({ tone, children }: { tone: "muted" | "info" | "bear" | "bull"; ch
   return <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 font-medium", cls)}>{children}</span>;
 }
 
-function TriggerChip({ status, trigger, price, dir }: { status: NonNullable<TradeCandidate["triggerStatus"]>; trigger?: number; price: number; dir: TradeCandidate["direction"] }) {
-  const tone = status === "active" ? "bull" : status === "failed" ? "bear" : "muted";
-  const label =
-    status === "active" ? "Trigger active"
-    : status === "waiting-retest" ? "Waiting retest"
-    : status === "failed" ? "Trigger failed"
-    : `Waiting ${dir === "CALL" ? "breakout" : "breakdown"}${trigger ? ` ${trigger.toFixed(2)}` : ""} (now ${price.toFixed(2)})`;
-  return <Pill tone={tone}>{label}</Pill>;
-}
