@@ -20,6 +20,7 @@ export const Route = createFileRoute("/settings")({
 const PROVIDER_LABELS: Record<string, string> = {
   massive: "Massive (Quotes)",
   public: "Public.com (Quotes)",
+  finnhub: "Finnhub (Quotes)",
   yahoo: "Yahoo Finance (Quotes)",
   stooq: "Stooq (EOD Quotes)",
 };
