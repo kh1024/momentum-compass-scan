@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { getQuotes } from "@/lib/quote.functions";
-import type { ConsensusQuote } from "@/lib/providers.server";
+import type { ConsensusQuote } from "@/lib/quote-types";
 import { loadAllRecentQuotes, loadQuoteCache, saveQuoteCache } from "@/lib/quoteCache";
 
 interface UseLiveQuotesOptions {
