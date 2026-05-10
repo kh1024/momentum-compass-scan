@@ -234,6 +234,8 @@ export interface TradeCandidate {
   isDemo: boolean;
   /** UI hint: "live" current poll, "stale" sticky last-good, "demo" never seen live. */
   liveState?: "live" | "stale" | "demo";
+  /** Quote validation result — see quoteValidation.ts. */
+  quoteValidation?: import("./quoteValidation").QuoteValidation;
   // YOLO extras
   whyExplode?: string;
   whyZero?: string;
