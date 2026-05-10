@@ -133,6 +133,24 @@ export function applyLiveChain(
     }
     return c;
   }
+  // HARD GATE: refuse to select a contract when the underlying price hasn't
+  // been validated. Moneyness, break-even, scoring all depend on price —
+  // a bad underlying corrupts everything downstream. Surface as
+  // `noQualityContract` so the ticker stays in view as a watchlist idea.
+  const qv = c.quoteValidation;
+  if (qv && !qv.rankable) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[chain-gate] ${c.ticker}: skipping contract — underlying ${qv.status} (${qv.reason})`,
+    );
+    return {
+      ...c,
+      noQualityContract: true,
+      noQualityReason: `underlying ${qv.status}: ${qv.reason}`,
+      isDemo: false,
+      liveState: liveStateFor(c.ticker),
+    };
+  }
   markLive(c.ticker, "chain");
   const baseline = c.score;
   const nonChainEstimate = Math.max(0, baseline - 30);
