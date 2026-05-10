@@ -104,7 +104,7 @@ describe("runDisciplineGate", () => {
       contract: mkContract({ dte: 100 }), // excluded-short-term
     });
     const r = runDisciplineGate(c, { extendedSwingEnabled: true });
-    expect(r.displayLabel).toBe("Avoid");
+    expect(r.displayLabel).toBe("Avoid Ticker");
     expect(r.buyNowEligible).toBe(false);
   });
 
