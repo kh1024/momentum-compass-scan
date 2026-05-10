@@ -70,56 +70,56 @@ export function CompactTradeCard({
 
   return (
     <div
-      className="group relative overflow-hidden rounded-sm border border-border bg-card transition-colors hover:border-foreground/20 hover:bg-card/80"
-      style={{ borderLeft: "3px solid transparent" }}
+      className="group relative overflow-hidden rounded-md border border-border/70 bg-card shadow-sm transition-all hover:border-foreground/25 hover:shadow-md hover:-translate-y-px"
     >
       {/* Left accent bar (label color) */}
       <div className={cn("absolute inset-y-0 left-0 w-[3px]", LABEL_ACCENT[t.label])} />
 
-      <div className="pl-3 pr-2 pt-2.5 pb-2">
-        {/* ── Row 1: Ticker / direction / label / score / price ── */}
+      <div className="pl-3.5 pr-3 pt-3 pb-2.5">
+        {/* ── Row 1: Ticker / direction / score / price ── */}
         <div className="flex items-center gap-2">
-          <span className="mono text-sm font-bold tracking-tight">{t.ticker}</span>
+          <span className="mono text-base font-bold tracking-tight leading-none">{t.ticker}</span>
           <span className={cn(
-            "mono rounded px-1 py-0 text-[10px] font-bold",
+            "mono rounded px-1.5 py-0.5 text-[10px] font-bold leading-none",
             t.direction === "CALL"
               ? "bg-[var(--color-bull)]/15 text-[var(--color-bull)]"
               : "bg-[var(--color-bear)]/15 text-[var(--color-bear)]",
           )}>
             {t.direction}
           </span>
-          <span className={cn("text-[10px] font-semibold uppercase tracking-wide", LABEL_TEXT[t.label])}>
-            {t.label}
-          </span>
-          <span className="ml-auto flex items-center gap-2">
+          <span className="ml-auto flex items-center gap-2.5">
             {isDemo && (
               <span className="rounded border border-[var(--color-watch)]/30 px-1 py-0 text-[9px] font-bold uppercase tracking-wide text-[var(--color-watch)]/70">
                 Demo
               </span>
             )}
+            <span className="mono text-sm font-semibold tabular-nums text-foreground leading-none">
+              ${t.price.toFixed(2)}
+            </span>
             <span className={cn(
-              "mono text-xs font-bold tabular-nums",
-              score >= 85 ? "text-[var(--color-bull)]"
-              : score >= 70 ? "text-[var(--color-watch)]"
-              : "text-muted-foreground",
+              "mono inline-flex h-6 min-w-[28px] items-center justify-center rounded px-1.5 text-[11px] font-bold tabular-nums leading-none",
+              score >= 85 ? "bg-[var(--color-bull)]/15 text-[var(--color-bull)]"
+              : score >= 70 ? "bg-[var(--color-watch)]/15 text-[var(--color-watch)]"
+              : "bg-muted text-muted-foreground",
             )}>
               {score}
-            </span>
-            <span className="mono text-xs font-semibold tabular-nums text-foreground">
-              ${t.price.toFixed(2)}
             </span>
           </span>
         </div>
 
-        {/* ── Row 2: Setup + trend ── */}
-        <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-          <span className="font-medium text-foreground/60">{t.setupType}</span>
-          <span>·</span>
-          <span className="truncate">{t.trend}</span>
+        {/* ── Row 2: Label + setup + trend ── */}
+        <div className="mt-1.5 flex items-center gap-1.5 text-[10px]">
+          <span className={cn("font-bold uppercase tracking-wider", LABEL_TEXT[t.label])}>
+            {t.label}
+          </span>
+          <span className="text-border">|</span>
+          <span className="font-medium text-foreground/70">{t.setupType}</span>
+          <span className="text-muted-foreground/50">·</span>
+          <span className="truncate text-muted-foreground">{t.trend}</span>
         </div>
 
         {/* ── Contract data grid (always shown, demo or chain) ── */}
-        <div className="mt-2 grid grid-cols-4 gap-x-2 gap-y-0.5 text-[10px]">
+        <div className="mt-2.5 grid grid-cols-4 gap-x-3 gap-y-1 rounded border border-border/40 bg-muted/20 px-2 py-1.5 text-[10px]">
           <Cell k="EXP"    v={expShort} />
           <Cell k="STRIKE" v={`$${c.strike}`} />
           <Cell k="ASK"    v={`$${c.ask.toFixed(2)}`} />
