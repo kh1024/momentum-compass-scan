@@ -149,7 +149,7 @@ export function passesRiskFilters(t: TradeCandidate, f: RiskFilters): boolean {
   if (!f.allowPuts && t.direction === "PUT") return false;
   const isLeaps = t.setupType === "LEAPS" || c.dte > 180;
   if (!f.allowLeaps && isLeaps) return false;
-  const isYolo = t.setupType === "YOLO" || c.dte <= 2;
+  const isYolo = t.setupType === "Reddit YOLO" || c.dte <= 2;
   if (!f.allowYolo && isYolo) return false;
   if (!f.allowReddit && (t.redditSentiment === "Bullish" || t.redditSentiment === "Bearish")) {
     // Reddit layer off → only block when reddit is the *primary* signal; here we keep all but flag.
