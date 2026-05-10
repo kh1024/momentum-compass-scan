@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { getQuotes } from "@/lib/quote.functions";
 import type { ConsensusQuote } from "@/lib/providers.server";
+import { loadAllRecentQuotes, loadQuoteCache, saveQuoteCache } from "@/lib/quoteCache.client";
 
 interface UseLiveQuotesOptions {
   refetchIntervalMs?: number | false;
@@ -29,13 +30,28 @@ export function useLiveQuotes(symbols: string[], options: UseLiveQuotesOptions =
 
   // Sticky cache of last-good quotes — survives empty/failed refetches so we
   // don't oscillate between live ↔ demo when a single poll comes back empty.
-  const lastGood = useRef<Record<string, ConsensusQuote>>({});
-  const everLive = useRef(false);
+  // Seeded from localStorage on first render so cold-start shows cached prices
+  // INSTANTLY while a fresh fetch hydrates in the background.
+  const lastGood = useRef<Record<string, ConsensusQuote>>(loadAllRecentQuotes());
+  const everLive = useRef(Object.keys(lastGood.current).length > 0);
+
+  // Seed react-query with cached payload for this exact symbol set so the
+  // first render already has `data` populated and `isLoading` is false.
+  const cached = useMemo(() => (key ? loadQuoteCache(key) : null), [key]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["live-quotes", key],
     queryFn: () => fetchQuotes({ data: { symbols: unique } }),
     enabled: unique.length > 0,
+    initialData: cached
+      ? {
+          quotes: cached.quotes,
+          live: cached.live,
+          cooldownMs: cached.cooldownMs,
+          massiveBlocked: cached.massiveBlocked,
+        }
+      : undefined,
+    initialDataUpdatedAt: cached?.savedAt,
     refetchInterval: refetchIntervalMs === false ? false : (q) => {
       const d = q.state.data;
       if (d?.cooldownMs && d.cooldownMs > 0) {
@@ -46,7 +62,7 @@ export function useLiveQuotes(symbols: string[], options: UseLiveQuotesOptions =
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: (q) =>
       !(q.state.data?.cooldownMs && q.state.data.cooldownMs > 0),
-    refetchOnMount: false,
+    refetchOnMount: "always",
     // Keep showing previous data while a new key/payload is in flight to avoid
     // table flicker when symbols/filters change.
     placeholderData: (prev) => prev,
@@ -65,13 +81,26 @@ export function useLiveQuotes(symbols: string[], options: UseLiveQuotesOptions =
   // is intentional — `lastGood` is a ref, not state, and merging here keeps
   // get() consistent with the latest data without an extra render pass).
   const fresh = data?.quotes ?? {};
+  let mergedAny = false;
   for (const [sym, q] of Object.entries(fresh)) {
     if (q && isFinite(q.price) && q.price > 0) {
       lastGood.current[sym.toUpperCase()] = q;
       everLive.current = true;
+      mergedAny = true;
     }
   }
   if (data?.live) everLive.current = true;
+
+  // Persist successful payloads so the next cold start shows data immediately.
+  useEffect(() => {
+    if (!key || !data || !mergedAny) return;
+    saveQuoteCache(key, {
+      quotes: data.quotes,
+      live: data.live,
+      cooldownMs: data.cooldownMs,
+      massiveBlocked: data.massiveBlocked,
+    });
+  }, [key, data, mergedAny]);
 
   // STABLE: identity never changes. Consumers can include this in useMemo
   // deps without invalidating the memo on every render.
