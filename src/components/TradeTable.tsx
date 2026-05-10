@@ -98,7 +98,6 @@ export function TradeTable({
                 ["Vol", "text-right w-14", TIPS.volume],
                 ["OI", "text-right w-14", TIPS.oi],
                 ["Sprd", "text-right w-12", TIPS.spread],
-                ["Notes", "min-w-[14rem]", null],
                 ["", "w-8", null],
               ] as [string, string, React.ReactNode][]
             ).map(([h, cls, tip], i) => (
@@ -182,13 +181,6 @@ export function TradeTable({
                   : "",
                 )}>
                   {fmtPct(c.spreadPct)}
-                </td>
-
-                <td className="px-2 py-1 max-w-[14rem] text-[10px]">
-                  {topBlocker
-                    ? <span className="text-[var(--color-bear)]/80 truncate block">{topBlocker}</span>
-                    : <span className="text-muted-foreground/60 truncate block">{t.trend}</span>
-                  }
                 </td>
 
                 <td className="px-2 py-1 text-right">
