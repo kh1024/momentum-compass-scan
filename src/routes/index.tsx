@@ -143,7 +143,7 @@ function RegimeCard({
         </>
       ) : (
         <span className="mono w-full text-right tabular-nums text-[10px] uppercase tracking-wider text-muted-foreground/60">
-          {liveState === "connecting" ? "connecting…" : "waiting for quote"}
+          {liveState === "connecting" ? "loading…" : "waiting for quote"}
         </span>
       )}
     </div>
