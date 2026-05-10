@@ -59,6 +59,7 @@ export function RefreshBar(props: RefreshBarProps) {
     deriveLiveState({
       updatedAt: marketDataUpdatedAt,
       rateLimited: dataMode === "delayed",
+      kind: "quote",
     });
   const cs: LiveState =
     chainState ??
@@ -66,6 +67,7 @@ export function RefreshBar(props: RefreshBarProps) {
       updatedAt: optionQuoteUpdatedAt,
       isFetching: isScanning,
       rateLimited: dataMode === "delayed",
+      kind: "chain",
     });
 
   return (
