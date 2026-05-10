@@ -262,7 +262,13 @@ function Dashboard() {
     lastRateLimitedRef.current = now;
   }, [chainData]);
 
-  const symbols = useMemo(() => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.ticker))), []);
+  // Always include the three index proxies used by RegimeCard so the regime
+  // panel actually receives quotes — without these, getLive("SPY"/"QQQ"/"SMH")
+  // permanently returns null and the panel sticks on "WAITING FOR QUOTE".
+  const symbols = useMemo(
+    () => Array.from(new Set(["SPY", "QQQ", "SMH", ...MOCK_CANDIDATES.map((c) => c.ticker)])),
+    [],
+  );
   const quoteRefreshIntervalMs = isMarketOpen() ? 30_000 : 24 * 60 * 60_000;
   const { get: getLive, anyLive } = useMarketQuotesCompat(symbols, { refetchIntervalMs: quoteRefreshIntervalMs });
   // Crypto trades 24/7 — refresh every 60s regardless of equity hours.
