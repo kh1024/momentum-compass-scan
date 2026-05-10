@@ -15,6 +15,9 @@ function timeAgo(ts: number): string {
 }
 
 export function MarketIntelPanel() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const fetchNews = useServerFn(getMarketNews);
   const { data, isFetching, refetch, isError } = useQuery({
     queryKey: ["market-news"],
@@ -22,7 +25,20 @@ export function MarketIntelPanel() {
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
+    enabled: mounted,
   });
+
+  if (!mounted) {
+    return (
+      <section className="rounded-xl border border-border bg-card/60 backdrop-blur">
+        <div className="flex items-center gap-2 px-4 py-3 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+          <Newspaper className="h-3.5 w-3.5 text-primary" />
+          Market Intelligence
+        </div>
+        <div className="px-4 pb-4 text-xs text-muted-foreground">Loading market intelligence…</div>
+      </section>
+    );
+  }
 
   const items = data?.items ?? [];
   const headline = data?.headline ?? "Loading market intelligence…";
