@@ -12,6 +12,7 @@ import { getScannerSettings, updateScannerSettings, type ScannerRuntimeSettings 
 import { getApiHealthEvents, clearApiHealthEvents, type ApiHealthEvent } from "./apiHealthLogger";
 import { getRateLimitEvents, clearRateLimitEvents, type RateLimitEvent } from "./rateLimitLog.server";
 import { getCacheStats, resetCacheStats, type CacheStatsSnapshot } from "./cacheStats";
+import { getAllThrottleSnapshots, resetThrottle, type ThrottleSnapshot } from "./dynamicThrottle";
 
 export interface MassiveStatus {
   configured: boolean;
@@ -109,6 +110,17 @@ export const getCacheStatsFn = createServerFn({ method: "GET" }).handler(
 export const resetCacheStatsFn = createServerFn({ method: "POST" }).handler(
   async (): Promise<{ ok: true }> => {
     resetCacheStats();
+    return { ok: true };
+  },
+);
+
+export const getThrottleStateFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ snapshots: ThrottleSnapshot[] }> => ({ snapshots: getAllThrottleSnapshots() }),
+);
+
+export const resetThrottleStateFn = createServerFn({ method: "POST" }).handler(
+  async (): Promise<{ ok: true }> => {
+    resetThrottle();
     return { ok: true };
   },
 );

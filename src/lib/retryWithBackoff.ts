@@ -1,4 +1,5 @@
 import { getScannerSettings } from "./scannerQueue";
+import { getThrottleAdjustment, type ThrottleChannel } from "./dynamicThrottle";
 
 export class RateLimitRetryExhaustedError extends Error {
   rateLimited = true as const;
@@ -19,11 +20,12 @@ export function parseRetryAfterMs(header: string | null): number | null {
 
 export async function retryWithBackoff<T>(
   task: (attempt: number) => Promise<T>,
-  options: { maxRetries?: number; maxDelayMs?: number; signal?: AbortSignal } = {},
+  options: { maxRetries?: number; maxDelayMs?: number; signal?: AbortSignal; channel?: ThrottleChannel } = {},
 ): Promise<{ value: T; retryCount: number }> {
   const settings = getScannerSettings();
   const maxRetries = options.maxRetries ?? settings.maxRetries;
   const maxDelayMs = options.maxDelayMs ?? settings.retryBackoffMaxMs;
+  const channel: ThrottleChannel = options.channel ?? "massive";
   let retryAfterMs = 0;
 
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
@@ -36,7 +38,11 @@ export async function retryWithBackoff<T>(
         throw error;
       }
       retryAfterMs = Number((error as { retryAfterMs?: number }).retryAfterMs ?? 0);
-      const base = retryAfterMs > 0 ? retryAfterMs : Math.min(maxDelayMs, 1000 * 2 ** attempt);
+      // Apply the dynamic backoff multiplier — climbs to 4× when the channel
+      // is hammered with 429s and decays back to 1× when it stabilises.
+      const adj = getThrottleAdjustment(channel);
+      const baseRaw = retryAfterMs > 0 ? retryAfterMs : Math.min(maxDelayMs, 1000 * 2 ** attempt);
+      const base = Math.min(maxDelayMs, Math.round(baseRaw * adj.backoffMult));
       await sleep(withJitter(base, maxDelayMs), options.signal);
     }
   }
