@@ -418,6 +418,21 @@ function Dashboard() {
   const marketDataUpdatedAt =
     Math.max(regimeUpdatedAt ?? 0, liveQuoteUpdatedAt ?? 0) || null;
 
+  // Persist verified regime snapshot for instant cold-start hydration of the
+  // Market Regime card. Refuses to save when bias is Unknown or all index
+  // quotes are missing (handled inside saveRegimeSnapshot).
+  useEffect(() => {
+    const bias = deriveBias(spyQ, qqqQ, smhQ);
+    if (bias === "Unknown") return;
+    saveRegimeSnapshot({
+      bias,
+      plainLabel: regimePlainLabel(bias),
+      spy: spyLive,
+      qqq: qqqLive,
+      smh: smhLive,
+    });
+  }, [spyQ, qqqQ, smhQ, spyLive, qqqLive, smhLive]);
+
   // Truthful live states — NEVER show "live" without a recent successful fetch.
   const quoteState = deriveLiveState({
     updatedAt: marketDataUpdatedAt,
