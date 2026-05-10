@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 import { freshness, sectorStrength, sentimentScore, type CommentaryInput } from "@/lib/aiCommentary";
 import { isMarketOpen } from "@/lib/marketHours";
+import { readSnapshotHealth, type SnapshotHealthEntry } from "@/lib/marketSnapshots";
 
 // Primary nav focuses on next-day prep + swing tracking. /live is a
 // secondary surface, only shown when the market is open or dev mode is on.
@@ -97,6 +98,51 @@ function FlashPrice({ value }: { value: number }) {
     >
       ${value.toFixed(2)}
     </span>
+  );
+}
+
+function formatAge(ms: number | null): string {
+  if (ms == null) return "—";
+  if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
+  if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
+  return `${Math.round(ms / 3_600_000)}h`;
+}
+
+function SnapshotHealthPanel() {
+  const [entries, setEntries] = useState<SnapshotHealthEntry[]>([]);
+  useEffect(() => {
+    const refresh = () => setEntries(readSnapshotHealth());
+    refresh();
+    const id = setInterval(refresh, 5_000);
+    return () => clearInterval(id);
+  }, []);
+  if (entries.length === 0) {
+    return (
+      <div className="mt-2 rounded-md border border-dashed border-border/60 bg-card/30 px-2 py-1.5 text-[10px] text-muted-foreground/70">
+        No snapshots yet — first refresh will seed them.
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 space-y-1 rounded-md border border-border bg-card/40 px-2 py-1.5">
+      <div className="mb-0.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+        Snapshot Health
+      </div>
+      {entries.slice(0, 6).map((e) => {
+        const fresh = e.ageMs != null && e.ageMs < 5 * 60_000;
+        return (
+          <div key={e.key} className="flex items-center justify-between gap-2 text-[10px]">
+            <span className="truncate text-muted-foreground" title={e.key}>{e.label}</span>
+            <span className={cn(
+              "mono shrink-0 tabular-nums",
+              fresh ? "text-[var(--color-bull)]" : "text-muted-foreground/70",
+            )}>
+              {formatAge(e.ageMs)}{e.count != null ? ` · ${e.count}` : ""}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -257,6 +303,7 @@ export function Sidebar({
                 <NavItem key={item.to} {...item} />
               ))}
             </div>
+            <SnapshotHealthPanel />
           </div>
         )}
       </nav>
