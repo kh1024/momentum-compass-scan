@@ -135,8 +135,8 @@ function RedditSignalsPage() {
       {isLoading && entries.length === 0 && (
         <EmptyState
           tone="info"
-          title="Connecting to Reddit signal provider…"
-          body="Fetching mentions across active subreddits. This usually takes a few seconds."
+          title="Loading social sentiment…"
+          body="Fetching mentions across active subreddits in the background."
         />
       )}
 
