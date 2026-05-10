@@ -86,14 +86,17 @@ export function deriveLiveState({
   const age = Math.max(0, now - updatedAt);
   const [liveMs, recentMs, delayedMs] = thresholds;
 
+  // Off-hours short-circuit: if the market is closed, an old timestamp is
+  // expected and normal — present it as "market-closed", not "refreshing"
+  // or "stale". A background refetch shouldn't flip the badge either.
+  if (offHours && age > recentMs) return "market-closed";
+
   if (age <= liveMs) return "live";
   if (isFetching) return "refreshing";
   if (age <= recentMs) return "recent";
   if (age <= delayedMs) return "delayed";
 
-  // Genuinely past the delayed window. Outside market hours this is normal,
-  // not a panic state — surface it as "market-closed" so UI stays calm.
-  if (offHours) return "market-closed";
+  // Genuinely past the delayed window during market hours — needs attention.
   return "stale";
 }
 
