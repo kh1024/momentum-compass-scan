@@ -22,7 +22,7 @@ import { marketListedVerification, verifyContract } from "./contractVerify.serve
 import { getScannerSettings } from "./scannerQueue";
 import { chainPickKey } from "./chainKeys";
 import { createScanRun, persistScanRun } from "./scanRunLogger.server";
-import { buildExpirationMeta } from "./expirationMeta";
+import { buildExpirationMeta, type ExpirationMeta } from "./expirationMeta";
 import {
   validateOptionContract,
   findNearbyCompleteStrike,
