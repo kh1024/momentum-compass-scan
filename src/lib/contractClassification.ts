@@ -198,7 +198,12 @@ export function allowedMoneyness(opts: {
   isLeaps?: boolean;
   isYolo?: boolean;
   highConviction?: boolean;
+  /** When set, user preference mode overrides entry-mode default. */
+  mode?: PreferenceMode;
 }): Moneyness[] {
+  if (opts.mode && !opts.isLeaps && !opts.isYolo) {
+    return allowedMoneynessForMode(opts.mode);
+  }
   if (opts.isLeaps) return ["Slightly ITM", "ITM", "ATM", "Slightly OTM"];
   if (opts.isYolo || opts.entryMode === "Lotto") return ["OTM", "Far OTM", "Lottery OTM"];
   if (opts.highConviction)
