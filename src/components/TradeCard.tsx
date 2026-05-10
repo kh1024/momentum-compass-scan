@@ -56,14 +56,11 @@ export function TradeCard({
             <span className="text-xs text-muted-foreground">· {t.setupType}</span>
             <DataStateBadge state={t.liveState ?? (t.isDemo ? "demo" : "live")} />
           </div>
-          {/* Score breakdown — Setup / Contract / Trigger / Risk-Reward / Data Quality / Final */}
+          {/* Score breakdown — Setup / Contract / Risk-Reward / Data Quality / Final */}
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
             <Pill tone="muted">Setup {t.setupScore ?? t.score}</Pill>
             <Pill tone={(t.contractQualityScore ?? 0) >= 28 ? "bull" : (t.contractQualityScore ?? 0) >= 18 ? "info" : "bear"}>
               Contract {t.contractQualityScore ?? 0}/35
-            </Pill>
-            <Pill tone={t.triggerStatus === "active" ? "bull" : "muted"}>
-              Trigger {t.triggerStatus === "active" ? "active" : "—"}
             </Pill>
             <Pill tone={(t.validationPenalty ?? 0) < 0 ? "bear" : "muted"}>
               Penalty {(t.validationPenalty ?? 0) <= 0 ? t.validationPenalty ?? 0 : `+${t.validationPenalty}`}
@@ -143,20 +140,9 @@ export function TradeCard({
               </div>
             );
           })()}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs"><span className="text-muted-foreground">Trigger:</span> <span className="text-foreground">{t.entryTrigger}</span></span>
-            {t.triggerStatus && <TriggerChip status={t.triggerStatus} trigger={t.breakoutTrigger} price={t.price} dir={t.direction} />}
-          </div>
-          <div className="mt-2 grid grid-cols-1 gap-1.5 text-[10px] sm:grid-cols-3">
-            <TriggerRow label="Support reclaim" trigger={t.supportReclaimTrigger} />
-            <TriggerRow label="Breakout" trigger={t.breakoutTriggerState} />
-            <TriggerRow label="Retest" trigger={t.retestTrigger} />
-          </div>
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
             {t.entryMode && <Pill tone="muted">Entry: {t.entryMode}</Pill>}
-            {t.selectedContractMode && <Pill tone={t.selectedContractMode === "Breakout" && t.triggerStatus !== "active" ? "info" : "muted"}>Contract mode: {t.selectedContractMode}</Pill>}
             <Pill tone={t.selectedContractFitsEntryMode === false ? "bear" : "bull"}>Fits entry: {t.selectedContractFitsEntryMode === false ? "No" : "Yes"}</Pill>
-            {t.finalTriggerUsedForLabel && <Pill tone="muted">Final trigger: {t.finalTriggerUsedForLabel}</Pill>}
             <Pill tone={t.buyNowEligible ? "bull" : "bear"}>Buy Now eligible: {t.buyNowEligible ? "Yes" : "No"}</Pill>
             <Pill tone="muted">{EXPIRATION_BUCKET_LABEL[expirationBucketFor(c.dte)]}</Pill>
             {c.source === "chain" && (

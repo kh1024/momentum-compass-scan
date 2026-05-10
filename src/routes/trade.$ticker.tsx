@@ -118,7 +118,6 @@ function TradeDetail() {
         </Panel>
 
         <Panel title="Entry & Exit Plan">
-          <Bullet k="Entry Trigger" v={t.entryTrigger} />
           <Bullet k="Invalidation" v={t.invalidation} />
           <Bullet k="Target 1" v={`$${t.target1.toFixed(2)}`} />
           <Bullet k="Target 2" v={`$${t.target2.toFixed(2)}`} />

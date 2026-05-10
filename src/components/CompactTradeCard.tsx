@@ -89,8 +89,8 @@ export function CompactTradeCard({
           </Tip>
 
           <Tip content={(TIPS.label as Record<string, React.ReactNode>)[t.label] ?? <span>{t.label}</span>}>
-            <span className={cn("cursor-help text-[11px] font-semibold", LABEL_TEXT[t.label])}>
-              {t.label}
+            <span className={cn("cursor-help text-[11px] font-semibold", LABEL_TEXT[t.label === "Waiting on Trigger" ? "Watchlist" : t.label])}>
+              {t.label === "Waiting on Trigger" ? "Watchlist" : t.label}
             </span>
           </Tip>
 

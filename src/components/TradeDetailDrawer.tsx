@@ -22,7 +22,7 @@ export function TradeDetailDrawer({
 
   // Categorize blockers by keyword matching
   const blockers = gate.buyNowBlockers ?? [];
-  const triggerBlockers = blockers.filter(b => /trigger|entry|mode|active/i.test(b));
+  const triggerBlockers: string[] = [];
   const contractBlockers = blockers.filter(b => /spread|delta|IV|oi|vol|strike|expir|dte|cost|be\+|break.?even|ask|bid/i.test(b));
   const rrBlockers = blockers.filter(b => /risk|reward|r\/r|target|ratio/i.test(b));
   const dataBlockers = blockers.filter(b => /data|source|missing|demo|mock|broker|confirm|chain/i.test(b));
@@ -68,8 +68,7 @@ export function TradeDetailDrawer({
             <Section title="Setup">
               <KV k="Type" v={t.setupType} />
               <KV k="Final score" v={String(gate.finalScore)} />
-              <KV k="Label" v={gate.finalLabel} />
-              <KV k="Trigger" v={t.triggerStatus ?? "—"} vClass={t.triggerStatus === "active" ? "text-[var(--color-bull)]" : undefined} />
+              <KV k="Label" v={gate.finalLabel === "Waiting on Trigger" ? "Watchlist" : gate.finalLabel} />
             </Section>
             <Section title="Thesis">
               <p className="text-xs leading-relaxed">{t.trend}</p>
@@ -128,7 +127,6 @@ export function TradeDetailDrawer({
           {/* ── Entry / Exit ── */}
           <TabsContent value="entry" className="space-y-3 pt-4">
             <Section title="Entry">
-              <KV k="Trigger" v={t.entryTrigger} />
               <KV k="Strategy" v={t.entryStrategy} />
               <KV k="Invalidation" v={t.invalidation} />
             </Section>
@@ -167,9 +165,7 @@ export function TradeDetailDrawer({
               )}
             </div>
 
-            {triggerBlockers.length > 0 && (
-              <BlockerGroup title="Trigger / Entry" items={triggerBlockers} />
-            )}
+            {/* Trigger blocker section removed — items fall under Other if any */}
             {contractBlockers.length > 0 && (
               <BlockerGroup title="Contract Quality" items={contractBlockers} />
             )}
@@ -188,10 +184,8 @@ export function TradeDetailDrawer({
               </Section>
             )}
 
-            <Section title="Trigger / Contract Fit">
-              <KV k="Trigger status" v={t.triggerStatus ?? "—"} />
+            <Section title="Contract Fit">
               <KV k="Entry mode" v={t.entryMode ?? "—"} />
-              <KV k="Selected contract mode" v={t.selectedContractMode ?? "—"} />
               <KV k="Fits entry mode" v={t.selectedContractFitsEntryMode === false ? "No" : "Yes"} vClass={t.selectedContractFitsEntryMode === false ? "text-[var(--color-bear)]" : undefined} />
             </Section>
 
@@ -216,7 +210,6 @@ export function TradeDetailDrawer({
               <div className="grid grid-cols-2 gap-x-4">
                 <KV k="Setup" v={String(gate.setupScore)} />
                 <KV k="Contract" v={`${gate.contractScore}/35`} />
-                <KV k="Trigger" v={`${gate.triggerScore}/10`} />
                 <KV k="Risk/Reward" v={`${gate.riskRewardScore}/10`} />
                 <KV k="Data quality" v={`${gate.dataQualityScore}/10`} />
                 <KV k="Validation penalty" v={String(t.validationPenalty ?? 0)} />

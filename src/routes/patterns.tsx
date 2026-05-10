@@ -107,9 +107,8 @@ function Patterns() {
                     </span>
                   </div>
                   <div className="mt-1 text-sm">{p.pattern}</div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <Stat k="Confidence" v={`${p.confidence}%`} />
-                    <Stat k="Trigger" v={`$${p.trigger.toFixed(2)}`} />
                     <Stat k="Target" v={`$${p.target.toFixed(2)}`} />
                   </div>
                   <PatternWhy
