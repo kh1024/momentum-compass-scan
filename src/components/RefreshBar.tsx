@@ -136,8 +136,8 @@ export function RefreshBar(props: RefreshBarProps) {
               "h-1.5 w-1.5 rounded-full transition-colors duration-500",
               isScanning ? "bg-sky-400 animate-pulse-dot" : "bg-[var(--color-bull)]/70",
             )} />
-            <span className="transition-opacity duration-500">
-              {mounted ? scanLabel(isScanning, lastFullScanAt, autoRefresh, marketOpen) : "Initializing market intelligence"}
+            <span key={stableScanLabel} className="animate-fade-in">
+              {stableScanLabel}
             </span>
           </div>
         </div>
