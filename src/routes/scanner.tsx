@@ -377,6 +377,28 @@ function Scanner() {
         </div>
       </div>
 
+      {/* ---- Quick presets ------------------------------------------------- */}
+      <div className="rounded-xl border border-border bg-card p-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+          <Group label="Quick picks">
+            <Chip active={preset === "all"} onClick={() => applyPreset("all")}>All</Chip>
+            <Chip active={preset === "buynow"} onClick={() => applyPreset("buynow")}>🔥 Buy Now</Chip>
+            <Chip active={preset === "watchlist"} onClick={() => applyPreset("watchlist")}>👀 Watchlist</Chip>
+            <Chip active={preset === "aggressive"} onClick={() => applyPreset("aggressive")}>⚡ Aggressive</Chip>
+            <Chip active={preset === "lottos"} onClick={() => applyPreset("lottos")}>🎰 Lottos</Chip>
+            <Chip active={preset === "reddit"} onClick={() => applyPreset("reddit")}>🚀 Reddit YOLO</Chip>
+            <Chip active={preset === "leaps"} onClick={() => applyPreset("leaps")}>📅 LEAPS</Chip>
+          </Group>
+          <Group label={`Scan size: ${max}`}>
+            <input
+              type="range" min={10} max={50} step={5} value={scanLimit}
+              onChange={(e) => setScanLimit(+e.target.value)}
+              className="w-32 accent-[var(--color-bull)]"
+            />
+          </Group>
+        </div>
+      </div>
+
       {/* ---- Filter bar ---------------------------------------------------- */}
       <div className="rounded-xl border border-border bg-card p-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
