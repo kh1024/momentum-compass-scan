@@ -233,9 +233,10 @@ function Dashboard() {
     [],
   );
 
+  const { mode: preferenceMode, maxContractCost } = useContractPreference();
   const pickKey = useMemo(
-    () => picks.map((p) => `${p.ticker}:${p.direction}`).join(","),
-    [picks],
+    () => `${picks.map((p) => `${p.ticker}:${p.direction}`).join(",")}|${preferenceMode}|${maxContractCost}`,
+    [picks, preferenceMode, maxContractCost],
   );
   // Hydrate cached scan snapshot. `loadScanSnapshot` is wrapped with
   // `createIsomorphicFn`: server returns `null`, client reads localStorage.
