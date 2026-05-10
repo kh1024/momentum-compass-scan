@@ -110,6 +110,40 @@ function Scanner() {
   // ---- View ----------------------------------------------------------------
   const [view, setView] = useState<ViewMode>("table");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [scanLimit, setScanLimit] = useState(30);
+  type Preset = "all" | "lottos" | "reddit" | "leaps" | "buynow" | "aggressive" | "watchlist";
+  const [preset, setPreset] = useState<Preset>("all");
+
+  function applyPreset(p: Preset) {
+    setPreset(p);
+    // Reset narrow filters first
+    setHiddenLabels(new Set());
+    setIncludeLeaps(true);
+    setIncludeYolo(true);
+    setHideTrueAvoids(true);
+    setDir("ALL");
+    setCapFilter("ALL");
+    setDteFilter("ALL");
+    setMaxCost(5000);
+    if (p === "lottos") {
+      setHiddenLabels(new Set<Label>(["Buy Now", "Watchlist", "Waiting on Trigger", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
+      setDteFilter("weekly-lotto");
+    } else if (p === "reddit") {
+      setIncludeLeaps(false);
+      // YOLO universe must be on
+      if (!universeEnabled.YOLO_REDDIT) toggleGroup("YOLO_REDDIT");
+    } else if (p === "leaps") {
+      setIncludeYolo(false);
+      setDteFilter("leaps");
+    } else if (p === "buynow") {
+      setHiddenLabels(new Set<Label>(["Watchlist", "Waiting on Trigger", "Aggressive", "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
+    } else if (p === "aggressive") {
+      setHiddenLabels(new Set<Label>(["Buy Now", "Watchlist", "Waiting on Trigger", "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
+    } else if (p === "watchlist") {
+      setHiddenLabels(new Set<Label>(["Buy Now", "Aggressive", "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
+    }
+  }
+
 
   // ---- Active universe → candidates ----------------------------------------
   const activeTickers = useMemo(() => getActiveUniverse(universeEnabled), [universeEnabled]);
