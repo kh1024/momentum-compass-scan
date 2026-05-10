@@ -110,7 +110,7 @@ export function RefreshBar(props: RefreshBarProps) {
         {/* LEFT: market + last verified scan */}
         <div className="flex flex-col">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            {marketOpen ? "Market Open" : "Market Closed"}
+            {!mounted ? "Market Status" : marketOpen ? "Market Open" : "Market Closed"}
           </span>
           <span className="text-xs text-foreground/80 transition-opacity duration-500">
             {lastVerified}
