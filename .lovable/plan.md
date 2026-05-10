@@ -1,178 +1,131 @@
-## Goal
+# From Scanner UI → AI Market Assistant
 
-Stabilize the foundation. Stop adding surface features. Refactor into a centralized, trust-aware, production-style data architecture before any further UI work. This plan is sequenced in phases and intentionally scoped — each phase ships independently, the app stays runnable between phases, and no fake data ever reaches the UI.
+This is a large, multi-area upgrade. To keep quality high and avoid regressions, I'll ship it in **5 ordered phases**, each independently usable. Confirm the plan (or tell me which phases to drop / reorder) and I'll start with Phase 1.
 
-## Current state (why it feels unreliable)
+I will **not** redesign the app. Current dark premium look, layout, and routes stay. All changes are additive or replace specific weak spots.
 
-- Quote / chain / sentiment fetches happen directly inside hooks and components (`useLiveQuotes`, `useLiveChain`, `useRedditSentiment`, ad-hoc fetches in routes).
-- `mockData.ts` + `applyLiveQuote.ts` overlay live values onto synthetic candidates — when live fails, mock numbers leak through.
-- No single source for "where did this number come from / how old is it / did the provider error".
-- Three different status calculations (`liveStateTracker`, ad-hoc `dataMode` in scanner, banner logic in `index.tsx`) disagree.
-- Picks get generated even when chains are missing — the discipline gate hides some, but synthetic prices still render.
-- Watchlist persists fine but reads from the same fragmented hooks, so its P/L can be based on stale or repaired data without saying so.
+---
 
-## Target architecture
+## Phase 1 — Truthful status & graceful unavailable states (foundation)
 
-```text
-                ┌────────────────────────────────────────┐
-                │         providers.server.ts            │
-                │  Yahoo / Stooq / Finnhub / public chain│
-                └──────────────┬─────────────────────────┘
-                               │ (server fns only)
-        ┌──────────────────────┼──────────────────────────┐
-        ▼                      ▼                          ▼
- marketDataService     optionsDataService          sentimentService
- (quotes + regime)     (chains + contracts)        (reddit + earnings)
-        │                      │                          │
-        └──────────┬───────────┴───────────┬──────────────┘
-                   ▼                       ▼
-              TrustEnvelope<T>       aiScannerService
-              { value, source,       (consumes the three
-                fetchedAt, stale,     services; emits ranked
-                status, error }       picks ONLY when inputs
-                   │                  pass quality gate)
-                   ▼                       │
-            React Query hooks ◄────────────┘
-            (one hook per service, no direct fetches in components)
-                   │
-                   ▼
-          watchlistService (reads same hooks, snapshots TrustEnvelope at add-time)
-                   │
-                   ▼
-              UI layer (TrustBadge, StaleBadge, Unavailable)
-```
+Goal: every "LIVE / Unavailable / —" the user sees reflects reality.
 
-Every value the UI renders is a `TrustEnvelope<T>`:
+- Extend `TrustEnvelope` status vocabulary to include `connecting` and `refreshing` (in addition to live / delayed / stale / unavailable / error). `rollupStatus` updated accordingly.
+- New `<StatusPill />` component (replaces ad-hoc LIVE / Delayed badges in header, RegimeBar, RefreshBar, ScanBar, trade cards, sidebar). Single source of truth, with:
+  - color + dot animation per state
+  - human-readable label ("Live", "Delayed 2m", "Connecting…", "Refreshing…", "Stale 14m", "Unavailable")
+  - tooltip with provider + last successful fetch
+- `<TrustValue>` upgraded: instead of `—`, render contextual copy:
+  - quotes missing → "Waiting for quote provider"
+  - chain missing → "Option chain temporarily unavailable"
+  - regime missing → "Market regime temporarily unavailable"
+  - rate-limited → "Rate limited — retrying shortly"
+  - error → "Reconnecting…"
+  - All variants get a subtle shimmer (existing `animate-pulse-dot`) so they feel alive, not dead.
+- Page-level "LIVE" header lights:
+  - Lit only when `rollupStatus === "live"` across quotes **and** the dashboard's primary data source is non-stale.
+  - Otherwise show the actual state, never a green dot over "never".
+- "Last successful refresh Xm ago" line added to RefreshBar.
 
-```ts
-type DataStatus = "live" | "delayed" | "stale" | "unavailable" | "error";
-interface TrustEnvelope<T> {
-  value: T | null;
-  source: "yahoo" | "stooq" | "finnhub" | "public-chain" | "reddit" | "cache" | null;
-  fetchedAt: number | null;        // epoch ms
-  ageMs: number | null;
-  status: DataStatus;
-  error?: { code: string; message: string };
-  validated: boolean;              // passed schema + sanity checks
-}
-```
+Result: no more "LIVE" while Market Data = never.
 
-The UI never reads a raw number — it reads an envelope and decides what to render.
+---
 
-## Phase plan
+## Phase 2 — Actionable trade insight on cards
 
-Each phase has a clear exit criterion. We ship after each one.
+Goal: every card answers "What's the opportunity?" at a glance.
 
-### Phase 1 — Data foundation refactor
+Extend the existing pick payload (already produced by `scoringEngine` + AI) with these surfaced fields on `TradeCard` / `CompactTradeCard` / detail drawer:
 
-Create `src/services/`:
+- **Expected Move** (e.g. `+4% to +7%`) — derived from ATR × horizon + IV.
+- **Continuation Probability** (`72%`) — already partially in scoring; expose it.
+- **Ideal Hold** (`2–5 days`) — from entry mode + setup type.
+- **Risk / Reward** (`2.4R`) — target vs stop already computed.
+- **AI Outlook** one-liner (`Bullish continuation, semis leadership`) — generated server-side.
+- **Market Alignment** chip (`Aligned with regime` / `Counter-trend`).
+- **Setup Quality** sub-score chip (already exists, surfaced more clearly).
 
-- `trust.ts` — `TrustEnvelope`, `DataStatus`, `wrap()`, `unavailable()`, `staleAfter()`, helpers.
-- `marketDataService.ts` — `getQuotes(symbols)`, `getRegime()`. Wraps existing `quote.functions.ts`. Returns `Record<symbol, TrustEnvelope<Quote>>`. Centralizes retry, dedup, freshness threshold (60s = live, 5m = delayed, >5m = stale).
-- `optionsDataService.ts` — `getChain(ticker, picks)` and `getContract(key)`. Wraps `chain.functions.ts` + `contractVerify.server.ts`. Runs liquidity/spread/expiration validators before returning. Invalid contracts return `unavailable("contract-failed-validation")`.
-- `sentimentService.ts` — wraps reddit + earnings.
-- `aiScannerService.ts` — pure orchestrator: pulls quote envelope + chain envelope + sentiment envelope, runs scoring + discipline gate, emits `RankedPick[]` ONLY when all required envelopes are `live` or `delayed` AND validated. Otherwise returns `{ picks: [], reason: "insufficient-live-data", missing: [...] }`.
-- `watchlistService.ts` — read/write API over `localStorage`, but every entry stores the source TrustEnvelope at add-time and exposes computed `currentEnvelope` from `marketDataService`/`optionsDataService`.
+All fields are **TrustValue-gated** — if missing, show "AI still evaluating" rather than `—`.
 
-Hooks become thin: `useMarketQuotes`, `useOptionChain`, `useScannerPicks`, `useWatchlist` — each one wraps a service through React Query. Components import only hooks. No `fetch` / no provider names in components.
+---
 
-Exit: every component that previously called `useLiveQuotes`/`useLiveChain`/`useRedditSentiment` directly now calls a service-backed hook returning envelopes. `rg "useLiveQuotes\|useLiveChain\|useRedditSentiment" src/routes src/components` returns nothing.
+## Phase 3 — Real AI commentary layer (Lovable AI Gateway)
 
-### Phase 2 — Remove all fake data from UI paths
+Goal: the app feels like an analyst, not a screener.
 
-- `mockData.ts` becomes `universeSeed.ts`: returns ticker/direction/setup metadata only — never prices, never option contracts, never IV/delta. Anything price-shaped is removed from the seed.
-- `applyLiveQuote.ts`: deleted. Its only legitimate job (overlay live onto mock) goes away because picks are now built from live envelopes upward.
-- Any `Math.random`, hardcoded SPY/QQQ values, synthetic regime, fake confidence delta, generated chains: deleted. `rg "Math.random|MOCK_|fake|demo" src/{lib,components,routes,hooks,services}` must come back empty (or only in tests).
-- Components that used to render a number now render `<TrustValue envelope={...} />` which shows the value, the unavailable state, or the error — never a fallback number.
+- New edge function `ai-commentary` calling Lovable AI Gateway (default `google/gemini-3-flash-preview`). Input: index quotes, regime, sector strength, top picks, breadth, time-of-day. Output: structured JSON with:
+  - `headline` (one sentence)
+  - `insights[]` (3–6 short bullets)
+  - `nextDayOutlook` (paragraph, used after-hours)
+  - `risks[]`
+- Cached for ~5 min server-side; falls back to deterministic `aiCommentary.ts` if gateway 429/402.
+- Surfaced in:
+  - Sidebar AI Insight box (replaces hard-coded rotation)
+  - New `<AiSummaryCard />` at top of dashboard
+  - Regime section ("AI Read")
+  - Live opportunities page header
+  - Next-day picks header
+  - Watchlist header (commentary scoped to held names)
+- Refreshes every 5 min during market, hourly after close.
 
-Exit: turning off the network shows clean "unavailable" states everywhere; no number is rendered.
+---
 
-### Phase 3 — Trust layer (UI)
+## Phase 4 — Market intelligence panels & next-day mode
 
-New components in `src/components/trust/`:
+Goal: kill dead space; make off-hours useful.
 
-- `TrustBadge` — pill: Live / Delayed / Stale / Unavailable / Error, color-coded, with tooltip showing source + age.
-- `LastUpdated` — "Updated 12s ago", auto-ticking but cheap (single global 30s interval, not per-card).
-- `ProviderStatusStrip` — top-of-page strip showing per-service envelope rollup (quotes / chain / sentiment).
-- `Unavailable` — empty state used wherever a value can't be shown.
+New compact panels on the dashboard (and `/live` where relevant), each TrustEnvelope-backed:
 
-`liveStateTracker.ts` is rewritten to consume envelope rollups from the services (single source of truth), and the existing scattered status logic in `scanner.tsx`, `index.tsx`, `live.tsx` is deleted.
+- **Strongest / Weakest sectors** (uses existing sector-strength logic, ranked)
+- **Top momentum names** (from scanner pipeline)
+- **Unusual flow summary** (from options chain provenance — count of high-volume contracts)
+- **Market breadth** (advancers/decliners proxy from watchlist universe)
+- **Volatility regime** (IV percentile rollup)
+- **Upcoming catalysts / Earnings tomorrow** (existing `useEarnings`)
+- **AI conviction heatmap** (mini grid colored by AI score)
 
-Exit: all three pages show consistent status, and the rollup is computed once.
+**Next-day mode**: when `isMarketOpen() === false`, the dashboard re-orders to:
+1. AI overnight outlook
+2. Best next-day setups
+3. Continuation candidates
+4. Earnings tomorrow
+5. Risk conditions
 
-### Phase 4 — Simplify product direction
+Intraday/scalp UI is de-emphasized (collapsed accordion) off-hours.
 
-- Primary route `/` becomes "Next-Day & Swing Opportunities" — emphasizes 7-day swing window (already wired) + extended swing.
-- `/live` is demoted to "Live (market hours)" and becomes secondary nav. Hidden when market is closed except behind dev mode.
-- Remove the intraday-scalper visual cues (1Hz tickers, fast pulse). Quotes refresh at 30s on dashboard, 60s elsewhere.
-- AI commentary copy is rewritten to focus on prep / swing / continuation, not scalp signals.
+---
 
-Exit: the home page reads as a swing-prep terminal, not a tape.
+## Phase 5 — Watchlist evolution & smart empty states
 
-### Phase 5 — Rebuild pick quality
+Goal: watchlist becomes a tracker; empty states feel intelligent.
 
-`aiScannerService.generatePicks()` runs the gate up front:
+Watchlist additions per row:
+- Δ since saved (price + %)
+- AI confidence change (↑/↓ vs save-time)
+- Momentum trend chip ("Upgraded", "Weakening", "Holding")
+- Target progress bar (% toward target)
+- Expiration countdown (for option picks)
+- Alert chips: "Approaching target", "Losing continuation strength", "Unusual activity"
 
-```text
-required: quote envelope live|delayed AND validated
-required: chain envelope live|delayed AND >= N valid contracts after liquidity filter
-required: ticker has fresh fundamentals (price, %chg, volume)
-optional: sentiment envelope (boost only, not gate)
-```
+Smart empty states (replace all blank sections):
+- High-conviction list empty → "No high-conviction setups currently detected. AI is favoring patience."
+- Live opps empty → "No unusual flow detected right now."
+- Momentum scanner empty → "Momentum conditions weak across major sectors."
+- Watchlist empty → existing CTA, unchanged.
 
-If any required input fails: return `{ picks: [], reason }`. UI renders:
-"Insufficient live market data to generate reliable setups." with the missing-input list and a Retry button that calls `router.invalidate()`.
+---
 
-The discipline gate keeps existing label routing, but operates only on candidates that already passed the data-quality gate — no more "Avoid Contract" rows that exist because the data was bad to begin with.
+## Technical notes
 
-Exit: with a forced provider failure, the dashboard shows the unavailable message and zero picks (instead of mocked rows labeled Avoid).
+- **No DB schema changes** required for Phase 1–2. Phase 3 adds an edge function only. Phase 4 reuses existing services. Phase 5 stores watchlist save-time snapshot in the existing `watchlistService` localStorage row (small additive field).
+- **No breaking changes** to existing components — new fields are optional, gated by TrustValue.
+- AI commentary uses **Lovable AI** with the deterministic `aiCommentary.ts` as automatic fallback, so the app keeps working at 0 cost / on rate-limit.
+- Each phase ends with a typecheck pass.
 
-### Phase 6 — Watchlist on the new foundation
+---
 
-- `watchlistService` reads/writes `localStorage` with schema versioning (`watchlist:v2`), migrates `v1` entries.
-- Each entry stores: `entryEnvelope` (snapshot of the quote/contract envelopes at add-time) + `entryScore` + `entryThesis`.
-- Live view computes `currentEnvelope` via the services; P/L, AI-confidence delta, expiration decay all read from the same envelopes the rest of the app uses.
-- Stale entries (envelope unavailable for >24h) get a "Data unavailable" badge instead of fake green/red.
-- Same trust badges as the rest of the app.
+## Suggested order
 
-Exit: refresh, network off, network on — watchlist behavior is consistent and never invents P/L.
+I recommend shipping **Phase 1 first** — it fixes the "LIVE while Market Data = never" trust bug you flagged, which is blocking the premium feel of everything else. Then 2 → 3 → 4 → 5.
 
-### Phase 7 — UI cleanup (light pass only)
-
-After phases 1–6 land:
-
-- Tighten card density on dashboard (remove unused empty space, two-column hero on desktop).
-- Promote the trust strip to the top of every page.
-- Cleaner AI commentary block: one rotating insight + one regime line, not three competing widgets.
-- No re-skinning, no new pages, no new components beyond the trust set.
-
-Exit: the dashboard above the fold communicates regime + top picks + data trust without scrolling.
-
-### Phase 8 — Production hardening
-
-- Add `services/__tests__/` with unit tests for envelope status transitions, scanner gate, watchlist migration.
-- Add a `/diagnostics` route (dev-mode only) that dumps current envelope rollup for every service.
-- Sentry-lite: `error-capture.ts` already exists — wire service-level errors through it with envelope context.
-- Final pass: `tsc --noEmit`, `bunx vitest run`, click-through smoke test of `/`, `/scanner`, `/watchlist`, `/live` with network on/off.
-
-Exit: typecheck clean, tests green, manual smoke clean.
-
-## Sequencing & PR shape
-
-Phases ship in order. Each phase is a self-contained changeset — the app builds and runs after every phase. Phases 1 and 2 are the heaviest; 3–7 are progressively smaller. I'll start with Phase 1 + 2 together (they're inseparable — you can't remove fake data without somewhere reliable to get real data from), then proceed phase by phase, pausing for your review between phases.
-
-## What I will NOT do in this refactor
-
-- No new features.
-- No new pages.
-- No visual redesign beyond the trust components and the density pass in Phase 7.
-- No new providers, no new AI models, no new connectors.
-- No backend / DB / auth changes — this is a frontend-architecture refactor.
-
-## Open questions before I start
-
-1. Are you OK with `/live` being demoted to secondary nav (hidden when market closed)?
-2. For the data-quality gate: is "no picks at all" the right behavior when chain data is missing, or do you want to show ticker-only candidates ("data pending") with no contracts?
-3. Watchlist `v1 → v2` migration — keep old entries (best-effort re-snapshot from current live data) or archive them and require re-add?
-
-Answer these and I'll start Phase 1 immediately.
+Reply **"start phase 1"** (or pick a different starting point / cut phases) and I'll implement.
