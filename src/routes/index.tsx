@@ -329,7 +329,11 @@ function Dashboard() {
       ("ts" in qqqQ && qqqQ.ts) || 0,
       ("ts" in smhQ && smhQ.ts) || 0,
     ) || null;
-  const regimeLive = Boolean(regimeData?.live);
+  // Sticky live flag — once we've ever seen live data, stay "Live" until an
+  // explicit error. Prevents the Live ↔ Stale flicker on every refetch tick.
+  const everLiveRef = useRef(false);
+  if (regimeData?.live) everLiveRef.current = true;
+  const regimeLive = everLiveRef.current || Boolean(regimeData?.live);
 
   // Unified freshness across SPY/QQQ/SMH regime quotes + per-ticker live quotes.
   const marketDataUpdatedAt =
@@ -337,7 +341,6 @@ function Dashboard() {
 
   const dataMode: "live" | "cached" | "delayed" =
     chainData?.rateLimited ? "delayed"
-    : (regimeLive || anyLive) && (chainData?.enriched && Object.values(chainData.enriched).some((v) => v !== null)) ? "live"
     : (regimeLive || anyLive) ? "live"
     : "cached";
 
