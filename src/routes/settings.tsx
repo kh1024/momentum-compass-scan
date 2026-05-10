@@ -11,6 +11,8 @@ import {
   getScannerSettingsFn,
   updateScannerSettingsFn,
 } from "@/lib/massive.functions";
+import { useRiskFilters } from "@/hooks/useRiskFilters";
+import { PRESET_ORDER } from "@/lib/riskFilters";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Momentum Options Scanner" }] }),
