@@ -537,6 +537,8 @@ function Dashboard() {
 
       <MarketIntelPanel />
 
+      <ContractPreferenceToolbar />
+
       <RefreshBar
         lastFullScanAt={lastFullScanAt}
         nextFullScanAt={nextFullScanAt}
