@@ -42,31 +42,6 @@ function regimeSummary(bias: string, spy: { changePct: number }, qqq: { changePc
 
 type RegimeQuote = { price: number; changePct: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
 
-function SourceBadge({ q }: { q: RegimeQuote }) {
-  const count = q.sources ? Object.keys(q.sources).filter((k) => isFinite(q.sources![k])).length : 0;
-  if (count >= 2) {
-    const ok = q.agreement === "verified" || q.agreement === "close";
-    return (
-      <div
-        className={cn(
-          "mt-1 inline-flex items-center gap-1 rounded px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider",
-          ok ? "bg-[var(--color-bull)]/10 text-[var(--color-bull)]" : "bg-amber-500/10 text-amber-500",
-        )}
-        title={Object.entries(q.sources ?? {}).map(([s, p]) => `${s}: $${(p as number).toFixed(2)}`).join(" · ")}
-      >
-        {ok ? "✓" : "≠"} {count} src
-      </div>
-    );
-  }
-  return (
-    <div
-      className="mt-1 inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-amber-500"
-      title="Only one source available — needs a second source to verify"
-    >
-      ⚠ {count || "0"} src
-    </div>
-  );
-}
 
 function RegimeCard({
   bias, spy, qqq, smh,
