@@ -166,7 +166,14 @@ export function targetDeltaRange(opts: {
   isYolo?: boolean;
   /** When true, treat as "high conviction" — tightens band toward ITM. */
   highConviction?: boolean;
+  /** When set, user preference mode overrides entry-mode default. */
+  mode?: PreferenceMode;
 }): DeltaTarget {
+  // User preference mode overrides everything except LEAPS / YOLO.
+  if (opts.mode && !opts.isLeaps && !opts.isYolo) {
+    const b = deltaBandForMode(opts.mode);
+    return { min: b.min, max: b.max, ideal: b.ideal };
+  }
   if (opts.isLeaps) return { min: 0.55, max: 0.8, ideal: 0.7 };
   if (opts.isYolo || opts.entryMode === "Lotto") return { min: 0.1, max: 0.25, ideal: 0.18 };
   if (opts.highConviction) return { min: 0.55, max: 0.75, ideal: 0.6 };
