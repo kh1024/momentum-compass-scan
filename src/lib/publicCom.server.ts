@@ -484,21 +484,25 @@ export function selectContractFromChain(
 
 function pickBest(pool: PublicOptionContract[], underlyingPrice: number, sel: ContractSelector): PublicOptionContract | null {
   const entryMode = sel.entryMode ?? "Momentum";
+  const mode = sel.preferenceMode ?? "Balanced";
+  const maxCost = sel.maxContractCost ?? 500;
   const dt = targetDeltaRange({
     entryMode,
     isLeaps: sel.isLeaps,
     isYolo: sel.isYolo,
+    mode,
   });
   const allowed = allowedMoneyness({
     entryMode,
     isLeaps: sel.isLeaps,
     isYolo: sel.isYolo,
+    mode,
   });
   const targetStrike = Number.isFinite(sel.targetStrike) && sel.targetStrike && sel.targetStrike > 0
     ? sel.targetStrike
     : underlyingPrice;
 
-  // 1) Hard-filter: quality floor + allowed moneyness for this entry mode.
+  // 1) Hard-filter: quality floor + allowed moneyness for this mode/setup.
   const direction = pool[0]?.type ?? "CALL";
   const qualified = pool.filter((c) => {
     const m = classifyMoneyness(direction, c.strike, underlyingPrice, c.breakeven);
@@ -519,7 +523,8 @@ function pickBest(pool: PublicOptionContract[], underlyingPrice: number, sel: Co
   // If filters wipe the pool, fall back to the raw pool (don't break selection).
   const work = qualified.length > 0 ? qualified : pool;
 
-  // 2) Score each remaining contract: delta-fit + moneyness-fit + liquidity + spread.
+  // 2) Score each remaining contract: delta-fit + moneyness-fit + liquidity +
+  //    spread + premium-heavy + break-even reasonableness.
   const score = (c: PublicOptionContract): number => {
     const absD = Math.abs(c.delta);
     // In-band → 0, out-of-band → linear penalty.
@@ -530,7 +535,23 @@ function pickBest(pool: PublicOptionContract[], underlyingPrice: number, sel: Co
     const spreadPenalty = Math.min(c.spreadPct, 0.5);
     const liqBonus = Math.min(c.openInterest / 5000, 1) * 0.05 + Math.min(c.volume / 1000, 1) * 0.03;
 
-    let weight = deltaMiss + spreadPenalty - liqBonus;
+    // Premium-heavy: $ over budget hurts ranking. LEAPS exempt by design.
+    const premium = c.mid * 100;
+    const premiumPenalty =
+      !sel.isLeaps && premium > maxCost
+        ? Math.min((premium - maxCost) / Math.max(maxCost, 1), 2) * 0.4
+        : 0;
+
+    // Break-even realism: contracts that need huge moves for their DTE
+    // should not rank high. Skips LEAPS / Lottery (mode intentionally tolerates).
+    const beAbs = underlyingPrice > 0 ? Math.abs(c.breakeven - underlyingPrice) / underlyingPrice : 0;
+    const beCeiling = mode === "Lottery" ? 0.25 : Math.min(0.04 + Math.max(c.dte, 1) * 0.005, 0.12);
+    const bePenalty =
+      !sel.isLeaps && !sel.isYolo && mode !== "Lottery" && beAbs > beCeiling
+        ? Math.min((beAbs - beCeiling) * 4, 1)
+        : 0;
+
+    let weight = deltaMiss + spreadPenalty - liqBonus + premiumPenalty + bePenalty;
     if (entryMode === "Support Reclaim" || entryMode === "Breakout") weight += strikeMiss * 0.5;
     else weight += strikeMiss * 0.2;
     return weight;
