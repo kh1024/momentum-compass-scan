@@ -20,7 +20,7 @@ import {
   type DataStatus,
   type TrustEnvelope,
 } from "@/services/trust";
-import { loadSnapshotModule } from "@/lib/scanSnapshot";
+import { loadOptionsSnapshot, saveOptionsSnapshot } from "@/lib/scanSnapshot";
 
 export interface UseOptionsChainResult {
   envelopes: Record<string, TrustEnvelope<EnrichedContract>>;
