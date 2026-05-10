@@ -264,9 +264,10 @@ function Scanner() {
     });
   }, [chainEnvelopes, getLive, getReddit, extendedSwingEnabled, scannerMode, allMockCandidates]);
 
+  const { filters: riskFilters } = useRiskFilters();
   const candidates = useMemo(
-    () => traces.filter((t) => t.gate.visible).map((t) => t.c),
-    [traces],
+    () => applyRiskFilters(traces.filter((t) => t.gate.visible).map((t) => t.c), riskFilters),
+    [traces, riskFilters],
   );
 
   // ---- Counts for stat bar -------------------------------------------------
