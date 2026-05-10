@@ -43,9 +43,13 @@ export function useLiveQuotes(symbols: string[], options: UseLiveQuotesOptions =
       }
       return refetchIntervalMs;
     },
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: (q) =>
       !(q.state.data?.cooldownMs && q.state.data.cooldownMs > 0),
     refetchOnMount: false,
+    // Keep showing previous data while a new key/payload is in flight to avoid
+    // table flicker when symbols/filters change.
+    placeholderData: (prev) => prev,
     staleTime:
       typeof refetchIntervalMs === "number"
         ? Math.max(Math.min(refetchIntervalMs - 5_000, refetchIntervalMs), 25_000)

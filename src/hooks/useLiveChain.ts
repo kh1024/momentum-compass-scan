@@ -60,8 +60,10 @@ export function useLiveChain(picks: ChainPick[]) {
       }
       return 90_000;
     },
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
+    placeholderData: (prev) => prev,
     retry: (count, err) => {
       const msg = err instanceof Error ? err.message : "";
       if (/rate.?limit|429/i.test(msg)) return false;
