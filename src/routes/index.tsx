@@ -111,7 +111,15 @@ function Dashboard() {
     queryFn: () => fetchScannerSettings(),
     staleTime: 60_000,
   });
-  const fullScanIntervalMs = scannerSettings?.fullScanIntervalMs ?? 10 * 60_000;
+  // Cadence: 30 min during market hours, once per day off-hours.
+  // Server `fullScanIntervalMs` is honored only if it's smaller than the
+  // market-aware default (e.g. admin override).
+  const marketAwareIntervalMs = scanIntervalMs();
+  const serverInterval = scannerSettings?.fullScanIntervalMs ?? 0;
+  const fullScanIntervalMs =
+    serverInterval > 0 && serverInterval < marketAwareIntervalMs
+      ? serverInterval
+      : marketAwareIntervalMs;
 
   const picks = useMemo(
     () =>
