@@ -9,6 +9,7 @@ import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeTable } from "@/components/TradeTable";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
 import { ScanBar } from "@/components/ScanBar";
+import { BackendHealthPanel, useBackendHealth } from "@/components/BackendHealthBadge";
 import { useOptionsChain } from "@/hooks/useOptionsChain";
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { CapBucket, Direction, Label, TradeCandidate } from "@/lib/types";
@@ -350,6 +351,9 @@ function Scanner() {
     : anyLive ? "cached"
     : "demo";
 
+  const { data: backendHealth } = useBackendHealth();
+  const backendOffline = backendHealth?.status === "offline";
+
   return (
     <div className="space-y-4">
       {/* ---- Header -------------------------------------------------------- */}
@@ -362,11 +366,19 @@ function Scanner() {
         </div>
       </div>
 
+      <BackendHealthPanel />
+
       <ScanBar
         lastScanAt={lastFullScanAt}
         dataMode={dataMode}
-        isScanning={isScanning}
-        onRunScan={runScan}
+        isScanning={isScanning || backendOffline}
+        onRunScan={() => {
+          if (backendOffline) {
+            toast.warning("Backend offline", { description: "No data providers reachable — try again in a moment." });
+            return;
+          }
+          runScan();
+        }}
       />
 
       {/* ---- Stat bar ------------------------------------------------------ */}
