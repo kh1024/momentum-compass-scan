@@ -206,6 +206,14 @@ function publicAdapter(q: PublicQuote): SourceQuote {
  * configured, enabled in Settings, and not currently rate-limited.
  */
 async function fetchAllSources(symbol: string): Promise<SourceQuote[]> {
+  // Crypto pairs (e.g. BTC-USD, SOL-USD) are only supported by Yahoo. Skip the
+  // equity-only providers to avoid burning rate limits on guaranteed errors.
+  const isCrypto = /-USD$/i.test(symbol);
+  if (isCrypto) {
+    const y = await fetchYahoo(symbol).catch(() => null);
+    return y ? [y] : [];
+  }
+
   // Free fallbacks first — these never depend on Massive's state.
   const tasks: Array<Promise<SourceQuote | null>> = [
     fetchYahoo(symbol).catch(() => null),
