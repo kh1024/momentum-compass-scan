@@ -33,7 +33,7 @@ export const Route = createFileRoute("/scanner")({
 });
 
 type ViewMode = "table" | "card";
-type DteBucketFilter = "ALL" | "weekly-lotto" | "lotto-aggressive" | "short-term-swing" | "extended-swing" | "swing-plus" | "leaps";
+type DteBucketFilter = "ALL" | "7day" | "weekly-lotto" | "lotto-aggressive" | "short-term-swing" | "extended-swing" | "swing-plus" | "leaps";
 
 const LABEL_ORDER: Record<Label, number> = {
   "Buy Now": 0,
