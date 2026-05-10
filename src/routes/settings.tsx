@@ -327,13 +327,6 @@ function Settings() {
 function RiskFiltersPanel() {
   const { filters, preset, applyPreset, setFilter, reset } = useRiskFilters();
 
-  const presetTone: Record<string, string> = {
-    Conservative: "border-[var(--color-bull)]/40 text-[var(--color-bull)]",
-    Balanced: "border-border text-foreground",
-    Aggressive: "border-[var(--color-watch)]/50 text-[var(--color-watch)]",
-    Lotto: "border-[var(--color-bear)]/50 text-[var(--color-bear)]",
-  };
-
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-end justify-between gap-3">
@@ -341,7 +334,7 @@ function RiskFiltersPanel() {
           <h2 className="text-sm font-semibold">Risk Filters</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             These thresholds filter every list across the app — dashboard, scanner, and live trades.
-            Pick a preset or fine-tune the controls below.
+            The AI auto-tunes these for you; fine-tune below if you want manual control.
           </p>
         </div>
         <button
@@ -351,26 +344,6 @@ function RiskFiltersPanel() {
         >
           Reset
         </button>
-      </div>
-
-      <div className="mt-3 grid grid-cols-4 gap-2">
-        {PRESET_ORDER.map((p) => {
-          const active = preset === p;
-          return (
-            <button
-              key={p}
-              type="button"
-              onClick={() => applyPreset(p)}
-              className={`rounded-md border px-3 py-2 text-xs font-semibold transition ${
-                active
-                  ? `bg-background ${presetTone[p] ?? "border-border"} ring-1 ring-current`
-                  : `bg-background/40 ${presetTone[p] ?? "border-border"} opacity-70 hover:opacity-100`
-              }`}
-            >
-              {p}
-            </button>
-          );
-        })}
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
