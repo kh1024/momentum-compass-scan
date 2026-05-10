@@ -1,4 +1,5 @@
 import type { TradeCandidate } from "@/lib/types";
+import type { Moneyness } from "@/lib/contractClassification";
 import type { UpcomingEarnings } from "@/lib/earnings.functions";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
