@@ -313,11 +313,27 @@ function Dashboard() {
     : anyLive && (chainData?.enriched && Object.values(chainData.enriched).some((v) => v !== null)) ? "live"
     : "cached";
 
-  type RQ = { price: number; changePct: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
-  const regimeData = qc.getQueryData<{ live: boolean; quotes?: { SPY?: RQ; QQQ?: RQ; SMH?: RQ } }>(["regime-quotes"]);
+  // Subscribe to the same regime-quotes query the sidebar drives. useQuery
+  // (vs getQueryData) ensures the dashboard re-renders on every refresh and
+  // shares its cache + cadence with the sidebar.
+  const fetchQuotes = useServerFn(getQuotes);
+  const { data: regimeData } = useQuery<QuotesResponse>({
+    queryKey: ["regime-quotes"],
+    queryFn: () => fetchQuotes({ data: { symbols: ["SPY", "QQQ", "SMH"] } }),
+    staleTime: 25_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
   const spyQ = regimeData?.quotes?.SPY ?? MOCK_REGIME.spy;
   const qqqQ = regimeData?.quotes?.QQQ ?? MOCK_REGIME.qqq;
   const smhQ = regimeData?.quotes?.SMH ?? MOCK_REGIME.smh;
+  const regimeUpdatedAt =
+    Math.max(
+      ("ts" in spyQ && spyQ.ts) || 0,
+      ("ts" in qqqQ && qqqQ.ts) || 0,
+      ("ts" in smhQ && smhQ.ts) || 0,
+    ) || null;
+  const regimeLive = Boolean(regimeData?.live);
 
   const onRunScanNow = () => { void refetchChain(); };
   const onRefreshQuotesOnly = () => {
