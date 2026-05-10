@@ -33,7 +33,7 @@ export const Route = createFileRoute("/scanner")({
 });
 
 type ViewMode = "table" | "card";
-type DteBucketFilter = "ALL" | "weekly-lotto" | "lotto-aggressive" | "short-term-swing" | "extended-swing" | "swing-plus" | "leaps";
+type DteBucketFilter = "ALL" | "7day" | "weekly-lotto" | "lotto-aggressive" | "short-term-swing" | "extended-swing" | "swing-plus" | "leaps";
 
 const LABEL_ORDER: Record<Label, number> = {
   "Buy Now": 0,
@@ -55,6 +55,7 @@ const ALL_TIER_LABELS: Label[] = [
 
 const DTE_FILTER_OPTIONS: Array<[DteBucketFilter, string]> = [
   ["ALL", "All"],
+  ["7day", "🗓️ 7-Day (4–10D)"],
   ["weekly-lotto", "0–6D"],
   ["lotto-aggressive", "7–13D"],
   ["short-term-swing", "14–30D"],
@@ -111,7 +112,7 @@ function Scanner() {
   const [view, setView] = useState<ViewMode>("table");
   const [openId, setOpenId] = useState<string | null>(null);
   const [scanLimit, setScanLimit] = useState(30);
-  type Preset = "all" | "lottos" | "reddit" | "leaps" | "buynow" | "aggressive" | "watchlist";
+  type Preset = "all" | "lottos" | "reddit" | "leaps" | "buynow" | "aggressive" | "watchlist" | "7day";
   const [preset, setPreset] = useState<Preset>("all");
 
   function applyPreset(p: Preset) {
@@ -128,6 +129,10 @@ function Scanner() {
     if (p === "lottos") {
       setHiddenLabels(new Set<Label>(["Buy Now", "Watchlist", "Waiting on Trigger", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
       setDteFilter("weekly-lotto");
+    } else if (p === "7day") {
+      // 7-day swing window: 4–10 DTE — spans weekly-lotto + lotto-aggressive
+      setIncludeLeaps(false);
+      setDteFilter("7day");
     } else if (p === "reddit") {
       setIncludeLeaps(false);
       // YOLO universe must be on
@@ -279,9 +284,16 @@ function Scanner() {
   const activeGroupCount = ALL_GROUPS.filter((g) => universeEnabled[g]).length;
 
   // ---- DTE filter ----------------------------------------------------------
-  const matchesDte = (dte: number, f: DteBucketFilter): boolean => {
+  // Filter against the SAME bucket the row will be displayed in (sectionRouted)
+  // so the visible expiration range exactly matches the chosen filter.
+  const matchesDte = (c: TradeCandidate, f: DteBucketFilter): boolean => {
     if (f === "ALL") return true;
-    return expirationBucketFor(dte) === f;
+    if (f === "7day") {
+      // Custom 7-day swing window: raw DTE 4–10 inclusive.
+      return c.contract.dte >= 4 && c.contract.dte <= 10;
+    }
+    const bucket = (c.sectionRouted ?? expirationBucketFor(c.contract.dte)) as ExpirationBucket;
+    return bucket === f;
   };
 
   // ---- Filtered & sorted rows ----------------------------------------------
@@ -289,7 +301,7 @@ function Scanner() {
     const rows = candidates
       .filter((c) => dir === "ALL" || c.direction === dir)
       .filter((c) => capFilter === "ALL" || c.cap === capFilter)
-      .filter((c) => matchesDte(c.contract.dte, dteFilter))
+      .filter((c) => matchesDte(c, dteFilter))
       .filter((c) => c.contract.cost <= maxCost)
       .filter((c) => !verifiedOnly || c.contract.source === "chain")
       .filter((c) => !hideTrueAvoids || c.label !== "Avoid Ticker")
@@ -387,6 +399,7 @@ function Scanner() {
             <Chip active={preset === "aggressive"} onClick={() => applyPreset("aggressive")}>⚡ Aggressive</Chip>
             <Chip active={preset === "lottos"} onClick={() => applyPreset("lottos")}>🎰 Lottos</Chip>
             <Chip active={preset === "reddit"} onClick={() => applyPreset("reddit")}>🚀 Reddit YOLO</Chip>
+            <Chip active={preset === "7day"} onClick={() => applyPreset("7day")}>🗓️ 7-Day</Chip>
             <Chip active={preset === "leaps"} onClick={() => applyPreset("leaps")}>📅 LEAPS</Chip>
           </Group>
           <Group label={`Scan size: ${max}`}>
