@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "clean:routes": "node scripts/clean-generated-routes.mjs",
+    "prebuild": "node scripts/clean-generated-routes.mjs",
+    "prebuild:dev": "node scripts/clean-generated-routes.mjs",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
