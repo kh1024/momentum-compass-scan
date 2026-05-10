@@ -40,6 +40,11 @@ export interface WatchlistEntry {
   addedAt: number;
   /** TrustEnvelope of the stock quote at add time. */
   entryQuote: TrustEnvelope<Quote>;
+  /**
+   * Convenience mirror of `entryQuote.value?.price`. Always derived from the
+   * envelope on write. Read-only for consumers — never mutate directly.
+   */
+  entryStockPrice: number;
   /** Score the AI gave when added. */
   entryScore: number;
   entryThesis?: string;
