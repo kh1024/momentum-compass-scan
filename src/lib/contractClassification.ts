@@ -10,6 +10,12 @@
  *  - `passesQualityFloor`    → spread/OI/volume/IV sanity gate
  */
 import type { Direction, EntryMode } from "./types";
+import {
+  allowedMoneynessForMode,
+  breakevenCeilingPct,
+  deltaBandForMode,
+  type PreferenceMode,
+} from "./contractPreference";
 
 export type Moneyness =
   | "Deep ITM"
