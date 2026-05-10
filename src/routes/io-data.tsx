@@ -307,6 +307,19 @@ function IOData() {
         </div>
       </div>
 
+      {/* Global contract preference — affects strike selection, ranking,
+          break-even ceiling, and premium ceiling on every page. */}
+      <div className="space-y-2">
+        <ContractPreferenceToolbar />
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] mono">
+          <span className="font-semibold uppercase tracking-wider text-muted-foreground">Active prefs:</span>{" "}
+          <span className="text-foreground">{PREFERENCE_LABEL[preferenceMode]}</span>
+          {" · "}Δ {deltaBandForMode(preferenceMode).min}-{deltaBandForMode(preferenceMode).max}
+          {" · "}Allowed: {allowedMoneynessForMode(preferenceMode).join(", ")}
+          {" · "}Max cost ${maxContractCost}
+        </div>
+      </div>
+
       {/* Tabs */}
       <Tabs defaultValue="inputs">
         <TabsList className="flex flex-wrap gap-1 h-auto">
