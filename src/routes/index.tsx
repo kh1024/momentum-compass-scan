@@ -26,7 +26,16 @@ export const Route = createFileRoute("/")({
 });
 
 const LABEL_ORDER: Record<Label, number> = {
-  "Buy Now": 0, "Watchlist": 1, "Aggressive": 2, "Lotto": 3, "Find Better Strike": 4, "Avoid": 5,
+  "Buy Now": 0,
+  "Watchlist": 1,
+  "Waiting on Trigger": 2,
+  "Aggressive": 3,
+  "Lotto": 4,
+  "Near Miss": 5,
+  "Find Better Strike": 6,
+  "Avoid Contract": 7,
+  "Avoid Ticker": 8,
+  "Avoid": 9,
 };
 
 function Stat({ label, value, tone }: { label: string; value: number | string; tone?: "bull" | "watch" | "warn" | "bear" }) {
