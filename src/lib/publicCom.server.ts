@@ -9,6 +9,12 @@ import { buildCacheKey, readApiCache, writeApiCache } from "./apiCache";
 import { logApiHealth } from "./apiHealthLogger";
 import { getScannerSettings, normalizeTickers } from "./scannerQueue";
 import type { EntryMode } from "./types";
+import {
+  targetDeltaRange,
+  allowedMoneyness,
+  classifyMoneyness,
+  passesQualityFloor,
+} from "./contractClassification";
 
 const PUBLIC_BASE = "https://api.public.com";
 const TOKEN_TTL_MIN = 60;
@@ -473,22 +479,58 @@ export function selectContractFromChain(
 }
 
 function pickBest(pool: PublicOptionContract[], underlyingPrice: number, sel: ContractSelector): PublicOptionContract | null {
-  const target = sel.isLeaps ? 0.7 : sel.isYolo ? 0.2 : sel.entryMode === "Support Reclaim" ? 0.48 : 0.4;
+  const entryMode = sel.entryMode ?? "Momentum";
+  const dt = targetDeltaRange({
+    entryMode,
+    isLeaps: sel.isLeaps,
+    isYolo: sel.isYolo,
+  });
+  const allowed = allowedMoneyness({
+    entryMode,
+    isLeaps: sel.isLeaps,
+    isYolo: sel.isYolo,
+  });
   const targetStrike = Number.isFinite(sel.targetStrike) && sel.targetStrike && sel.targetStrike > 0
     ? sel.targetStrike
     : underlyingPrice;
-  return pool
-    .slice()
-    .sort((a, b) => {
-      const da = Math.abs(Math.abs(a.delta) - target);
-      const db = Math.abs(Math.abs(b.delta) - target);
-      const sa = Math.abs(a.strike - targetStrike) / Math.max(1, targetStrike);
-      const sb = Math.abs(b.strike - targetStrike) / Math.max(1, targetStrike);
-      if (sel.entryMode === "Support Reclaim" && sa !== sb) return sa - sb;
-      if (sel.entryMode === "Breakout" && Math.abs(sa - sb) > 0.01) return sa - sb;
-      if (da !== db) return da - db;
-      if (a.spreadPct !== b.spreadPct) return a.spreadPct - b.spreadPct;
-      return b.openInterest - a.openInterest;
-    })[0] ?? null;
+
+  // 1) Hard-filter: quality floor + allowed moneyness for this entry mode.
+  const direction = pool[0]?.type ?? "CALL";
+  const qualified = pool.filter((c) => {
+    const m = classifyMoneyness(direction, c.strike, underlyingPrice, c.breakeven);
+    if (!allowed.includes(m.moneyness)) return false;
+    const qf = passesQualityFloor({
+      spreadPct: c.spreadPct,
+      openInterest: c.openInterest,
+      volume: c.volume,
+      iv: c.iv,
+      bid: c.bid,
+      ask: c.ask,
+      dte: c.dte,
+      premium: c.mid * 100,
+    });
+    return qf.passes;
+  });
+
+  // If filters wipe the pool, fall back to the raw pool (don't break selection).
+  const work = qualified.length > 0 ? qualified : pool;
+
+  // 2) Score each remaining contract: delta-fit + moneyness-fit + liquidity + spread.
+  const score = (c: PublicOptionContract): number => {
+    const absD = Math.abs(c.delta);
+    // In-band → 0, out-of-band → linear penalty.
+    const deltaMiss =
+      absD >= dt.min && absD <= dt.max ? 0 : Math.min(Math.abs(absD - dt.ideal), 0.5);
+    // Distance from targetStrike (only matters strongly for Support Reclaim / Breakout).
+    const strikeMiss = Math.abs(c.strike - targetStrike) / Math.max(1, targetStrike);
+    const spreadPenalty = Math.min(c.spreadPct, 0.5);
+    const liqBonus = Math.min(c.openInterest / 5000, 1) * 0.05 + Math.min(c.volume / 1000, 1) * 0.03;
+
+    let weight = deltaMiss + spreadPenalty - liqBonus;
+    if (entryMode === "Support Reclaim" || entryMode === "Breakout") weight += strikeMiss * 0.5;
+    else weight += strikeMiss * 0.2;
+    return weight;
+  };
+  return work.slice().sort((a, b) => score(a) - score(b))[0] ?? null;
 }
 

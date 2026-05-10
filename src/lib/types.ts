@@ -124,6 +124,8 @@ export interface OptionContract {
   occSymbol?: string;
   /** Contract Repair / Better-Strike Search report — set when chain enrichment ran. */
   contractRepair?: import("./contractRepair").ContractRepairReport;
+  /** Moneyness + style classification — set when chain enrichment ran. */
+  classification?: import("./contractClassification").ContractClassification;
 }
 
 /** A neighbour real-chain strike used by the compare panel. */

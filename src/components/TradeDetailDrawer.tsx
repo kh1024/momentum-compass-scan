@@ -116,6 +116,40 @@ export function TradeDetailDrawer({
             </div>
           </Section>
 
+          {/* Contract classification */}
+          {c.classification && (
+            <Section title="Contract selection">
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="rounded-full border border-foreground/30 bg-foreground/10 px-2 py-0.5 font-semibold uppercase tracking-wide">
+                  {c.classification.moneyness}
+                </span>
+                <span className="rounded-full border border-border px-2 py-0.5 text-muted-foreground">
+                  {c.classification.label}
+                </span>
+                <span className="rounded-full border border-border px-2 py-0.5">
+                  BE move: {c.classification.breakevenMovePct >= 0 ? "+" : ""}
+                  {(c.classification.breakevenMovePct * 100).toFixed(1)}%
+                </span>
+                {c.classification.tags.map((tg) => (
+                  <span key={tg} className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-muted-foreground">
+                    {tg}
+                  </span>
+                ))}
+              </div>
+              <p className={cn(
+                "mt-2 text-xs leading-relaxed",
+                c.classification.fitsEntryMode ? "text-foreground" : "text-[var(--color-bear)]",
+              )}>
+                {c.classification.explanation}
+              </p>
+              {c.classification.qualityFloor.warnings.length > 0 && (
+                <p className="mt-1 text-[11px] text-amber-500">
+                  ⚠ {c.classification.qualityFloor.warnings.join(" · ")}
+                </p>
+              )}
+            </Section>
+          )}
+
           {/* Badges */}
           {badges.length > 0 && (
             <Section title="Quick read">
