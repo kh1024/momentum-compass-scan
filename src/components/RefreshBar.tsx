@@ -84,8 +84,19 @@ export function RefreshBar(props: RefreshBarProps) {
   }, []);
 
   const marketOpen = mounted ? isMarketOpen() : false;
-  const health = deriveHealth(quoteState, chainState, marketOpen);
+  const rawHealth = deriveHealth(quoteState, chainState, marketOpen);
+  // Hold the previous health briefly to prevent flicker during refresh cycles;
+  // urgent states (offline/limited) flip in immediately.
+  const health = useStableValue(rawHealth, {
+    holdMs: 900,
+    flushImmediate: (next) => next === "offline" || next === "limited",
+  });
   const tone = HEALTH_TONE[health];
+
+  const rawScanLabel = mounted
+    ? scanLabel(isScanning, lastFullScanAt, autoRefresh, marketOpen)
+    : "Initializing market intelligence";
+  const stableScanLabel = useStableValue(rawScanLabel, { holdMs: 500 });
 
   const lastVerified = !mounted
     ? "Latest verified scan loading"
