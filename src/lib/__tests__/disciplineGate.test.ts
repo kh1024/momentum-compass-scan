@@ -128,6 +128,6 @@ describe("runDisciplineGate", () => {
   it("Extended Swing disabled → DTE 33 hidden + Avoid", () => {
     const r = runDisciplineGate(mkCandidate(), { extendedSwingEnabled: false });
     expect(r.visible).toBe(false);
-    expect(r.finalLabel).toBe("Avoid");
+    expect(r.finalLabel).toBe("Avoid Ticker");
   });
 });
