@@ -140,6 +140,7 @@ function migrateV1(raw: unknown): WatchlistEntry | null {
     label: v1.label ?? "",
     addedAt: v1.addedAt ?? Date.now(),
     entryQuote,
+    entryStockPrice: v1.entryStockPrice ?? entryQuote.value?.price ?? 0,
     entryScore: v1.entryScore ?? 0,
     entryThesis: v1.entryThesis,
     target1: v1.target1,
