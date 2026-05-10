@@ -331,7 +331,7 @@ function Dashboard() {
           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
             <span>
               <span className={cn("font-semibold", dataMode === "live" ? "text-[var(--color-bull)]" : dataMode === "delayed" ? "text-amber-500" : "text-muted-foreground")}>
-                {dataMode === "live" ? "Live" : dataMode === "delayed" ? "Rate-limited" : dataMode === "cached" ? "Cached" : "Demo"}
+                {dataMode === "live" ? "Live" : dataMode === "delayed" ? "Rate-limited" : "Cached"}
               </span>
               {" "}data
             </span>
