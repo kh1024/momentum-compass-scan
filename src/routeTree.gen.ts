@@ -20,7 +20,7 @@ import { Route as IoDataRouteImport } from './routes/io-data'
 import { Route as ApiHealthRouteImport } from './routes/api-health'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TradeTickerRouteImport } from './routes/trade.$ticker'
-import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiHealthCheckRouteImport } from './routes/api/health-check'
 import { Route as ApiProvidersPublicStatusRouteImport } from './routes/api/providers/public.status'
 
 const WatchlistRoute = WatchlistRouteImport.update({
@@ -78,9 +78,9 @@ const TradeTickerRoute = TradeTickerRouteImport.update({
   path: '/trade/$ticker',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiHealthRoute = ApiHealthRouteImport.update({
-  id: '/api/health',
-  path: '/api/health',
+const ApiHealthCheckRoute = ApiHealthCheckRouteImport.update({
+  id: '/api/health-check',
+  path: '/api/health-check',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiProvidersPublicStatusRoute =
@@ -101,7 +101,7 @@ export interface FileRoutesByFullPath {
   '/scanner': typeof ScannerRoute
   '/settings': typeof SettingsRoute
   '/watchlist': typeof WatchlistRoute
-  '/api/health': typeof ApiHealthRoute
+  '/api/health-check': typeof ApiHealthCheckRoute
   '/trade/$ticker': typeof TradeTickerRoute
   '/api/providers/public/status': typeof ApiProvidersPublicStatusRoute
 }
@@ -116,7 +116,7 @@ export interface FileRoutesByTo {
   '/scanner': typeof ScannerRoute
   '/settings': typeof SettingsRoute
   '/watchlist': typeof WatchlistRoute
-  '/api/health': typeof ApiHealthRoute
+  '/api/health-check': typeof ApiHealthCheckRoute
   '/trade/$ticker': typeof TradeTickerRoute
   '/api/providers/public/status': typeof ApiProvidersPublicStatusRoute
 }
@@ -132,7 +132,7 @@ export interface FileRoutesById {
   '/scanner': typeof ScannerRoute
   '/settings': typeof SettingsRoute
   '/watchlist': typeof WatchlistRoute
-  '/api/health': typeof ApiHealthRoute
+  '/api/health-check': typeof ApiHealthCheckRoute
   '/trade/$ticker': typeof TradeTickerRoute
   '/api/providers/public/status': typeof ApiProvidersPublicStatusRoute
 }
@@ -149,7 +149,7 @@ export interface FileRouteTypes {
     | '/scanner'
     | '/settings'
     | '/watchlist'
-    | '/api/health'
+    | '/api/health-check'
     | '/trade/$ticker'
     | '/api/providers/public/status'
   fileRoutesByTo: FileRoutesByTo
@@ -164,7 +164,7 @@ export interface FileRouteTypes {
     | '/scanner'
     | '/settings'
     | '/watchlist'
-    | '/api/health'
+    | '/api/health-check'
     | '/trade/$ticker'
     | '/api/providers/public/status'
   id:
@@ -179,7 +179,7 @@ export interface FileRouteTypes {
     | '/scanner'
     | '/settings'
     | '/watchlist'
-    | '/api/health'
+    | '/api/health-check'
     | '/trade/$ticker'
     | '/api/providers/public/status'
   fileRoutesById: FileRoutesById
@@ -195,7 +195,7 @@ export interface RootRouteChildren {
   ScannerRoute: typeof ScannerRoute
   SettingsRoute: typeof SettingsRoute
   WatchlistRoute: typeof WatchlistRoute
-  ApiHealthRoute: typeof ApiHealthRoute
+  ApiHealthCheckRoute: typeof ApiHealthCheckRoute
   TradeTickerRoute: typeof TradeTickerRoute
   ApiProvidersPublicStatusRoute: typeof ApiProvidersPublicStatusRoute
 }
@@ -279,11 +279,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TradeTickerRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/health': {
-      id: '/api/health'
-      path: '/api/health'
-      fullPath: '/api/health'
-      preLoaderRoute: typeof ApiHealthRouteImport
+    '/api/health-check': {
+      id: '/api/health-check'
+      path: '/api/health-check'
+      fullPath: '/api/health-check'
+      preLoaderRoute: typeof ApiHealthCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/providers/public/status': {
@@ -307,7 +307,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScannerRoute: ScannerRoute,
   SettingsRoute: SettingsRoute,
   WatchlistRoute: WatchlistRoute,
-  ApiHealthRoute: ApiHealthRoute,
+  ApiHealthCheckRoute: ApiHealthCheckRoute,
   TradeTickerRoute: TradeTickerRoute,
   ApiProvidersPublicStatusRoute: ApiProvidersPublicStatusRoute,
 }

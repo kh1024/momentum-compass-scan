@@ -75,7 +75,7 @@ async function runProbe(): Promise<HealthResponse> {
   return payload;
 }
 
-export const Route = createFileRoute("/api/health")({
+export const Route = createFileRoute("/api/health-check")({
   server: {
     handlers: {
       GET: async ({ request }) => {

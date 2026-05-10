@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import type { HealthResponse, BackendStatus } from "@/routes/api/health";
+import type { HealthResponse, BackendStatus } from "@/routes/api/health-check";
 
 async function fetchHealth(): Promise<HealthResponse> {
-  const res = await fetch("/api/health", { headers: { Accept: "application/json" } });
+  const res = await fetch("/api/health-check", { headers: { Accept: "application/json" } });
   if (!res.ok) {
     const err = new Error(`Health check failed (${res.status})`) as Error & { status?: number };
     err.status = res.status;
