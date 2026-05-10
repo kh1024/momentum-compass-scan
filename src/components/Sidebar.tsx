@@ -248,12 +248,12 @@ export function Sidebar({
             <span
               className={cn(
                 "flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider",
-                live ? "text-[var(--color-bull)]" : "text-amber-500",
+                liveSticky ? "text-[var(--color-bull)]" : "text-muted-foreground/60",
               )}
-              title={live ? `Live · updated ${fresh}` : `Last update ${fresh}`}
+              title={liveSticky ? `Live · updated ${fresh}` : `Loading market data…`}
             >
-              <Radio className={cn("h-2.5 w-2.5", live && "animate-pulse-dot")} />
-              {live ? "Live" : "Stale"}
+              <Radio className={cn("h-2.5 w-2.5", liveSticky && "animate-pulse-dot")} />
+              {liveSticky ? "Live" : "Loading"}
             </span>
           </div>
           <div className="space-y-1">
