@@ -43,7 +43,7 @@ type RegimeQuote = { price: number; changePct: number; ts?: number; sources?: Re
 
 
 function RegimeCard({
-  bias, spy, qqq, smh, updatedAt, live, nowTick,
+  bias, spy, qqq, smh, updatedAt, live,
 }: {
   bias: string;
   spy: RegimeQuote;
@@ -51,14 +51,12 @@ function RegimeCard({
   smh: RegimeQuote;
   updatedAt: number | null;
   live: boolean;
-  nowTick: number;
 }) {
   const plain = regimePlainLabel(bias);
   const biasCls =
     plain === "Risk On" ? "text-[var(--color-bull)] bg-[var(--color-bull)]/10 border-[var(--color-bull)]/30"
     : plain === "Risk Off" ? "text-[var(--color-bear)] bg-[var(--color-bear)]/10 border-[var(--color-bear)]/30"
     : "text-amber-500 bg-amber-500/10 border-amber-500/30";
-  const fresh = freshness(updatedAt, nowTick || Date.now());
   const aiLine = marketCommentary({
     spy: { symbol: "SPY", changePct: spy.changePct },
     qqq: { symbol: "QQQ", changePct: qqq.changePct },
@@ -96,14 +94,26 @@ function RegimeCard({
       </div>
       <p className="mt-3 text-[11px] leading-snug text-foreground/80">{aiLine}</p>
       <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-wider text-muted-foreground/70">
-        <span className={cn("flex items-center gap-1", live ? "text-[var(--color-bull)]" : "text-amber-500")}>
+        <span className={cn("flex items-center gap-1", live ? "text-[var(--color-bull)]" : "text-muted-foreground/60")}>
           <Radio className={cn("h-2.5 w-2.5", live && "animate-pulse-dot")} />
-          {live ? "Live" : "Stale"}
+          {live ? "Live" : "Loading"}
         </span>
-        <span>Updated {fresh}</span>
+        <FreshnessLabel ts={updatedAt} />
       </div>
     </div>
   );
+}
+
+/** Self-ticking freshness label — re-renders only itself, not the parent tree. */
+function FreshnessLabel({ ts }: { ts: number | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ts) return;
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [ts]);
+  if (!ts) return <span>—</span>;
+  return <span>Updated {freshness(ts, now)}</span>;
 }
 
 function Stat({ label, value, tone }: { label: string; value: number | string; tone?: "bull" | "watch" | "warn" }) {
