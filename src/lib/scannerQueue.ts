@@ -16,13 +16,13 @@ export interface ScannerRuntimeSettings {
 }
 
 const defaults: ScannerRuntimeSettings = {
-  maxConcurrentRequests: 2,
-  quoteTtlMs: 60_000,
-  prevAggTtlMs: 15 * 60_000,
-  optionChainTtlMs: 45_000,
-  marketRegimeTtlMs: 2 * 60_000,
-  maxRetries: 3,
-  retryBackoffMaxMs: 15_000,
+  maxConcurrentRequests: 1,
+  quoteTtlMs: 120_000,
+  prevAggTtlMs: 30 * 60_000,
+  optionChainTtlMs: 90_000,
+  marketRegimeTtlMs: 5 * 60_000,
+  maxRetries: 4,
+  retryBackoffMaxMs: 30_000,
   maxTickersPerScan: 23,
   scanFinalistsOnlyForOptions: true,
   fullScanIntervalMs: 10 * 60_000,
