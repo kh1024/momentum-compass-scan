@@ -1,118 +1,249 @@
-import type { Label, Direction, Sentiment } from "@/lib/types";
+import type { Label, Direction, Sentiment, OptionContract } from "@/lib/types";
+import type { ContractVerification } from "@/lib/contractVerify.types";
 import { cn } from "@/lib/utils";
 
-// ---- Label chip -----------------------------------------------------------
-
-const LABEL_STYLES: Record<Label, string> = {
-  "Buy Now":            "bg-[var(--color-bull)]/15 text-[var(--color-bull)] ring-1 ring-[var(--color-bull)]/30",
-  "Watchlist":          "bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20",
-  "Waiting on Trigger": "bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/20",
-  "Aggressive":         "bg-[var(--color-watch)]/10 text-[var(--color-watch)] ring-1 ring-[var(--color-watch)]/20",
-  "Lotto":              "bg-[var(--color-lotto)]/10 text-[var(--color-lotto)] ring-1 ring-[var(--color-lotto)]/20",
-  "Near Miss":          "bg-fuchsia-500/10 text-fuchsia-400 ring-1 ring-fuchsia-500/20",
-  "Find Better Strike": "bg-orange-500/10 text-orange-400 ring-1 ring-orange-500/20",
-  "Avoid Contract":     "bg-orange-600/10 text-orange-500 ring-1 ring-orange-600/20",
-  "Avoid Ticker":       "bg-[var(--color-bear)]/10 text-[var(--color-bear)] ring-1 ring-[var(--color-bear)]/20",
-  "Avoid":              "bg-zinc-800 text-zinc-500 ring-1 ring-zinc-700",
+const labelStyles: Record<Label, string> = {
+  "Buy Now": "bg-[var(--color-buy-now)]/15 text-[var(--color-buy-now)] border-[var(--color-buy-now)]/40",
+  "Watchlist": "bg-[var(--color-watch)]/15 text-[var(--color-watch)] border-[var(--color-watch)]/40",
+  "Waiting on Trigger": "bg-sky-500/15 text-sky-400 border-sky-500/40",
+  "Aggressive": "bg-[var(--color-aggressive)]/15 text-[var(--color-aggressive)] border-[var(--color-aggressive)]/40",
+  "Lotto": "bg-[var(--color-lotto)]/15 text-[var(--color-lotto)] border-[var(--color-lotto)]/40",
+  "Near Miss": "bg-fuchsia-500/15 text-fuchsia-400 border-fuchsia-500/40",
+  "Find Better Strike": "bg-amber-500/15 text-amber-500 border-amber-500/40",
+  "Avoid Contract": "bg-orange-500/15 text-orange-400 border-orange-500/40",
+  "Avoid Ticker": "bg-[var(--color-bear)]/15 text-[var(--color-bear)] border-[var(--color-bear)]/40",
+  "Avoid": "bg-[var(--color-avoid)]/20 text-muted-foreground border-[var(--color-avoid)]/40",
 };
 
-export function LabelChip({ label, size = "sm" }: { label: Label; size?: "xs" | "sm" }) {
+export function LabelChip({ label, className }: { label: Label; className?: string }) {
   return (
-    <span className={cn(
-      "inline-flex items-center rounded-md font-semibold uppercase tracking-wide",
-      size === "xs" ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]",
-      LABEL_STYLES[label],
-    )}>
+    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide", labelStyles[label], className)}>
       {label}
     </span>
   );
 }
 
-// ---- Direction chip -------------------------------------------------------
-
 export function DirectionChip({ direction }: { direction: Direction }) {
+  const isCall = direction === "CALL";
   return (
     <span className={cn(
-      "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide",
-      direction === "CALL"
-        ? "bg-[var(--color-bull)]/15 text-[var(--color-bull)]"
-        : "bg-[var(--color-bear)]/15 text-[var(--color-bear)]",
+      "inline-flex items-center rounded px-2 py-0.5 text-xs font-bold tracking-wide",
+      isCall ? "bg-[var(--color-bull)]/15 text-[var(--color-bull)]" : "bg-[var(--color-bear)]/15 text-[var(--color-bear)]"
     )}>
       {direction}
     </span>
   );
 }
 
-// ---- Score badge ----------------------------------------------------------
+export function SentimentBadge({ s }: { s: Sentiment }) {
+  if (s === "None") return null;
+  const map: Record<Sentiment, string> = {
+    Bullish: "text-[var(--color-bull)]",
+    Bearish: "text-[var(--color-bear)]",
+    Mixed: "text-muted-foreground",
+    "Hype-only": "text-[var(--color-watch)]",
+    None: "",
+  };
+  return <span className={cn("text-xs font-medium", map[s])}>Reddit: {s}</span>;
+}
 
-export function ScoreBadge({ score }: { score: number }) {
-  const cls =
-    score >= 85 ? "text-[var(--color-bull)] bg-[var(--color-bull)]/10"
-    : score >= 70 ? "text-[var(--color-watch)] bg-[var(--color-watch)]/10"
-    : "text-[var(--color-muted-foreground)] bg-[var(--color-muted)]/50";
+export function DemoBadge() {
   return (
-    <span className={cn("mono inline-flex items-center rounded px-1.5 py-0.5 text-xs font-bold tabular-nums", cls)}>
-      {score}
+    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-demo)]/40 bg-[var(--color-demo)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-demo)]">
+      Demo Data
     </span>
   );
 }
 
-// ---- Source badge --------------------------------------------------------
-
-export function SourceBadge({ source }: { source: string }) {
-  if (source === "chain") return null;
+export function LiveDataBadge() {
   return (
-    <span className="rounded border border-[var(--color-watch)]/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[var(--color-watch)]/60">
-      Demo
+    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-bull)]/40 bg-[var(--color-bull)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-bull)]">
+      Live Data
     </span>
   );
 }
 
-// ---- Sentiment badge -------------------------------------------------------
-
-export function SentimentBadge({ sentiment }: { sentiment?: Sentiment | null }) {
-  if (!sentiment || sentiment === "None") return null;
-  const cls =
-    sentiment === "Bullish" ? "text-[var(--color-bull)] bg-[var(--color-bull)]/10"
-    : sentiment === "Bearish" ? "text-[var(--color-bear)] bg-[var(--color-bear)]/10"
-    : "text-[var(--color-watch)] bg-[var(--color-watch)]/10";
+export function StaleBadge() {
   return (
-    <span className={cn("rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide", cls)}>
-      {sentiment}
+    <span
+      title="Showing last-known live data. Provider was briefly unreachable or rate-limited; will refresh automatically."
+      className="inline-flex items-center gap-1 rounded-full border border-[var(--color-watch)]/40 bg-[var(--color-watch)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-watch)]"
+    >
+      Stale Data
     </span>
   );
 }
 
-// ---- Live/Demo dot -------------------------------------------------------
+export function DataStateBadge({ state }: { state?: "live" | "stale" | "demo" }) {
+  if (!state || state === "live") return null; // hide on live to reduce noise on cards
+  if (state === "stale") return <StaleBadge />;
+  return <DemoBadge />;
+}
 
-export function LiveDot({ live }: { live: boolean }) {
+export function BrokerConfirmBadge() {
   return (
-    <span className={cn(
-      "flex items-center gap-1.5 text-[11px] font-medium",
-      live ? "text-[var(--color-bull)]" : "text-[var(--color-muted-foreground)]",
-    )}>
-      <span className={cn(
-        "inline-block h-1.5 w-1.5 rounded-full",
-        live ? "bg-[var(--color-bull)] animate-pulse-dot" : "bg-[var(--color-muted-foreground)]",
-      )} />
-      {live ? "Live" : "Demo"}
+    <span className="inline-flex items-center gap-1 rounded border border-[var(--color-watch)]/40 bg-[var(--color-watch)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-watch)]">
+      Confirm in Broker
     </span>
   );
 }
 
-// ---- Trigger status dot --------------------------------------------------
 
-export function TriggerDot({ active }: { active: boolean }) {
+/**
+ * Cross-source verification badge. Shows:
+ *  - "Verified 2/2"  → both sources agree on every checked field
+ *  - "Unverified"    → secondary unavailable (e.g. Finnhub plan lacks chain)
+ *  - "Disputed: …"   → secondary returned different numbers
+ *  - "No such contract" → exp/strike doesn't exist on secondary
+ */
+export function VerificationBadge({ v }: { v?: ContractVerification }) {
+  if (!v) {
+    return (
+      <span
+        title="No second source checked yet"
+        className="inline-flex items-center gap-1 rounded border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+      >
+        Unverified
+      </span>
+    );
+  }
+  if (!v.secondaryAvailable) {
+    return (
+      <span
+        title="Finnhub option-chain unavailable on current plan — couldn't cross-check."
+        className="inline-flex items-center gap-1 rounded border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+      >
+        Unverified
+      </span>
+    );
+  }
+  if (!v.contractExists) {
+    return (
+      <span
+        title="Finnhub has no contract at this expiration/strike."
+        className="inline-flex items-center gap-1 rounded border border-[var(--color-bear)]/40 bg-[var(--color-bear)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-bear)]"
+      >
+        No such contract
+      </span>
+    );
+  }
+  if (v.allMatch) {
+    return (
+      <span
+        title="Public.com + Finnhub agree on every field."
+        className="inline-flex items-center gap-1 rounded border border-[var(--color-bull)]/40 bg-[var(--color-bull)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-bull)]"
+      >
+        Verified 2/2
+      </span>
+    );
+  }
   return (
-    <span className={cn(
-      "flex items-center gap-1 text-xs font-medium",
-      active ? "text-[var(--color-bull)]" : "text-[var(--color-muted-foreground)]",
-    )}>
-      <span className={cn(
-        "inline-block h-1.5 w-1.5 rounded-full",
-        active ? "bg-[var(--color-bull)]" : "bg-[var(--color-muted-foreground)]",
-      )} />
-      {active ? "Active" : "Waiting"}
+    <span
+      title={`Sources disagree on: ${v.disputed.join(", ")}`}
+      className="inline-flex items-center gap-1 rounded border border-[var(--color-watch)]/40 bg-[var(--color-watch)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-watch)]"
+    >
+      Disputed: {v.disputed.slice(0, 3).join(", ")}
+      {v.disputed.length > 3 ? "…" : ""}
+    </span>
+  );
+}
+
+export function EarningsBadge({
+  daysUntil,
+  date,
+  hour,
+  withinDte,
+}: {
+  daysUntil: number;
+  date: string;
+  hour?: string;
+  /** True when earnings fall on or before the contract's expiration. */
+  withinDte: boolean;
+}) {
+  const tone = withinDte
+    ? "border-[var(--color-bear)]/50 bg-[var(--color-bear)]/15 text-[var(--color-bear)]"
+    : "border-[var(--color-watch)]/40 bg-[var(--color-watch)]/10 text-[var(--color-watch)]";
+  const label = daysUntil <= 0
+    ? "Earnings today"
+    : daysUntil === 1
+      ? "Earnings tomorrow"
+      : `Earnings in ${daysUntil}d`;
+  const hourLabel = hour === "bmo" ? "before open" : hour === "amc" ? "after close" : hour === "dmh" ? "during market" : "";
+  return (
+    <span
+      title={`Reports ${date}${hourLabel ? ` (${hourLabel})` : ""}${withinDte ? " — falls inside your DTE window" : ""}`}
+      className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${tone}`}
+    >
+      ⚠ {label}
+      {withinDte ? " · in DTE" : ""}
+    </span>
+  );
+}
+
+/**
+ * Badge that surfaces whether the option contract is a real, verified chain
+ * contract — or a synthetic / unverified one that should not be traded
+ * without manual broker confirmation.
+ */
+export function ContractSourceBadge({ c }: { c: OptionContract }) {
+  const source = c.source ?? "mock-seed";
+  const missing = c.missingFields ?? [];
+  const bcr = c.brokerConfirmRequired ?? source !== "chain";
+
+  if (source === "mock-rescaled" || source === "mock-seed") {
+    return (
+      <span
+        title="This strike was not pulled from the real options chain. Do NOT trade — wait for live chain data or verify in your broker."
+        className="inline-flex items-center gap-1 rounded border border-[var(--color-bear)]/50 bg-[var(--color-bear)]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-bear)]"
+      >
+        ⚠ Synthetic Strike
+      </span>
+    );
+  }
+  if (bcr) {
+    return (
+      <span
+        title={`Missing or invalid: ${missing.join(", ") || "unknown"}. Confirm in broker before trading.`}
+        className="inline-flex items-center gap-1 rounded border border-[var(--color-watch)]/50 bg-[var(--color-watch)]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-watch)]"
+      >
+        Broker Confirm Required
+      </span>
+    );
+  }
+  return (
+    <span
+      title="Strike, expiration, bid/ask, and Greeks all came from the live options chain."
+      className="inline-flex items-center gap-1 rounded border border-[var(--color-bull)]/50 bg-[var(--color-bull)]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-bull)]"
+    >
+      ✓ Verified Real Contract
+    </span>
+  );
+}
+
+const dqPillBase = "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider";
+const tones = {
+  good: "border-[var(--color-bull)]/40 bg-[var(--color-bull)]/10 text-[var(--color-bull)]",
+  warn: "border-[var(--color-watch)]/40 bg-[var(--color-watch)]/10 text-[var(--color-watch)]",
+  bad: "border-[var(--color-bear)]/50 bg-[var(--color-bear)]/15 text-[var(--color-bear)]",
+};
+
+export function DataQualityBadges({ dq }: { dq?: import("@/lib/optionDataQuality").DataQualityResult }) {
+  if (!dq) return null;
+  return (
+    <span className="flex flex-wrap gap-1">
+      {dq.verified.quote && <span className={cn(dqPillBase, tones.good)}>Quote ✓</span>}
+      {dq.verified.greeks && <span className={cn(dqPillBase, tones.good)}>Greeks ✓</span>}
+      {dq.verified.iv && <span className={cn(dqPillBase, tones.good)}>IV ✓</span>}
+      {dq.verified.volumeOI && <span className={cn(dqPillBase, tones.good)}>Vol/OI ✓</span>}
+      {dq.repairAttempted && dq.repairSucceeded && (
+        <span className={cn(dqPillBase, tones.warn)} title={`Repaired via ${dq.repairEndpoint}`}>Repaired</span>
+      )}
+      {dq.finalDataStatus === "broker-confirmation-required" && (
+        <span className={cn(dqPillBase, tones.warn)}>Broker Confirm Required</span>
+      )}
+      {dq.finalDataStatus === "avoid-data-incomplete" && (
+        <span className={cn(dqPillBase, tones.bad)}>Avoid · Data Incomplete</span>
+      )}
     </span>
   );
 }
