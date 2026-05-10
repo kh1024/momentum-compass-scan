@@ -17,7 +17,6 @@ import { Route as PerformanceRouteImport } from './routes/performance'
 import { Route as PatternsRouteImport } from './routes/patterns'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as IoDataRouteImport } from './routes/io-data'
-import { Route as ApiHealthRouteImport } from './routes/api-health'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TradeTickerRouteImport } from './routes/trade.$ticker'
 import { Route as ApiHealthCheckRouteImport } from './routes/api/health-check'
@@ -63,11 +62,6 @@ const IoDataRoute = IoDataRouteImport.update({
   path: '/io-data',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiHealthRoute = ApiHealthRouteImport.update({
-  id: '/api-health',
-  path: '/api-health',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -92,7 +86,6 @@ const ApiProvidersPublicStatusRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/api-health': typeof ApiHealthRoute
   '/io-data': typeof IoDataRoute
   '/live': typeof LiveRoute
   '/patterns': typeof PatternsRoute
@@ -107,7 +100,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/api-health': typeof ApiHealthRoute
   '/io-data': typeof IoDataRoute
   '/live': typeof LiveRoute
   '/patterns': typeof PatternsRoute
@@ -123,7 +115,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/api-health': typeof ApiHealthRoute
   '/io-data': typeof IoDataRoute
   '/live': typeof LiveRoute
   '/patterns': typeof PatternsRoute
@@ -140,7 +131,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/api-health'
     | '/io-data'
     | '/live'
     | '/patterns'
@@ -155,7 +145,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/api-health'
     | '/io-data'
     | '/live'
     | '/patterns'
@@ -170,7 +159,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/api-health'
     | '/io-data'
     | '/live'
     | '/patterns'
@@ -186,7 +174,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ApiHealthRoute: typeof ApiHealthRoute
   IoDataRoute: typeof IoDataRoute
   LiveRoute: typeof LiveRoute
   PatternsRoute: typeof PatternsRoute
@@ -258,13 +245,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IoDataRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api-health': {
-      id: '/api-health'
-      path: '/api-health'
-      fullPath: '/api-health'
-      preLoaderRoute: typeof ApiHealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -298,7 +278,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ApiHealthRoute: ApiHealthRoute,
   IoDataRoute: IoDataRoute,
   LiveRoute: LiveRoute,
   PatternsRoute: PatternsRoute,
@@ -314,3 +293,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
