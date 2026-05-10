@@ -76,9 +76,6 @@ function validateEnrichment(r: unknown): ValidationResult {
   return { ok: true };
 }
 
-function isVerifiedEnrichment(r: EnrichmentResult | null | undefined): r is EnrichmentResult {
-  return validateEnrichment(r).ok;
-}
 
 /**
  * Generic loader/saver. Validation predicate guards against overwriting good
