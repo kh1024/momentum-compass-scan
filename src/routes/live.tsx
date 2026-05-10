@@ -44,9 +44,11 @@ function LiveOpportunities() {
     [],
   );
 
+  const { mode: preferenceMode, maxContractCost } = useContractPreference();
+
   const { data: chainData } = useQuery<EnrichmentResult>({
-    queryKey: ["dashboard-chain", picks.map((p) => `${p.ticker}:${p.direction}`).join(",")],
-    queryFn: () => enrichFn({ data: { picks } }),
+    queryKey: ["dashboard-chain", picks.map((p) => `${p.ticker}:${p.direction}`).join(","), preferenceMode, maxContractCost],
+    queryFn: () => enrichFn({ data: { picks, preferenceMode, maxContractCost } }),
     enabled: picks.length > 0,
     staleTime: 5 * 60_000,
   });
