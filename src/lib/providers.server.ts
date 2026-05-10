@@ -10,7 +10,8 @@ import { fetchPublicQuote, publicConfigured, getPublicCooldownStatus, type Publi
 import { fetchWithRetry } from "./fetchRetry.server";
 import { normalizeTickers } from "./scannerQueue";
 
-export type SourceName = "massive" | "public" | "finnhub" | "yahoo" | "stooq" | "coingecko";
+export type { SourceName, ConsensusQuote } from "@/lib/quote-types";
+import type { SourceName, ConsensusQuote } from "@/lib/quote-types";
 
 export interface SourceQuote {
   source: SourceName;
@@ -20,19 +21,6 @@ export interface SourceQuote {
   changePct: number;
   volume: number;
   ts: number; // epoch ms
-}
-
-export interface ConsensusQuote {
-  symbol: string;
-  price: number;
-  change: number;
-  changePct: number;
-  volume: number;
-  ts: number;
-  consensusSource: SourceName;
-  sources: Partial<Record<SourceName, number>>; // price per source
-  agreement: "verified" | "close" | "mismatch" | "single";
-  diffPct: number | null;
 }
 
 const YAHOO_UA =
