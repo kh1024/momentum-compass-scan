@@ -207,10 +207,13 @@ export function NavBar() {
       })
     : ["Waiting for live market data…"];
 
+  const liveFresh =
+    updatedAt != null && Date.now() - updatedAt <= 90_000 && anyLive;
+
   return (
     <Sidebar
       markets={markets}
-      live={anyLive}
+      live={liveFresh}
       updatedAt={updatedAt}
       regime={bias}
       insights={insights}
