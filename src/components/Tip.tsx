@@ -44,13 +44,13 @@ export const TIPS = {
     "Watchlist": (
       <div>
         <div className="mb-1 font-bold text-[#f59e0b]">Watchlist</div>
-        Setup is valid but missing one qualifier — usually trigger not yet active or score 70–84. Watch for the trigger to fire before entering.
+        Setup is valid but missing one qualifier — usually entry timing has not confirmed yet or score is 70–84. Keep it on watch before entering.
       </div>
     ),
     "Waiting on Trigger": (
       <div>
-        <div className="mb-1 font-bold text-sky-400">Waiting on Trigger</div>
-        Price has not crossed the entry level yet. Monitor for a breakout above resistance or reclaim of support. Do not chase early.
+        <div className="mb-1 font-bold text-[#f59e0b]">Watchlist</div>
+        Setup is close, but price has not confirmed the entry yet. Monitor the key level and avoid chasing early.
       </div>
     ),
     "Aggressive": (
@@ -207,7 +207,7 @@ export const TIPS = {
         <div className="mt-1 space-y-0.5">
           <div>Setup quality <span className="text-[#71717a]">/30</span></div>
           <div>Contract quality <span className="text-[#71717a]">/35</span></div>
-          <div>Trigger status <span className="text-[#71717a]">/10</span></div>
+          <div>Entry timing <span className="text-[#71717a]">/10</span></div>
           <div>Risk / reward <span className="text-[#71717a]">/10</span></div>
           <div>Data quality <span className="text-[#71717a]">/10</span></div>
         </div>
@@ -222,14 +222,14 @@ export const TIPS = {
   trigger: {
     active: (
       <div>
-        <div className="mb-1 font-bold text-[#10b981]">Trigger Active</div>
-        Price has crossed the entry trigger level. The setup is live — entry is valid now. Confirm in your broker before acting.
+        <div className="mb-1 font-bold text-[#10b981]">Entry Confirmed</div>
+        Price has confirmed the entry level. The setup is live now. Confirm in your broker before acting.
       </div>
     ),
     pending: (
       <div>
-        <div className="mb-1 font-bold text-[#71717a]">Trigger Not Active</div>
-        Price has not yet crossed the entry level. Do not enter early — wait for the trigger to confirm. Entering too early is the #1 mistake on momentum setups.
+        <div className="mb-1 font-bold text-[#71717a]">Entry Pending</div>
+        Price has not yet confirmed the entry level. Do not enter early — wait for confirmation before acting.
       </div>
     ),
     waitingRetest: (
@@ -240,8 +240,8 @@ export const TIPS = {
     ),
     stale: (
       <div>
-        <div className="mb-1 font-bold text-amber-500">Stale Trigger</div>
-        Trigger fired previously but price has moved significantly since. Re-evaluate the setup from scratch before entering.
+        <div className="mb-1 font-bold text-amber-500">Stale Setup</div>
+        The entry was confirmed earlier, but price has moved significantly since. Re-evaluate the setup from scratch before entering.
       </div>
     ),
   },
@@ -268,7 +268,7 @@ export const TIPS = {
   price: (
     <div>
       <div className="mb-1 font-bold">Current Stock Price</div>
-      <div className="text-[#a1a1aa]">Live quote from the last market session. Used to calculate delta, breakeven, and trigger status.</div>
+      <div className="text-[#a1a1aa]">Live quote from the last market session. Used to calculate delta, breakeven, and entry status.</div>
     </div>
   ),
   direction: {
