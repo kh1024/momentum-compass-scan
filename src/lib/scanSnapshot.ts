@@ -166,9 +166,9 @@ function saveAt<T>(
 
 // ── Dashboard (EnrichmentResult) ────────────────────────────────────────────
 export const loadScanSnapshot = (pickKey: string): ScanSnapshot | null =>
-  loadAt<EnrichmentResult>(DASHBOARD_KEY, pickKey, isVerifiedEnrichment);
+  loadAt<EnrichmentResult>(DASHBOARD_KEY, pickKey, validateEnrichment);
 export const saveScanSnapshot = (pickKey: string, result: EnrichmentResult, marketSession?: string): boolean =>
-  saveAt<EnrichmentResult>(DASHBOARD_KEY, pickKey, result, isVerifiedEnrichment, marketSession);
+  saveAt<EnrichmentResult>(DASHBOARD_KEY, pickKey, result, validateEnrichment, marketSession);
 
 // ── Scanner (OptionsChainResult-like) ────────────────────────────────────────
 // We don't import the type here to avoid coupling — the validator only checks
