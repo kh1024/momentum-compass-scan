@@ -9,6 +9,12 @@ import { buildCacheKey, readApiCache, writeApiCache } from "./apiCache";
 import { logApiHealth } from "./apiHealthLogger";
 import { getScannerSettings, normalizeTickers } from "./scannerQueue";
 import type { EntryMode } from "./types";
+import {
+  targetDeltaRange,
+  allowedMoneyness,
+  classifyMoneyness,
+  passesQualityFloor,
+} from "./contractClassification";
 
 const PUBLIC_BASE = "https://api.public.com";
 const TOKEN_TTL_MIN = 60;
