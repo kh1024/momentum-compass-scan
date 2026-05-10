@@ -179,6 +179,19 @@ export function gateLabel(
     }
   }
 
+  // Swing+ (46–60D) — treat like extended swing but slightly looser delta band.
+  // Always allowed (no extendedSwingEnabled gate); routes to its own section.
+  if (opts.dteBucket === "swing-plus" && !opts.isLeaps) {
+    const k = opts.contract;
+    if (k) {
+      const absD = Math.abs(k.delta);
+      if (k.thetaBurnPct > 0.06) next = cap("Watchlist");
+      if (k.spreadPct > 0.15) next = cap("Watchlist");
+      if (k.volume < 100 || k.openInterest < 300) next = cap("Watchlist");
+      if (absD < 0.30 || absD > 0.60) next = cap("Watchlist");
+    }
+  }
+
   if (opts.brokerConfirmRequired) {
     next = order.indexOf(next) <= order.indexOf("Watchlist") ? next : "Watchlist";
   }
