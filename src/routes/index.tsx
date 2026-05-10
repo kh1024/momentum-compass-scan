@@ -37,12 +37,7 @@ function regimePlainLabel(bias: string): "Risk On" | "Neutral" | "Risk Off" {
   return "Neutral";
 }
 
-function regimeSummary(bias: string, spy: { changePct: number }, qqq: { changePct: number }, smh: { changePct: number }): string {
-  const avg = (spy.changePct + qqq.changePct + smh.changePct) / 3;
-  if (bias === "Risk-on" || avg > 0.3) return "Broad strength across SPY/QQQ/SMH — supportive for calls.";
-  if (bias === "Risk-off" || avg < -0.3) return "Indices weak — favor puts and reduce size on calls.";
-  return "Mixed tape — selectivity matters; lean on strongest setups only.";
-}
+// regimeSummary deprecated — replaced by marketCommentary() inside RegimeCard.
 
 type RegimeQuote = { price: number; changePct: number; ts?: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
 
