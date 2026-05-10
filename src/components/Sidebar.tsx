@@ -169,6 +169,7 @@ export function Sidebar({
           {NAV.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
+          {(marketOpen || devMode) && <NavItem {...NAV_LIVE} />}
         </div>
 
         {/* AI insight panel */}
