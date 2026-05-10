@@ -1,22 +1,27 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, ScanSearch, Star, TrendingUp,
-  Activity, Settings, Wifi, ChevronRight, FlaskConical,
+  LayoutDashboard, Zap, Star, Settings, ChevronRight, Wrench,
+  TrendingUp, Activity, ScanSearch, FlaskConical, Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 
 const NAV = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/scanner", icon: ScanSearch, label: "Scanner" },
+  { to: "/", icon: LayoutDashboard, label: "Daily Picks" },
+  { to: "/live", icon: Zap, label: "Live" },
   { to: "/watchlist", icon: Star, label: "Watchlist" },
+] as const;
+
+const NAV_DEV = [
+  { to: "/scanner", icon: ScanSearch, label: "Scanner" },
   { to: "/performance", icon: TrendingUp, label: "Performance" },
   { to: "/patterns", icon: Activity, label: "Patterns" },
   { to: "/io-data", icon: FlaskConical, label: "Data Inspector" },
+  { to: "/api-health", icon: Wifi, label: "API Health" },
 ] as const;
 
 const NAV_BOTTOM = [
   { to: "/settings", icon: Settings, label: "Settings" },
-  { to: "/api-health", icon: Wifi, label: "API Health" },
 ] as const;
 
 interface SidebarMarket {
