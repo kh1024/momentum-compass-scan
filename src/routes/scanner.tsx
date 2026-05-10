@@ -103,10 +103,7 @@ function Scanner() {
       ? lastFullScanAt + fullScanIntervalMs
       : null;
   const ageMs = dataUpdatedAt ? Date.now() - dataUpdatedAt : null;
-  const isStale = ageMs != null && ageMs > STALE_MS;
-  const lastSyncLabel = dataUpdatedAt
-    ? new Date(dataUpdatedAt).toLocaleTimeString(undefined, { hour12: false })
-    : "—";
+  const isStale = ageMs != null && fullScanIntervalMs > 0 && ageMs > fullScanIntervalMs * 2;
   useEffect(() => {
     if (chainError) {
       toast.error("Scanner request failed", {
