@@ -8,6 +8,11 @@ export interface ScannerRuntimeSettings {
   retryBackoffMaxMs: number;
   maxTickersPerScan: number;
   scanFinalistsOnlyForOptions: boolean;
+  /**
+   * Auto-refresh interval for the full scanner (rerunning contract selection).
+   * 0 = manual only. UI exposes Off / 5 / 10 / 15 min presets.
+   */
+  fullScanIntervalMs: number;
 }
 
 const defaults: ScannerRuntimeSettings = {
@@ -20,6 +25,7 @@ const defaults: ScannerRuntimeSettings = {
   retryBackoffMaxMs: 15_000,
   maxTickersPerScan: 23,
   scanFinalistsOnlyForOptions: true,
+  fullScanIntervalMs: 10 * 60_000,
 };
 
 let settings: ScannerRuntimeSettings = { ...defaults };
