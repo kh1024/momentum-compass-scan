@@ -54,8 +54,6 @@ export function CompactTradeCard({
 }) {
   const c = t.contract;
   const isDemo = c.source !== "chain";
-  const triggerActive = t.triggerStatus === "active";
-  const triggerStatus = (t.triggerStatus ?? "pending") as "active" | "pending" | "waitingRetest" | "stale";
   const score = t.finalScore ?? t.score;
 
   const expShort = (() => {
@@ -163,27 +161,15 @@ export function CompactTradeCard({
           )}
         </div>
 
-        {/* ── Status + blocker row ── */}
+        {/* ── Bottom row: blocker note + details ── */}
         <div className="mt-2 flex items-center gap-2 border-t border-border/40 pt-2">
-          <Tip content={TIPS.trigger[triggerStatus] ?? TIPS.trigger.pending} side="bottom">
-            <span className={cn(
-              "flex cursor-help items-center gap-1 text-[10px] font-medium",
-              triggerActive ? "text-[var(--color-bull)]" : "text-muted-foreground/60",
-            )}>
-              <span className={cn(
-                "inline-block h-1.5 w-1.5 rounded-full",
-                triggerActive ? "bg-[var(--color-bull)]" : "bg-muted-foreground/30",
-              )} />
-              {triggerActive ? "Trigger Active" : (t.triggerStatus ?? "Pending")}
+          {topBlocker ? (
+            <span className="flex-1 truncate text-[10px] text-[var(--color-bear)]/75">
+              {topBlocker}{moreBlockers > 0 && <span className="ml-1 text-muted-foreground/50">+{moreBlockers} more</span>}
             </span>
-          </Tip>
-
-          {topBlocker && (
-            <span className="ml-1 flex-1 truncate text-[10px] text-[var(--color-bear)]/75">
-              {topBlocker}{moreBlockers > 0 && <span className="ml-1 text-muted-foreground/50">+{moreBlockers}</span>}
-            </span>
+          ) : (
+            <span className="flex-1 text-[10px] text-muted-foreground/40">{t.trend}</span>
           )}
-
           <button
             onClick={onOpenDetails}
             className="ml-auto shrink-0 rounded border border-border/50 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"

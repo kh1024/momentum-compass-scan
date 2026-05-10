@@ -96,8 +96,7 @@ export function TradeTable({
                 ["Vol", "text-right w-14", TIPS.volume],
                 ["OI", "text-right w-14", TIPS.oi],
                 ["Sprd", "text-right w-12", TIPS.spread],
-                ["Trigger", "min-w-[6rem]", null],
-                ["Reason", "min-w-[12rem]", null],
+                ["Notes", "min-w-[14rem]", null],
                 ["", "w-8", null],
               ] as [string, string, React.ReactNode][]
             ).map(([h, cls, tip], i) => (
@@ -114,11 +113,9 @@ export function TradeTable({
         <tbody className="divide-y divide-border/40">
           {rows.map((t) => {
             const c = t.contract;
-            const triggerActive = t.triggerStatus === "active";
             const isDemo = c.source !== "chain";
             const score = t.finalScore ?? t.score;
             const topBlocker = t.buyNowBlockers?.[0];
-            const topReason = topBlocker || t.trend || "";
 
             return (
               <tr
@@ -185,19 +182,10 @@ export function TradeTable({
                   {fmtPct(c.spreadPct)}
                 </td>
 
-                <td className={cn("px-2 py-1 whitespace-nowrap text-[10px] font-medium",
-                  triggerActive ? "text-[var(--color-bull)]" : "text-muted-foreground",
-                )}>
-                  <span className={cn("mr-1 inline-block h-1.5 w-1.5 rounded-full align-middle",
-                    triggerActive ? "bg-[var(--color-bull)]" : "bg-muted-foreground/40",
-                  )} />
-                  {triggerActive ? "Active" : (t.triggerStatus ?? "—")}
-                </td>
-
-                <td className="px-2 py-1 max-w-[12rem] text-[10px]">
+                <td className="px-2 py-1 max-w-[14rem] text-[10px]">
                   {topBlocker
                     ? <span className="text-[var(--color-bear)]/80 truncate block">{topBlocker}</span>
-                    : <span className="text-muted-foreground/70 truncate block">{topReason}</span>
+                    : <span className="text-muted-foreground/60 truncate block">{t.trend}</span>
                   }
                 </td>
 
