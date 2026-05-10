@@ -1,26 +1,14 @@
 import type { Label, Direction, Sentiment, OptionContract } from "@/lib/types";
 import type { ContractVerification } from "@/lib/contractVerify.types";
 import { cn } from "@/lib/utils";
-
-const labelStyles: Record<Label, string> = {
-  "Buy Now": "bg-[var(--color-buy-now)]/15 text-[var(--color-buy-now)] border-[var(--color-buy-now)]/40",
-  "Watchlist": "bg-[var(--color-watch)]/15 text-[var(--color-watch)] border-[var(--color-watch)]/40",
-  "Waiting on Trigger": "bg-sky-500/15 text-sky-400 border-sky-500/40",
-  "Aggressive": "bg-[var(--color-aggressive)]/15 text-[var(--color-aggressive)] border-[var(--color-aggressive)]/40",
-  "Lotto": "bg-[var(--color-lotto)]/15 text-[var(--color-lotto)] border-[var(--color-lotto)]/40",
-  "Near Miss": "bg-fuchsia-500/15 text-fuchsia-400 border-fuchsia-500/40",
-  "Find Better Strike": "bg-amber-500/15 text-amber-500 border-amber-500/40",
-  "Avoid Contract": "bg-orange-500/15 text-orange-400 border-orange-500/40",
-  "Avoid Ticker": "bg-[var(--color-bear)]/15 text-[var(--color-bear)] border-[var(--color-bear)]/40",
-  "Avoid": "bg-[var(--color-avoid)]/20 text-muted-foreground border-[var(--color-avoid)]/40",
-};
+import { displayLabelFor, DISPLAY_LABEL_STYLES } from "@/lib/uiVocabulary";
 
 export function LabelChip({ label, className }: { label: Label; className?: string }) {
-  // Hide the "Waiting on Trigger" concept — render it as Watchlist.
-  const display = label === "Waiting on Trigger" ? "Watchlist" : label;
-  const styleKey = label === "Waiting on Trigger" ? "Watchlist" : label;
+  const display = displayLabelFor(label);
+  if (display === "Hidden") return null;
+  const styles = DISPLAY_LABEL_STYLES[display];
   return (
-    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide", labelStyles[styleKey], className)}>
+    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide", styles.chip, className)}>
       {display}
     </span>
   );
