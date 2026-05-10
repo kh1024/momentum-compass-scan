@@ -152,6 +152,22 @@ export function Sidebar({ markets = [], live = false, regime }: SidebarProps) {
           {NAV_BOTTOM.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
+          <button
+            onClick={() => setDevMode(!devMode)}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              devMode
+                ? "bg-[var(--color-accent)] text-[var(--color-foreground)]"
+                : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]/50 hover:text-[var(--color-foreground)]",
+            )}
+          >
+            <Wrench className="h-4 w-4 shrink-0" />
+            Developer Mode
+            <span className={cn(
+              "ml-auto text-[9px] font-bold uppercase tracking-wider",
+              devMode ? "text-[var(--color-bull)]" : "text-muted-foreground/40",
+            )}>{devMode ? "On" : "Off"}</span>
+          </button>
         </div>
       </div>
     </aside>
