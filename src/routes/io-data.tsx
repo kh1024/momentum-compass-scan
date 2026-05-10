@@ -61,8 +61,8 @@ function validateContractRules(t: TradeCandidate): RuleResult[] {
   return [
     {
       id: 1, name: "Real option ticker exists",
-      pass: !!c.optionTicker && !c.optionTicker.startsWith("MOCK"),
-      detail: c.optionTicker ?? "—",
+      pass: !!c.occSymbol && !c.occSymbol.startsWith("MOCK"),
+      detail: c.occSymbol ?? "—",
     },
     {
       id: 2, name: "Strike from options chain",
