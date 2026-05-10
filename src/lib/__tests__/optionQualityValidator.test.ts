@@ -30,8 +30,8 @@ const baseContract = (overrides: Partial<OptionContract> = {}): OptionContract =
 });
 
 describe("dteBucketFor", () => {
-  it("excludes DTE < 7", () => {
-    expect(dteBucketFor(5)).toBe("excluded");
+  it("buckets DTE 1–6 as weekly-lotto", () => {
+    expect(dteBucketFor(5)).toBe("weekly-lotto");
   });
   it("buckets 7–13 as lotto-only", () => {
     expect(dteBucketFor(10)).toBe("lotto-only");
@@ -39,8 +39,8 @@ describe("dteBucketFor", () => {
   it("buckets 14–30 as swing-eligible", () => {
     expect(dteBucketFor(21)).toBe("swing-eligible");
   });
-  it("buckets 40 DTE out of short-term scanner", () => {
-    expect(dteBucketFor(40)).toBe("excluded-short-term");
+  it("buckets 31–45 as extended-swing", () => {
+    expect(dteBucketFor(40)).toBe("extended-swing");
   });
   it("buckets 365 DTE as LEAPS-only", () => {
     expect(dteBucketFor(365)).toBe("leaps-only");
@@ -81,20 +81,21 @@ describe("validateContract", () => {
 });
 
 describe("gateLabel — DTE discipline", () => {
-  it("downgrades Buy Now to Avoid on DTE 5", () => {
+  it("caps Buy Now to Lotto on DTE 5 (weekly-lotto bucket)", () => {
     expect(
       gateLabel("Buy Now", {
         brokerConfirmRequired: false,
         dteBucket: dteBucketFor(5),
       }),
-    ).toBe("Avoid");
+    ).toBe("Lotto");
   });
-  it("downgrades Buy Now to Avoid on DTE 40 (short-term scanner)", () => {
+  it("caps Buy Now to Watchlist on DTE 40 when extended-swing disabled", () => {
     expect(
       gateLabel("Buy Now", {
         brokerConfirmRequired: false,
         dteBucket: dteBucketFor(40),
         isLeaps: false,
+        extendedSwingEnabled: false,
       }),
     ).toBe("Avoid");
   });
