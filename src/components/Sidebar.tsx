@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Zap, Star, Settings, ChevronRight, Wrench,
   TrendingUp, Activity, ScanSearch, FlaskConical, Wifi, Radio, Sparkles,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 import { freshness, sectorStrength, sentimentScore, type CommentaryInput } from "@/lib/aiCommentary";
