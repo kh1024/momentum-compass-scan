@@ -17,6 +17,8 @@ import { runDisciplineGate, type DisciplineGateResult } from "@/lib/disciplineGa
 import { aiInsights, freshness, marketCommentary, sectorStrength } from "@/lib/aiCommentary";
 import { cn } from "@/lib/utils";
 import { isMarketOpen } from "@/lib/marketHours";
+import { useRiskFilters } from "@/hooks/useRiskFilters";
+import { passesRiskFilters } from "@/lib/riskFilters";
 
 export const Route = createFileRoute("/live")({
   head: () => ({ meta: [{ title: "Live Opportunities — Momentum Options Scanner" }] }),
@@ -74,8 +76,10 @@ function LiveOpportunities() {
   }, [chainData, getLive, getReddit]);
 
   // Surface only "exceptional" candidates: very high volume vs OI, or strong active momentum.
+  const { filters: riskFilters } = useRiskFilters();
   const live = useMemo(() => {
     return traces
+      .filter((t) => passesRiskFilters(t.c, riskFilters))
       .map((t) => {
         const c = t.c.contract;
         const volRatio = c.openInterest > 0 ? c.volume / c.openInterest : 0;
@@ -86,7 +90,7 @@ function LiveOpportunities() {
       })
       .filter((t) => t.isUnusualFlow || t.isStrongMomentum)
       .sort((a, b) => b.score - a.score);
-  }, [traces]);
+  }, [traces, riskFilters]);
 
   const traceById = useMemo(() => {
     const m = new Map<string, { c: TradeCandidate; gate: DisciplineGateResult }>();

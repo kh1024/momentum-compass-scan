@@ -11,6 +11,8 @@ import {
   getScannerSettingsFn,
   updateScannerSettingsFn,
 } from "@/lib/massive.functions";
+import { useRiskFilters } from "@/hooks/useRiskFilters";
+import { PRESET_ORDER } from "@/lib/riskFilters";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Momentum Options Scanner" }] }),
@@ -317,27 +319,105 @@ function Settings() {
         </ul>
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-5 opacity-70">
-        <h2 className="text-sm font-semibold">Scanner Thresholds (read-only preview)</h2>
-        <p className="mt-1 text-xs text-muted-foreground">Editable controls ship in Phase 2.</p>
-        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-          <Row k="Max contract cost" v="$1,000" />
-          <Row k="Min delta (short-term)" v="0.35" />
-          <Row k="Max IV" v="60%" />
-          <Row k="Min OI" v="500" />
-          <Row k="Min volume" v="100" />
-          <Row k="DTE range" v="7–30d" />
-          <Row k="Theta burn max" v="8%/d" />
-          <Row k="Spread max" v="15%" />
-          <Row k="Reddit layer" v="On" />
-          <Row k="LEAPS" v="On" />
-          <Row k="Puts" v="On" />
-          <Row k="YOLOs" v="On" />
-        </div>
-      </section>
+      <RiskFiltersPanel />
     </div>
   );
 }
+
+function RiskFiltersPanel() {
+  const { filters, preset, applyPreset, setFilter, reset } = useRiskFilters();
+
+  const presetTone: Record<string, string> = {
+    Conservative: "border-[var(--color-bull)]/40 text-[var(--color-bull)]",
+    Balanced: "border-border text-foreground",
+    Aggressive: "border-[var(--color-watch)]/50 text-[var(--color-watch)]",
+    Lotto: "border-[var(--color-bear)]/50 text-[var(--color-bear)]",
+  };
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-5">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">Risk Filters</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            These thresholds filter every list across the app — dashboard, scanner, and live trades.
+            Pick a preset or fine-tune the controls below.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={reset}
+          className="rounded-md border border-border bg-background px-2.5 py-1 text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+        >
+          Reset
+        </button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-4 gap-2">
+        {PRESET_ORDER.map((p) => {
+          const active = preset === p;
+          return (
+            <button
+              key={p}
+              type="button"
+              onClick={() => applyPreset(p)}
+              className={`rounded-md border px-3 py-2 text-xs font-semibold transition ${
+                active
+                  ? `bg-background ${presetTone[p] ?? "border-border"} ring-1 ring-current`
+                  : `bg-background/40 ${presetTone[p] ?? "border-border"} opacity-70 hover:opacity-100`
+              }`}
+            >
+              {p}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <SettingNumber label="Max contract cost ($)" value={filters.maxContractCost} min={50} max={10000}
+          onChange={(v) => setFilter("maxContractCost", v)} />
+        <SettingNumber label="Min |delta|" value={filters.minDelta} min={0} max={1}
+          onChange={(v) => setFilter("minDelta", v)} />
+        <SettingNumber label="Max IV (0–1)" value={filters.maxIV} min={0} max={3}
+          onChange={(v) => setFilter("maxIV", v)} />
+        <SettingNumber label="Min OI" value={filters.minOI} min={0} max={100000}
+          onChange={(v) => setFilter("minOI", v)} />
+        <SettingNumber label="Min volume" value={filters.minVolume} min={0} max={100000}
+          onChange={(v) => setFilter("minVolume", v)} />
+        <SettingNumber label="Max theta burn %/day" value={filters.maxThetaBurnPct} min={0} max={1}
+          onChange={(v) => setFilter("maxThetaBurnPct", v)} />
+        <SettingNumber label="Min DTE" value={filters.minDTE} min={0} max={720}
+          onChange={(v) => setFilter("minDTE", v)} />
+        <SettingNumber label="Max DTE" value={filters.maxDTE} min={0} max={720}
+          onChange={(v) => setFilter("maxDTE", v)} />
+        <SettingNumber label="Max spread %" value={filters.maxSpreadPct} min={0} max={1}
+          onChange={(v) => setFilter("maxSpreadPct", v)} />
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <ToggleRow label="Reddit layer" value={filters.allowReddit} onChange={(v) => setFilter("allowReddit", v)} />
+        <ToggleRow label="LEAPS" value={filters.allowLeaps} onChange={(v) => setFilter("allowLeaps", v)} />
+        <ToggleRow label="Puts" value={filters.allowPuts} onChange={(v) => setFilter("allowPuts", v)} />
+        <ToggleRow label="YOLOs" value={filters.allowYolo} onChange={(v) => setFilter("allowYolo", v)} />
+      </div>
+    </section>
+  );
+}
+
+function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 accent-[var(--color-bull)]"
+      />
+    </label>
+  );
+}
+
 
 function Row({ k, v }: { k: string; v: string }) {
   return (

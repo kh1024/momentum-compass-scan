@@ -23,6 +23,8 @@ import { expirationBucketFor } from "@/lib/optionQualityValidator";
 import { entryModeFromSetup } from "@/lib/entryMode";
 import { chainPickKey } from "@/lib/chainKeys";
 import { runDisciplineGate, type DisciplineGateResult } from "@/lib/disciplineGate";
+import { useRiskFilters } from "@/hooks/useRiskFilters";
+import { applyRiskFilters } from "@/lib/riskFilters";
 import { sectionFor, SECTION_TITLES, type SectionKey } from "@/lib/uiVocabulary";
 import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 
@@ -310,9 +312,13 @@ function Dashboard() {
   }, [chainData, getLive, getReddit]);
 
   // In normal mode hide low-quality / unhideable picks. Dev mode shows everything.
+  const { filters: riskFilters } = useRiskFilters();
   const candidates = useMemo(
-    () => traces.filter((t) => devMode || t.section !== null).map((t) => t.c),
-    [traces, devMode],
+    () => applyRiskFilters(
+      traces.filter((t) => devMode || t.section !== null).map((t) => t.c),
+      riskFilters,
+    ),
+    [traces, devMode, riskFilters],
   );
 
   const sectionMap = useMemo(() => {
