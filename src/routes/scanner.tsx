@@ -9,7 +9,7 @@ import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeTable } from "@/components/TradeTable";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
 import { ScanBar } from "@/components/ScanBar";
-import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
+import { useOptionsChain } from "@/hooks/useOptionsChain";
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { CapBucket, Direction, Label, TradeCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -155,7 +155,6 @@ function Scanner() {
   const allMockCandidates = useMemo(() => buildUniverseCandidates(activeTickers), [activeTickers]);
 
   const qc = useQueryClient();
-  const enrichFn = useServerFn(enrichWithPublicChain);
   const fetchScannerSettings = useServerFn(getScannerSettingsFn);
   const { data: scannerSettings } = useQuery({
     queryKey: ["scanner-settings"],
@@ -181,21 +180,17 @@ function Scanner() {
   const scanPicks = useMemo(() => picks.slice(0, max), [picks, max]);
 
   const {
-    data: chainData,
+    envelopes: chainEnvelopes,
+    raw: chainData,
+    status: chainStatus,
+    rateLimited: chainRateLimited,
+    message: chainMessage,
+    retryInMs: chainRetryInMs,
     isFetching: isScanning,
     refetch: refetchChain,
     error: chainError,
     dataUpdatedAt,
-  } = useQuery<EnrichmentResult>({
-    queryKey: ["scanner-chain", scanPicks.map((p) => `${p.ticker}:${p.direction}:${p.isLeaps?1:0}:${p.isYolo?1:0}:${p.entryMode ?? ""}:${p.targetStrike ?? ""}`).join(",")],
-    queryFn: () => enrichFn({ data: { picks: scanPicks } }),
-    enabled: scanPicks.length > 0,
-    refetchInterval: false,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: false,
-    staleTime: 60 * 60_000, // 1 hour — results are stable until you re-scan
-    placeholderData: (previousData) => previousData,
-  });
+  } = useOptionsChain(scanPicks, { staleTime: 60 * 60_000 });
 
   const lastFullScanAt = dataUpdatedAt || null;
 
