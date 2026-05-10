@@ -272,10 +272,10 @@ function Scanner() {
     });
   }, [chainEnvelopes, getLive, getReddit, extendedSwingEnabled, scannerMode, allMockCandidates]);
 
-  const { filters: riskFilters } = useRiskFilters();
+  const { filters: riskFilters, auto: riskAuto } = useRiskFilters();
   const candidates = useMemo(
-    () => applyRiskFilters(traces.filter((t) => t.gate.visible).map((t) => t.c), riskFilters),
-    [traces, riskFilters],
+    () => applyRiskFilters(traces.filter((t) => t.gate.visible).map((t) => t.c), riskFilters, riskAuto),
+    [traces, riskFilters, riskAuto],
   );
 
   // ---- Counts for stat bar -------------------------------------------------
