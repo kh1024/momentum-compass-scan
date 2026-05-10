@@ -392,12 +392,14 @@ function Dashboard() {
     updatedAt: marketDataUpdatedAt,
     isFetching: isScanning,
     rateLimited: chainData?.rateLimited === true,
+    kind: "quote",
   });
   const chainState = deriveLiveState({
     updatedAt: lastFullScanAt,
     isFetching: isScanning,
     rateLimited: chainData?.rateLimited === true,
     hasError: !!chainError,
+    kind: "chain",
   });
 
   const dataMode: "live" | "cached" | "delayed" =
