@@ -212,6 +212,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/io-data': {
+      id: '/io-data'
+      path: '/io-data'
+      fullPath: '/io-data'
+      preLoaderRoute: typeof IoDataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
