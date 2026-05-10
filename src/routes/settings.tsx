@@ -12,7 +12,7 @@ import {
   updateScannerSettingsFn,
 } from "@/lib/massive.functions";
 import { useRiskFilters } from "@/hooks/useRiskFilters";
-import { PRESET_ORDER } from "@/lib/riskFilters";
+
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Momentum Options Scanner" }] }),
@@ -325,7 +325,7 @@ function Settings() {
 }
 
 function RiskFiltersPanel() {
-  const { filters, preset, applyPreset, setFilter, reset } = useRiskFilters();
+  const { filters, setFilter, reset } = useRiskFilters();
 
   return (
     <section className="rounded-xl border border-border bg-card p-5">
