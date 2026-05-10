@@ -24,7 +24,7 @@ import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Daily AI Picks — Momentum Options Scanner" }] }),
-  component: Dashboard;
+  component: Dashboard,
 });
 
 function regimePlainLabel(bias: string): "Risk On" | "Neutral" | "Risk Off" {
