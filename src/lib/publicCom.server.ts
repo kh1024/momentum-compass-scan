@@ -479,12 +479,6 @@ export function selectContractFromChain(
 }
 
 function pickBest(pool: PublicOptionContract[], underlyingPrice: number, sel: ContractSelector): PublicOptionContract | null {
-  // Import inline to avoid circular dep at module-load.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { targetDeltaRange, allowedMoneyness, classifyMoneyness, passesQualityFloor } =
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require("./contractClassification") as typeof import("./contractClassification");
-
   const entryMode = sel.entryMode ?? "Momentum";
   const dt = targetDeltaRange({
     entryMode,
