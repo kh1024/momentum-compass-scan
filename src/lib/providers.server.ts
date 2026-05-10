@@ -125,7 +125,7 @@ function parseYahooChart(d: unknown, sym: string): SourceQuote | null {
   const prev = Number(meta?.chartPreviousClose ?? meta?.previousClose ?? 0);
   const change = isFinite(prev) && prev ? price - prev : 0;
   const changePct = isFinite(prev) && prev ? (change / prev) * 100 : 0;
-  const ts = Number(meta?.regularMarketTime) > 0 ? Number(meta.regularMarketTime) * 1000 : Date.now();
+  const ts = Number(meta?.regularMarketTime) > 0 ? Number(meta?.regularMarketTime) * 1000 : Date.now();
   return {
     source: "yahoo", symbol: sym, price, change, changePct,
     volume: Number(meta?.regularMarketVolume ?? 0), ts,
