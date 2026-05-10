@@ -417,7 +417,7 @@ function IOData() {
                       <tr key={c.id} className="hover:bg-muted/10">
                         <td className="px-3 py-1.5 font-bold">{c.ticker}</td>
                         <td className={cn("px-3 py-1.5 font-bold text-[10px]", c.direction === "CALL" ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]")}>{c.direction}</td>
-                        <td className="px-3 py-1.5 font-mono text-[9px] text-muted-foreground max-w-[12rem] truncate">{contract.optionTicker ?? "—"}</td>
+                        <td className="px-3 py-1.5 font-mono text-[9px] text-muted-foreground max-w-[12rem] truncate">{contract.occSymbol ?? "—"}</td>
                         <td className="px-3 py-1.5">
                           {isChain
                             ? <Badge kind="verified" label="200 OK" />
