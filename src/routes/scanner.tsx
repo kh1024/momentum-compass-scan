@@ -98,7 +98,6 @@ function Scanner() {
   const [maxCost, setMaxCost] = useState(1000);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [hideTrueAvoids, setHideTrueAvoids] = useState(true);
-  const [showRejected, setShowRejected] = useState(false);
   const [hiddenLabels, setHiddenLabels] = useState<Set<Label>>(new Set());
   const [includeLeaps, setIncludeLeaps] = useState(true);
   const [includeYolo, setIncludeYolo] = useState(true);
