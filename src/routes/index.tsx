@@ -166,7 +166,7 @@ function RegimeCard({
       <p className="mt-3 text-[11px] leading-snug text-foreground/80">{aiLine}</p>
       <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-wider text-muted-foreground/70">
         <StatusPill state={liveState} updatedAt={updatedAt} showAge={false} />
-        <span>{updatedAt ? `Updated ${formatAgo(updatedAt)}` : "No successful refresh yet"}</span>
+        <span>{updatedAt ? `Updated ${formatAgo(updatedAt)}` : "Initializing market feed"}</span>
       </div>
     </div>
   );
