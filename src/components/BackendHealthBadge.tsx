@@ -32,7 +32,7 @@ export function useBackendHealth() {
 
 /**
  * Force a full reconnect: invalidate every cached query so all data sources
- * re-fetch in parallel. Returns when the health check completes (or fails).
+ * re-fetch in parallel.
  */
 export function useRetryConnection() {
   const qc = useQueryClient();
@@ -100,9 +100,10 @@ export function BackendHealthBadge({ className, compact = false }: BackendHealth
 }
 
 export function BackendHealthPanel() {
-  const { data, isLoading, isError, refetch, isFetching } = useBackendHealth();
+  const { data, isLoading, isError, refetch, isFetching, failureCount, errorUpdatedAt } = useBackendHealth();
+  const { retry: retryConnection, pending: retrying } = useRetryConnection();
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="rounded-xl border border-border bg-card/40 px-4 py-3 text-xs text-muted-foreground">
         Checking backend connectivity…
@@ -111,12 +112,24 @@ export function BackendHealthPanel() {
   }
 
   if (isError || !data) {
+    const lastTried = errorUpdatedAt ? new Date(errorUpdatedAt).toLocaleTimeString() : "—";
     return (
       <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-xs">
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-semibold text-destructive">Backend health check failed</span>
-          <button onClick={() => refetch()} className="rounded border border-destructive/40 px-2 py-0.5 text-[10px] uppercase tracking-wider text-destructive hover:bg-destructive/10">
-            Retry
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="font-semibold text-destructive">Cannot reach backend</div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground">
+              {failureCount > 0
+                ? `${failureCount} failed attempt${failureCount === 1 ? "" : "s"} · last ${lastTried} · retrying with backoff`
+                : "Retrying with exponential backoff…"}
+            </div>
+          </div>
+          <button
+            onClick={() => { void retryConnection(); }}
+            disabled={retrying || isFetching}
+            className="rounded-md border border-destructive bg-destructive/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-destructive transition hover:bg-destructive/20 disabled:opacity-50"
+          >
+            {retrying || isFetching ? "Reconnecting…" : "↻ Retry connection"}
           </button>
         </div>
       </div>
@@ -124,23 +137,40 @@ export function BackendHealthPanel() {
   }
 
   const style = STATUS_STYLE[data.status];
+  const showRetryCta = data.status !== "healthy";
 
   return (
     <div className={cn("rounded-xl border bg-card/40 px-4 py-3 text-xs", style.border)}>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className={cn("h-2 w-2 rounded-full", style.dot)} aria-hidden />
           <span className={cn("font-semibold uppercase tracking-wider", style.text)}>{style.label}</span>
           <span className="text-muted-foreground">·</span>
           <span className="text-muted-foreground">{data.message}</span>
         </div>
-        <button
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="rounded border border-border px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground hover:bg-muted/30 disabled:opacity-50"
-        >
-          {isFetching ? "Checking…" : "Recheck"}
-        </button>
+        <div className="flex items-center gap-2">
+          {showRetryCta && (
+            <button
+              onClick={() => { void retryConnection(); }}
+              disabled={retrying}
+              className={cn(
+                "rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition disabled:opacity-50",
+                data.status === "offline"
+                  ? "border-destructive bg-destructive/10 text-destructive hover:bg-destructive/20"
+                  : "border-amber-500/60 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20",
+              )}
+            >
+              {retrying ? "Reconnecting…" : "↻ Retry connection"}
+            </button>
+          )}
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="rounded border border-border px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground hover:bg-muted/30 disabled:opacity-50"
+          >
+            {isFetching ? "Checking…" : "Recheck"}
+          </button>
+        </div>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {data.providers.map((p) => (
