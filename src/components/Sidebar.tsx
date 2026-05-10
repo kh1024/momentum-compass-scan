@@ -1,22 +1,27 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, ScanSearch, Star, TrendingUp,
-  Activity, Settings, Wifi, ChevronRight, FlaskConical,
+  LayoutDashboard, Zap, Star, Settings, ChevronRight, Wrench,
+  TrendingUp, Activity, ScanSearch, FlaskConical, Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 
 const NAV = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/scanner", icon: ScanSearch, label: "Scanner" },
+  { to: "/", icon: LayoutDashboard, label: "Daily Picks" },
+  { to: "/live", icon: Zap, label: "Live" },
   { to: "/watchlist", icon: Star, label: "Watchlist" },
+] as const;
+
+const NAV_DEV = [
+  { to: "/scanner", icon: ScanSearch, label: "Scanner" },
   { to: "/performance", icon: TrendingUp, label: "Performance" },
   { to: "/patterns", icon: Activity, label: "Patterns" },
   { to: "/io-data", icon: FlaskConical, label: "Data Inspector" },
+  { to: "/api-health", icon: Wifi, label: "API Health" },
 ] as const;
 
 const NAV_BOTTOM = [
   { to: "/settings", icon: Settings, label: "Settings" },
-  { to: "/api-health", icon: Wifi, label: "API Health" },
 ] as const;
 
 interface SidebarMarket {
@@ -61,6 +66,7 @@ function NavItem({
 }
 
 export function Sidebar({ markets = [], live = false, regime }: SidebarProps) {
+  const [devMode, setDevMode] = useDeveloperMode();
   return (
     <aside className="fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-[var(--color-border)] bg-[var(--color-sidebar)]">
       {/* Logo */}
@@ -69,7 +75,7 @@ export function Sidebar({ markets = [], live = false, regime }: SidebarProps) {
           <div className="h-2.5 w-2.5 rounded-full bg-[var(--color-bull)]" />
         </div>
         <div>
-          <div className="text-sm font-semibold leading-none tracking-tight">Momentum</div>
+          <div className="text-sm font-semibold leading-none tracking-tight">Momentum AI</div>
           <div className="mt-0.5 text-[10px] text-[var(--color-muted-foreground)]">Options Scanner</div>
         </div>
       </div>
@@ -81,6 +87,16 @@ export function Sidebar({ markets = [], live = false, regime }: SidebarProps) {
             <NavItem key={item.to} {...item} />
           ))}
         </div>
+        {devMode && (
+          <div className="mt-4">
+            <div className="mb-1 px-3 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Developer</div>
+            <div className="space-y-0.5">
+              {NAV_DEV.map((item) => (
+                <NavItem key={item.to} {...item} />
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Market snapshot */}
@@ -124,7 +140,7 @@ export function Sidebar({ markets = [], live = false, regime }: SidebarProps) {
               : regime === "Risk-off" ? "bg-[var(--color-bear)]/10 text-[var(--color-bear)]"
               : "bg-[var(--color-watch)]/10 text-[var(--color-watch)]",
             )}>
-              {regime}
+              {regime === "Risk-on" ? "Risk On" : regime === "Risk-off" ? "Risk Off" : "Neutral"}
             </div>
           )}
         </div>
@@ -136,6 +152,22 @@ export function Sidebar({ markets = [], live = false, regime }: SidebarProps) {
           {NAV_BOTTOM.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
+          <button
+            onClick={() => setDevMode(!devMode)}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              devMode
+                ? "bg-[var(--color-accent)] text-[var(--color-foreground)]"
+                : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]/50 hover:text-[var(--color-foreground)]",
+            )}
+          >
+            <Wrench className="h-4 w-4 shrink-0" />
+            Developer Mode
+            <span className={cn(
+              "ml-auto text-[9px] font-bold uppercase tracking-wider",
+              devMode ? "text-[var(--color-bull)]" : "text-muted-foreground/40",
+            )}>{devMode ? "On" : "Off"}</span>
+          </button>
         </div>
       </div>
     </aside>

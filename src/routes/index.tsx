@@ -9,7 +9,7 @@ import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
 import { RefreshBar } from "@/components/RefreshBar";
 import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
 import { getScannerSettingsFn } from "@/lib/massive.functions";
-import type { Direction, Label, SetupType, TradeCandidate } from "@/lib/types";
+import type { Direction, TradeCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useLiveQuotes } from "@/hooks/useLiveQuotes";
 import { useRedditSentiment } from "@/hooks/useRedditSentiment";
@@ -19,58 +19,45 @@ import { expirationBucketFor } from "@/lib/optionQualityValidator";
 import { entryModeFromSetup } from "@/lib/entryMode";
 import { chainPickKey } from "@/lib/chainKeys";
 import { runDisciplineGate, type DisciplineGateResult } from "@/lib/disciplineGate";
+import { sectionFor, SECTION_TITLES, type SectionKey } from "@/lib/uiVocabulary";
+import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 
 export const Route = createFileRoute("/")({
-  head: () => ({ meta: [{ title: "Dashboard — Momentum Options Scanner" }] }),
+  head: () => ({ meta: [{ title: "Daily AI Picks — Momentum Options Scanner" }] }),
   component: Dashboard,
 });
 
-const LABEL_ORDER: Record<Label, number> = {
-  "Buy Now": 0,
-  "Watchlist": 1,
-  "Waiting on Trigger": 2,
-  "Aggressive": 3,
-  "Lotto": 4,
-  "Near Miss": 5,
-  "Find Better Strike": 6,
-  "Avoid Contract": 7,
-  "Avoid Ticker": 8,
-  "Avoid": 9,
-};
+function regimePlainLabel(bias: string): "Risk On" | "Neutral" | "Risk Off" {
+  if (bias === "Risk-on") return "Risk On";
+  if (bias === "Risk-off") return "Risk Off";
+  return "Neutral";
+}
 
-function Stat({ label, value, tone }: { label: string; value: number | string; tone?: "bull" | "watch" | "warn" | "bear" }) {
-  const cls =
-    tone === "bull" ? "text-[var(--color-bull)]"
-    : tone === "watch" ? "text-[var(--color-watch)]"
-    : tone === "warn" ? "text-amber-500"
-    : tone === "bear" ? "text-[var(--color-bear)]"
-    : "text-foreground";
-  return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={cn("text-lg font-semibold tabular-nums leading-none mt-1", cls)}>{value}</div>
-    </div>
-  );
+function regimeSummary(bias: string, spy: { changePct: number }, qqq: { changePct: number }, smh: { changePct: number }): string {
+  const avg = (spy.changePct + qqq.changePct + smh.changePct) / 3;
+  if (bias === "Risk-on" || avg > 0.3) return "Broad strength across SPY/QQQ/SMH — supportive for calls.";
+  if (bias === "Risk-off" || avg < -0.3) return "Indices weak — favor puts and reduce size on calls.";
+  return "Mixed tape — selectivity matters; lean on strongest setups only.";
 }
 
 function RegimeCard({
-  bias, spy, qqq, smh, live,
+  bias, spy, qqq, smh,
 }: {
   bias: string;
   spy: { price: number; changePct: number };
   qqq: { price: number; changePct: number };
   smh: { price: number; changePct: number };
-  live: boolean;
 }) {
+  const plain = regimePlainLabel(bias);
   const biasCls =
-    bias === "Risk-on" ? "text-[var(--color-bull)] bg-[var(--color-bull)]/10 border-[var(--color-bull)]/30"
-    : bias === "Risk-off" ? "text-[var(--color-bear)] bg-[var(--color-bear)]/10 border-[var(--color-bear)]/30"
-    : "text-[var(--color-watch)] bg-[var(--color-watch)]/10 border-[var(--color-watch)]/30";
+    plain === "Risk On" ? "text-[var(--color-bull)] bg-[var(--color-bull)]/10 border-[var(--color-bull)]/30"
+    : plain === "Risk Off" ? "text-[var(--color-bear)] bg-[var(--color-bear)]/10 border-[var(--color-bear)]/30"
+    : "text-amber-500 bg-amber-500/10 border-amber-500/30";
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-xl border border-border bg-card p-4 min-w-[300px]">
+      <div className="mb-2 flex items-center justify-between">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Market Regime</span>
-        <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-bold", biasCls)}>{bias}</span>
+        <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-bold", biasCls)}>{plain}</span>
       </div>
       <div className="grid grid-cols-3 gap-3">
         {[{ sym: "SPY", q: spy }, { sym: "QQQ", q: qqq }, { sym: "SMH", q: smh }].map(({ sym, q }) => (
@@ -83,22 +70,37 @@ function RegimeCard({
           </div>
         ))}
       </div>
-      {!live && (
-        <div className="mt-2 text-[10px] text-muted-foreground/60">Demo data</div>
-      )}
+      <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+        {regimeSummary(bias, spy, qqq, smh)}
+      </p>
     </div>
   );
 }
 
+function Stat({ label, value, tone }: { label: string; value: number | string; tone?: "bull" | "watch" | "warn" }) {
+  const cls =
+    tone === "bull" ? "text-[var(--color-bull)]"
+    : tone === "watch" ? "text-sky-400"
+    : tone === "warn" ? "text-amber-500"
+    : "text-foreground";
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={cn("mt-1 text-lg font-semibold leading-none tabular-nums", cls)}>{value}</div>
+    </div>
+  );
+}
+
+const SECTION_ORDER: SectionKey[] = ["high-conviction", "momentum", "near-entry", "aggressive", "lottery", "watch"];
+
 function Dashboard() {
   const [dir, setDir] = useState<Direction | "ALL">("ALL");
-  const [labelF, setLabelF] = useState<Label | "ALL">("ALL");
-  const [setupF, setSetupF] = useState<SetupType | "ALL">("ALL");
-  const [hideAvoids, setHideAvoids] = useState(true);
+  const [sectionFilter, setSectionFilter] = useState<SectionKey | "ALL">("ALL");
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [devMode] = useDeveloperMode();
 
-  // Tick once per second so the refresh bar's "Ns ago" / "in Ns" labels update.
+  // Tick once per second so refresh-bar labels update.
   const [, setNowTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setNowTick((n) => n + 1), 1_000);
@@ -113,7 +115,6 @@ function Dashboard() {
     queryFn: () => fetchScannerSettings(),
     staleTime: 60_000,
   });
-  // Default 10 minutes. 0 = manual only.
   const fullScanIntervalMs = scannerSettings?.fullScanIntervalMs ?? 10 * 60_000;
 
   const picks = useMemo(
@@ -142,8 +143,6 @@ function Dashboard() {
     refetchInterval: autoRefresh && fullScanIntervalMs > 0 ? fullScanIntervalMs : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
-    // Stability: keep the same contract picks across quote refreshes — only
-    // a fresh full scan (manual or scheduled) replaces selected contracts.
     staleTime: fullScanIntervalMs > 0 ? Math.max(fullScanIntervalMs - 10_000, 60_000) : 24 * 60 * 60_000,
     placeholderData: (previousData) => previousData,
   });
@@ -161,7 +160,7 @@ function Dashboard() {
     if (!chainData) return;
     const now = chainData.rateLimited;
     if (now && !lastRateLimitedRef.current) {
-      toast.warning("Rate limit hit", { description: chainData.message ?? "Showing demo data meanwhile.", duration: 6000 });
+      toast.warning("Rate limit hit", { description: chainData.message ?? "Showing last known data.", duration: 6000 });
     } else if (!now && lastRateLimitedRef.current) {
       toast.success("Live data restored");
     }
@@ -198,35 +197,52 @@ function Dashboard() {
         buyNowEligible: gate.buyNowEligible,
         buyNowBlockers: gate.buyNowBlockers,
       };
-      return { c: merged, gate };
+      const section = sectionFor(merged);
+      return { c: merged, gate, section };
     });
   }, [chainData, getLive, getReddit]);
 
-  const candidates = useMemo(() => traces.map((t) => t.c), [traces]);
-
-  const setupOptions = useMemo(
-    () => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.setupType))) as SetupType[],
-    [],
+  // In normal mode hide low-quality / unhideable picks. Dev mode shows everything.
+  const candidates = useMemo(
+    () => traces.filter((t) => devMode || t.section !== null).map((t) => t.c),
+    [traces, devMode],
   );
 
-  const filtered = useMemo(() => {
-    const rows = candidates
-      .filter((c) => dir === "ALL" || c.direction === dir)
-      .filter((c) => labelF === "ALL" || c.label === labelF)
-      .filter((c) => setupF === "ALL" || c.setupType === setupF)
-      .filter((c) => !hideAvoids || c.label !== "Avoid Ticker");
-    return rows.sort((a, b) => {
-      const dl = (LABEL_ORDER[a.label] ?? 9) - (LABEL_ORDER[b.label] ?? 9);
-      if (dl !== 0) return dl;
-      return (b.finalScore ?? b.score) - (a.finalScore ?? a.score);
-    });
-  }, [candidates, dir, labelF, setupF, hideAvoids]);
+  const sectionMap = useMemo(() => {
+    const map: Record<SectionKey, TradeCandidate[]> = {
+      "high-conviction": [], "momentum": [], "near-entry": [], "aggressive": [], "lottery": [], "watch": [],
+    };
+    for (const t of traces) {
+      if (!t.section) continue;
+      if (dir !== "ALL" && t.c.direction !== dir) continue;
+      map[t.section].push(t.c);
+    }
+    // Promote a few "Momentum" entries from high-conviction with active triggers.
+    map["momentum"] = map["high-conviction"]
+      .filter((c) => c.triggerStatus === "active" && (c.finalScore ?? c.score) >= 80)
+      .slice(0, 6);
+    // Sort each section by score desc.
+    for (const k of SECTION_ORDER) {
+      map[k] = map[k].slice().sort((a, b) => (b.finalScore ?? b.score) - (a.finalScore ?? a.score));
+    }
+    return map;
+  }, [traces, dir]);
 
-  const labelCounts = useMemo(() => {
-    const out: Partial<Record<Label, number>> = {};
-    for (const c of candidates) out[c.label] = (out[c.label] ?? 0) + 1;
-    return out;
-  }, [candidates]);
+  const bestOverall = useMemo(() => {
+    return candidates
+      .filter((c) => dir === "ALL" || c.direction === dir)
+      .sort((a, b) => (b.finalScore ?? b.score) - (a.finalScore ?? a.score))
+      .slice(0, 3);
+  }, [candidates, dir]);
+
+  const counts = useMemo(() => ({
+    total: candidates.length,
+    highConviction: sectionMap["high-conviction"].length,
+    momentum: sectionMap["momentum"].length,
+    nearEntry: sectionMap["near-entry"].length,
+    aggressive: sectionMap["aggressive"].length,
+    lottery: sectionMap["lottery"].length,
+  }), [candidates, sectionMap]);
 
   const traceById = useMemo(() => {
     const m = new Map<string, { c: TradeCandidate; gate: DisciplineGateResult }>();
@@ -235,7 +251,6 @@ function Dashboard() {
   }, [traces]);
   const open = openId ? traceById.get(openId) ?? null : null;
 
-  // Latest live-quote update timestamp (across all symbols).
   const liveQuoteUpdatedAt = useMemo(() => {
     let max = 0;
     for (const s of symbols) {
@@ -257,9 +272,7 @@ function Dashboard() {
     : anyLive ? "cached"
     : "demo";
 
-  // Read regime quotes from cache (NavBar already fetches these).
   const regimeData = qc.getQueryData<{ live: boolean; quotes?: { SPY?: { price: number; changePct: number }; QQQ?: { price: number; changePct: number }; SMH?: { price: number; changePct: number } } }>(["regime-quotes"]);
-  const regimeLive = regimeData?.live ?? false;
   const spyQ = regimeData?.quotes?.SPY ?? MOCK_REGIME.spy;
   const qqqQ = regimeData?.quotes?.QQQ ?? MOCK_REGIME.qqq;
   const smhQ = regimeData?.quotes?.SMH ?? MOCK_REGIME.smh;
@@ -282,13 +295,33 @@ function Dashboard() {
     </button>
   );
 
+  const renderSection = (key: SectionKey, list: TradeCandidate[]) => {
+    if (list.length === 0) return null;
+    if (sectionFilter !== "ALL" && sectionFilter !== key) return null;
+    return (
+      <section key={key}>
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold tracking-wide">
+            {SECTION_TITLES[key]}
+            <span className="ml-2 text-xs font-normal text-muted-foreground">{list.length}</span>
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {list.map((t) => (
+            <CompactTradeCard key={t.id} t={t} onOpenDetails={() => setOpenId(t.id)} />
+          ))}
+        </div>
+      </section>
+    );
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-xl font-bold tracking-tight">Daily AI Picks</h1>
           <p className="text-xs text-muted-foreground">
-            Stable picks · full scan reranks {fullScanIntervalMs > 0 ? `every ${Math.round(fullScanIntervalMs / 60_000)} min` : "on demand"} · quotes refresh continuously
+            Best options opportunities for the next few days · ranked by AI confidence
           </p>
           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
             <span>
@@ -298,10 +331,10 @@ function Dashboard() {
               {" "}data
             </span>
             <span className="h-3 w-px bg-border" />
-            <span>{candidates.length} candidates · {labelCounts["Buy Now"] ?? 0} buy now</span>
+            <span>{counts.total} ideas · {counts.highConviction} high conviction</span>
           </div>
         </div>
-        <RegimeCard bias={MOCK_REGIME.bias} spy={spyQ} qqq={qqqQ} smh={smhQ} live={regimeLive} />
+        <RegimeCard bias={MOCK_REGIME.bias} spy={spyQ} qqq={qqqQ} smh={smhQ} />
       </div>
 
       <RefreshBar
@@ -318,63 +351,55 @@ function Dashboard() {
       />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-9">
-        <Stat label="Total" value={candidates.length} />
-        <Stat label="Buy Now" value={labelCounts["Buy Now"] ?? 0} tone="bull" />
-        <Stat label="Watchlist" value={((labelCounts["Watchlist"] ?? 0) + (labelCounts["Waiting on Trigger"] ?? 0))} tone="watch" />
-        <Stat label="Aggressive" value={labelCounts["Aggressive"] ?? 0} tone="warn" />
-        <Stat label="Lotto" value={labelCounts["Lotto"] ?? 0} tone="warn" />
-        <Stat label="Near Miss" value={labelCounts["Near Miss"] ?? 0} tone="warn" />
-        <Stat label="Avoid Contract" value={labelCounts["Avoid Contract"] ?? 0} tone="bear" />
-        <Stat label="Avoid Ticker" value={labelCounts["Avoid Ticker"] ?? 0} tone="bear" />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <Stat label="Total" value={counts.total} />
+        <Stat label="High Conviction" value={counts.highConviction} tone="bull" />
+        <Stat label="Momentum" value={counts.momentum} tone="bull" />
+        <Stat label="Near Entry" value={counts.nearEntry} tone="watch" />
+        <Stat label="Aggressive" value={counts.aggressive} tone="warn" />
+        <Stat label="Lottery" value={counts.lottery} tone="warn" />
       </div>
 
-      {/* Filter row */}
+      {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2.5">
         <div className="flex items-center gap-1">
-          <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Dir</span>
+          <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Direction</span>
           {(["ALL", "CALL", "PUT"] as const).map((d) => (
             <Pill key={d} active={dir === d} onClick={() => setDir(d)}>{d}</Pill>
           ))}
         </div>
         <div className="flex items-center gap-1">
-          <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Label</span>
-          {(["ALL", "Buy Now", "Watchlist", "Aggressive", "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract"] as const).map((l) => (
-            <Pill key={l} active={labelF === l} onClick={() => setLabelF(l as Label | "ALL")}>{l}</Pill>
+          <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Section</span>
+          <Pill active={sectionFilter === "ALL"} onClick={() => setSectionFilter("ALL")}>All</Pill>
+          {SECTION_ORDER.map((k) => (
+            <Pill key={k} active={sectionFilter === k} onClick={() => setSectionFilter(k)}>{SECTION_TITLES[k]}</Pill>
           ))}
         </div>
-        <div className="flex items-center gap-1">
-          <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Setup</span>
-          <select
-            value={setupF}
-            onChange={(e) => setSetupF(e.target.value as SetupType | "ALL")}
-            className="rounded-md border border-border bg-background px-2 py-1 text-xs"
-          >
-            <option value="ALL">All setups</option>
-            {setupOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-          <input type="checkbox" checked={hideAvoids} onChange={(e) => setHideAvoids(e.target.checked)} className="h-3.5 w-3.5 accent-[var(--color-bull)]" />
-          Hide Ticker Avoids
-        </label>
       </div>
 
-      {/* Cards modern grid */}
-      {filtered.length === 0 ? (
+      {/* Best Overall */}
+      {sectionFilter === "ALL" && bestOverall.length > 0 && (
+        <section>
+          <div className="mb-2 flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold tracking-wide">
+              Best Overall
+              <span className="ml-2 text-xs font-normal text-muted-foreground">Top 3</span>
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {bestOverall.map((t) => (
+              <CompactTradeCard key={`best-${t.id}`} t={t} onOpenDetails={() => setOpenId(t.id)} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Sections */}
+      {SECTION_ORDER.map((key) => renderSection(key, sectionMap[key]))}
+
+      {counts.total === 0 && (
         <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          No clean trades match your filters.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((t) => (
-            <CompactTradeCard
-              key={t.id}
-              t={t}
-              warnings={t.buyNowBlockers ?? []}
-              onOpenDetails={() => setOpenId(t.id)}
-            />
-          ))}
+          No qualifying setups right now. The AI is waiting for cleaner opportunities.
         </div>
       )}
 
