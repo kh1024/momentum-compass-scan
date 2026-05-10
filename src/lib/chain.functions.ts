@@ -386,6 +386,8 @@ export const enrichWithPublicChain = createServerFn({ method: "POST" })
             entryMode: p.entryMode ?? "Momentum",
             isLeaps: p.isLeaps,
             isYolo: p.isYolo,
+            mode: data.preferenceMode,
+            maxContractCost: data.maxContractCost,
             quality: {
               spreadPct: contract.spreadPct,
               openInterest: contract.openInterest,
