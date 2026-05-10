@@ -7,12 +7,16 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useDeveloperMode } from "@/hooks/useDeveloperMode";
 import { freshness, sectorStrength, sentimentScore, type CommentaryInput } from "@/lib/aiCommentary";
+import { isMarketOpen } from "@/lib/marketHours";
 
+// Primary nav focuses on next-day prep + swing tracking. /live is a
+// secondary surface, only shown when the market is open or dev mode is on.
 const NAV = [
-  { to: "/", icon: LayoutDashboard, label: "Daily Picks" },
-  { to: "/live", icon: Zap, label: "Live" },
+  { to: "/", icon: LayoutDashboard, label: "Next-Day & Swing" },
   { to: "/watchlist", icon: Star, label: "Watchlist" },
 ] as const;
+
+const NAV_LIVE = { to: "/live", icon: Zap, label: "Live (market hours)" } as const;
 
 const NAV_DEV = [
   { to: "/scanner", icon: ScanSearch, label: "Scanner" },
