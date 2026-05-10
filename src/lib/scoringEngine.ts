@@ -260,7 +260,7 @@ export function disciplinePenalties(p: DisciplineInput): DisciplinePenalty[] {
   // DTE bucket validity per surface.
   const dteValid =
     (p.isLeaps && bucket === "leaps-only") ||
-    (!p.isLeaps && (bucket === "swing-eligible" || bucket === "lotto-only" || bucket === "extended-swing" || (p.isYolo && bucket === "weekly-lotto")));
+    (!p.isLeaps && (bucket === "swing-eligible" || bucket === "lotto-only" || bucket === "extended-swing" || bucket === "swing-plus" || (p.isYolo && bucket === "weekly-lotto")));
   if (!dteValid) out.push({ reason: `DTE ${c.dte} outside scanner range`, delta: -100 });
 
   if (p.breakoutStrikeBeforeTrigger) {
