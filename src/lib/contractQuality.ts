@@ -155,31 +155,40 @@ export function scoreContractQuality(c: OptionContract, opts: QualityOpts = {}):
     downgradeTier("avoid");
   }
 
-  // ---- OI /4
+  // ---- OI /4 — floor 50 (validator), buy-now needs ≥ 500
   let oi = 0;
   if (c.openInterest >= 1000) oi = 4;
   else if (c.openInterest >= 500) oi = 3;
   else if (c.openInterest >= 300) {
     oi = 1;
-    if (!isLeaps) downgrades.push(`OI ${c.openInterest} weak`);
-  } else {
+    if (!isLeaps) {
+      downgrades.push(`OI ${c.openInterest} weak (<500)`);
+      downgradeTier("watchlistOnly");
+    }
+  } else if (c.openInterest >= 50) {
     oi = 0;
     if (!isLeaps) {
-      blockers.push(`OI ${c.openInterest} < 300 — avoid disciplined trade`);
-      downgradeTier("avoid");
-    } else {
-      downgrades.push(`OI ${c.openInterest} low for LEAPS`);
+      blockers.push(`OI ${c.openInterest} < 300 — no Buy Now`);
+      downgradeTier("watchlistOnly");
     }
+  } else {
+    oi = 0;
+    blockers.push(`OI ${c.openInterest} < 50 — illiquid, avoid`);
+    downgradeTier("avoid");
   }
 
-  // ---- Volume /4
+  // ---- Volume /4 — floor 10 (validator), disciplined needs ≥ 100
   let volume = 0;
   if (c.volume >= 1000) volume = 4;
   else if (c.volume >= 250) volume = 3;
   else if (c.volume >= 100) volume = 2;
-  else {
+  else if (c.volume >= 10) {
     volume = 0;
-    blockers.push(`Volume ${c.volume} < 100 — avoid disciplined trade`);
+    blockers.push(`Volume ${c.volume} < 100 — no Buy Now`);
+    downgradeTier("watchlistOnly");
+  } else {
+    volume = 0;
+    blockers.push(`Volume ${c.volume} < 10 — untradable, avoid`);
     downgradeTier("avoid");
   }
 
