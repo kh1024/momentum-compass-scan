@@ -1,6 +1,7 @@
 import type { TradeCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { displayLabelFor, DISPLAY_LABEL_STYLES, badgesFor, aiThesis, holdTimeframe, riskLevel } from "@/lib/uiVocabulary";
+import { WatchlistButton } from "@/components/WatchlistButton";
 
 function fmtPct(n: number | undefined | null): string {
   if (n == null || !isFinite(n)) return "—";
