@@ -185,37 +185,46 @@ export function Sidebar({
         </div>
 
         {/* Sector strength */}
-        {markets.length > 0 && (
-          <div className="mt-4">
-            <div className="mb-1.5 px-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Sector Strength</div>
-            <div className="space-y-1 px-1">
-              {sectors.map((s) => (
-                <div key={s.name} className="flex items-center justify-between gap-2 text-[11px]">
-                  <span className="text-muted-foreground">{s.name}</span>
-                  <div className="flex flex-1 items-center gap-1.5">
-                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted/40">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all duration-700",
-                          s.changePct > 0 ? "bg-[var(--color-bull)]" : s.changePct < 0 ? "bg-[var(--color-bear)]" : "bg-muted-foreground/40",
-                        )}
-                        style={{ width: `${Math.min(100, Math.abs(s.changePct) * 60 + 15)}%` }}
-                      />
-                    </div>
-                    <span className={cn(
-                      "mono w-10 text-right tabular-nums text-[10px]",
-                      s.changePct > 0 ? "text-[var(--color-bull)]"
-                      : s.changePct < 0 ? "text-[var(--color-bear)]"
-                      : "text-muted-foreground",
-                    )}>
-                      {s.changePct >= 0 ? "+" : ""}{s.changePct.toFixed(2)}%
-                    </span>
-                  </div>
+        {markets.length > 0 && (() => {
+          const anySectorMoved = sectors.some((s) => Math.abs(s.changePct) > 0.0001);
+          return (
+            <div className="mt-4">
+              <div className="mb-1.5 px-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Sector Strength</div>
+              {!anySectorMoved ? (
+                <div className="rounded-md border border-dashed border-border/60 bg-card/30 px-2 py-2 text-[10px] leading-snug text-muted-foreground/70">
+                  Awaiting live tape — sectors flat or market closed.
                 </div>
-              ))}
+              ) : (
+                <div className="space-y-1 px-1">
+                  {sectors.map((s) => (
+                    <div key={s.name} className="flex items-center justify-between gap-2 text-[11px]">
+                      <span className="text-muted-foreground">{s.name}</span>
+                      <div className="flex flex-1 items-center gap-1.5">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted/40">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all duration-700",
+                              s.changePct > 0 ? "bg-[var(--color-bull)]" : s.changePct < 0 ? "bg-[var(--color-bear)]" : "bg-muted-foreground/40",
+                            )}
+                            style={{ width: `${Math.min(100, Math.abs(s.changePct) * 60 + 15)}%` }}
+                          />
+                        </div>
+                        <span className={cn(
+                          "mono w-10 text-right tabular-nums text-[10px]",
+                          s.changePct > 0 ? "text-[var(--color-bull)]"
+                          : s.changePct < 0 ? "text-[var(--color-bear)]"
+                          : "text-muted-foreground",
+                        )}>
+                          {s.changePct >= 0 ? "+" : ""}{s.changePct.toFixed(2)}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Sentiment */}
         {markets.length > 0 && (
