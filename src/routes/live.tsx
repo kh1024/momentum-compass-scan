@@ -17,6 +17,8 @@ import { runDisciplineGate, type DisciplineGateResult } from "@/lib/disciplineGa
 import { aiInsights, freshness, marketCommentary, sectorStrength } from "@/lib/aiCommentary";
 import { cn } from "@/lib/utils";
 import { isMarketOpen } from "@/lib/marketHours";
+import { useRiskFilters } from "@/hooks/useRiskFilters";
+import { passesRiskFilters } from "@/lib/riskFilters";
 
 export const Route = createFileRoute("/live")({
   head: () => ({ meta: [{ title: "Live Opportunities — Momentum Options Scanner" }] }),
