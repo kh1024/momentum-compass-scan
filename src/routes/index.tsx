@@ -333,9 +333,9 @@ function Dashboard() {
   const spyLive = getLive("SPY");
   const qqqLive = getLive("QQQ");
   const smhLive = getLive("SMH");
-  const spyQ = spyLive ?? MOCK_REGIME.spy;
-  const qqqQ = qqqLive ?? MOCK_REGIME.qqq;
-  const smhQ = smhLive ?? MOCK_REGIME.smh;
+  const spyQ: RegimeQuote | null = spyLive ?? null;
+  const qqqQ: RegimeQuote | null = qqqLive ?? null;
+  const smhQ: RegimeQuote | null = smhLive ?? null;
   const regimeUpdatedAt =
     Math.max(
       spyLive?.ts ?? 0,
