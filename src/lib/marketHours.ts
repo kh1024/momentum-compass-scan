@@ -60,3 +60,33 @@ export const SCAN_INTERVAL_CLOSED_MS = 24 * 60 * 60_000;
 export function scanIntervalMs(now: Date = new Date()): number {
   return isMarketOpen(now) ? SCAN_INTERVAL_OPEN_MS : SCAN_INTERVAL_CLOSED_MS;
 }
+
+/**
+ * Adaptive refresh cadence for live data hooks.
+ * Goal: fast & fresh during the regular session, calm and bandwidth-friendly
+ * outside of it, fully paused on weekends (last verified data is preserved).
+ */
+export interface AdaptiveIntervals {
+  quotes: number | false;   // live quote refresh
+  chain: number | false;    // option chain refresh
+  sentiment: number | false; // reddit / sentiment refresh
+  earnings: number;          // earnings refresh (always slow)
+  scan: number;              // full scanner refresh
+}
+
+export function getAdaptiveIntervals(now: Date = new Date()): AdaptiveIntervals {
+  const s = getMarketSession(now);
+  switch (s) {
+    case "open":
+      return { quotes: 30_000, chain: 90_000, sentiment: 15 * 60_000, earnings: 60 * 60_000, scan: SCAN_INTERVAL_OPEN_MS };
+    case "premarket":
+    case "afterhours":
+      return { quotes: 2 * 60_000, chain: 5 * 60_000, sentiment: 30 * 60_000, earnings: 60 * 60_000, scan: 2 * 60 * 60_000 };
+    case "closed":
+      return { quotes: 10 * 60_000, chain: 15 * 60_000, sentiment: 60 * 60_000, earnings: 6 * 60 * 60_000, scan: 6 * 60 * 60_000 };
+    case "weekend":
+    default:
+      return { quotes: false, chain: false, sentiment: false, earnings: 24 * 60 * 60_000, scan: 24 * 60 * 60_000 };
+  }
+}
+
