@@ -47,8 +47,14 @@ export function updateScannerSettings(next: Partial<ScannerRuntimeSettings>): Sc
     marketRegimeTtlMs: clampInt(next.marketRegimeTtlMs ?? settings.marketRegimeTtlMs, 30_000, 10 * 60_000),
     maxTickersPerScan: clampInt(next.maxTickersPerScan ?? settings.maxTickersPerScan, 1, 50),
     scanFinalistsOnlyForOptions: next.scanFinalistsOnlyForOptions ?? settings.scanFinalistsOnlyForOptions,
+    fullScanIntervalMs: clampFullScanInterval(next.fullScanIntervalMs ?? settings.fullScanIntervalMs),
   };
   return getScannerSettings();
+}
+
+function clampFullScanInterval(v: number): number {
+  if (!isFinite(v) || v <= 0) return 0;
+  return Math.min(Math.max(Math.round(v), 60_000), 60 * 60_000);
 }
 
 export function normalizeTickers(symbols: string[], max = 50): string[] {
