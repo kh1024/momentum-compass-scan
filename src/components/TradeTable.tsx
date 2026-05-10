@@ -5,6 +5,7 @@ import { aiReasonFor } from "@/lib/aiReason";
 import type { SectorStrength } from "@/lib/aiCommentary";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
 
 const displayLabel = (label: Label): Label | "Watchlist" => (label === "Waiting on Trigger" ? "Watchlist" : label);
 
@@ -88,6 +89,32 @@ export interface TradeTableProps {
 
 export function TradeTable({ rows, onOpen, isLoading, sectors }: TradeTableProps) {
   const { has: onWatchlist, toggle: toggleWatchlist } = useWatchlist();
+
+  // Subtle price-change flash to make refreshes feel "live" without redrawing
+  // the table. Tracks last seen price per row id; whenever it changes we mark
+  // the row with up/down for ~700ms and CSS fades the background back to neutral.
+  const prevPriceRef = useRef<Map<string, number>>(new Map());
+  const [flash, setFlash] = useState<Record<string, "up" | "down" | undefined>>({});
+  useEffect(() => {
+    const next: Record<string, "up" | "down"> = {};
+    for (const t of rows) {
+      const prev = prevPriceRef.current.get(t.id);
+      if (typeof prev === "number" && prev !== t.price) {
+        next[t.id] = t.price > prev ? "up" : "down";
+      }
+      prevPriceRef.current.set(t.id, t.price);
+    }
+    if (Object.keys(next).length === 0) return;
+    setFlash((f) => ({ ...f, ...next }));
+    const id = setTimeout(() => {
+      setFlash((f) => {
+        const cleared = { ...f };
+        for (const k of Object.keys(next)) delete cleared[k];
+        return cleared;
+      });
+    }, 700);
+    return () => clearTimeout(id);
+  }, [rows]);
 
   if (isLoading) {
     return (
