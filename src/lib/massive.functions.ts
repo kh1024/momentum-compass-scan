@@ -12,6 +12,7 @@ import { getScannerSettings, updateScannerSettings, type ScannerRuntimeSettings 
 import { getApiHealthEvents, clearApiHealthEvents, type ApiHealthEvent } from "./apiHealthLogger";
 import { getRateLimitEvents, clearRateLimitEvents, type RateLimitEvent } from "./rateLimitLog.server";
 import { getCacheStats, resetCacheStats, type CacheStatsSnapshot } from "./cacheStats";
+import { getAllThrottleSnapshots, resetThrottle, type ThrottleSnapshot } from "./dynamicThrottle";
 
 export interface MassiveStatus {
   configured: boolean;
