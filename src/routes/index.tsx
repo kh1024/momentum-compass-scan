@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { MOCK_CANDIDATES } from "@/lib/mockData";
+import { MOCK_CANDIDATES, MOCK_REGIME } from "@/lib/mockData";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
 import { RefreshBar } from "@/components/RefreshBar";
@@ -49,6 +49,43 @@ function Stat({ label, value, tone }: { label: string; value: number | string; t
     <div className="rounded-lg border border-border bg-card px-3 py-2">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={cn("text-lg font-semibold tabular-nums leading-none mt-1", cls)}>{value}</div>
+    </div>
+  );
+}
+
+function RegimeCard({
+  bias, spy, qqq, smh, live,
+}: {
+  bias: string;
+  spy: { price: number; changePct: number };
+  qqq: { price: number; changePct: number };
+  smh: { price: number; changePct: number };
+  live: boolean;
+}) {
+  const biasCls =
+    bias === "Risk-on" ? "text-[var(--color-bull)] bg-[var(--color-bull)]/10 border-[var(--color-bull)]/30"
+    : bias === "Risk-off" ? "text-[var(--color-bear)] bg-[var(--color-bear)]/10 border-[var(--color-bear)]/30"
+    : "text-[var(--color-watch)] bg-[var(--color-watch)]/10 border-[var(--color-watch)]/30";
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Market Regime</span>
+        <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-bold", biasCls)}>{bias}</span>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {[{ sym: "SPY", q: spy }, { sym: "QQQ", q: qqq }, { sym: "SMH", q: smh }].map(({ sym, q }) => (
+          <div key={sym}>
+            <div className="text-[10px] font-semibold text-muted-foreground">{sym}</div>
+            <div className="mt-0.5 font-mono text-sm font-semibold">${q.price.toFixed(2)}</div>
+            <div className={cn("font-mono text-[11px]", q.changePct >= 0 ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]")}>
+              {q.changePct >= 0 ? "+" : ""}{q.changePct.toFixed(2)}%
+            </div>
+          </div>
+        ))}
+      </div>
+      {!live && (
+        <div className="mt-2 text-[10px] text-muted-foreground/60">Demo data</div>
+      )}
     </div>
   );
 }
@@ -223,6 +260,13 @@ function Dashboard() {
     : anyLive ? "cached"
     : "demo";
 
+  // Read regime quotes from cache (NavBar already fetches these).
+  const regimeData = qc.getQueryData<{ live: boolean; quotes?: { SPY?: { price: number; changePct: number }; QQQ?: { price: number; changePct: number }; SMH?: { price: number; changePct: number } } }>(["regime-quotes"]);
+  const regimeLive = regimeData?.live ?? false;
+  const spyQ = regimeData?.quotes?.SPY ?? MOCK_REGIME.spy;
+  const qqqQ = regimeData?.quotes?.QQQ ?? MOCK_REGIME.qqq;
+  const smhQ = regimeData?.quotes?.SMH ?? MOCK_REGIME.smh;
+
   const onRunScanNow = () => { void refetchChain(); };
   const onRefreshQuotesOnly = () => {
     void qc.invalidateQueries({ queryKey: ["live-quotes"] });
@@ -243,13 +287,24 @@ function Dashboard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-xs text-muted-foreground">
-            Stable picks. Full scan reranks {fullScanIntervalMs > 0 ? `every ${Math.round(fullScanIntervalMs / 60_000)} min` : "only on demand"}; quotes refresh continuously without changing contracts.
+            Stable picks · full scan reranks {fullScanIntervalMs > 0 ? `every ${Math.round(fullScanIntervalMs / 60_000)} min` : "on demand"} · quotes refresh continuously
           </p>
+          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+            <span>
+              <span className={cn("font-semibold", dataMode === "live" ? "text-[var(--color-bull)]" : dataMode === "delayed" ? "text-amber-500" : "text-muted-foreground")}>
+                {dataMode === "live" ? "Live" : dataMode === "delayed" ? "Rate-limited" : dataMode === "cached" ? "Cached" : "Demo"}
+              </span>
+              {" "}data
+            </span>
+            <span className="h-3 w-px bg-border" />
+            <span>{candidates.length} candidates · {labelCounts["Buy Now"] ?? 0} buy now</span>
+          </div>
         </div>
+        <RegimeCard bias={MOCK_REGIME.bias} spy={spyQ} qqq={qqqQ} smh={smhQ} live={regimeLive} />
       </div>
 
       <RefreshBar
