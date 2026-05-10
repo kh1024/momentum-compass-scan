@@ -5,6 +5,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { scanIntervalMs, isMarketOpen } from "@/lib/marketHours";
 import { MOCK_CANDIDATES, MOCK_REGIME } from "@/lib/mockData";
+import { freshness, marketCommentary } from "@/lib/aiCommentary";
+import { getQuotes, type QuotesResponse } from "@/lib/quote.functions";
+import { Radio } from "lucide-react";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
 import { RefreshBar } from "@/components/RefreshBar";
@@ -34,31 +37,50 @@ function regimePlainLabel(bias: string): "Risk On" | "Neutral" | "Risk Off" {
   return "Neutral";
 }
 
-function regimeSummary(bias: string, spy: { changePct: number }, qqq: { changePct: number }, smh: { changePct: number }): string {
-  const avg = (spy.changePct + qqq.changePct + smh.changePct) / 3;
-  if (bias === "Risk-on" || avg > 0.3) return "Broad strength across SPY/QQQ/SMH — supportive for calls.";
-  if (bias === "Risk-off" || avg < -0.3) return "Indices weak — favor puts and reduce size on calls.";
-  return "Mixed tape — selectivity matters; lean on strongest setups only.";
-}
+// regimeSummary deprecated — replaced by marketCommentary() inside RegimeCard.
 
-type RegimeQuote = { price: number; changePct: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
+type RegimeQuote = { price: number; changePct: number; ts?: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
 
 
 function RegimeCard({
-  bias, spy, qqq, smh,
+  bias, spy, qqq, smh, updatedAt, live, nowTick,
 }: {
   bias: string;
   spy: RegimeQuote;
   qqq: RegimeQuote;
   smh: RegimeQuote;
+  updatedAt: number | null;
+  live: boolean;
+  nowTick: number;
 }) {
   const plain = regimePlainLabel(bias);
   const biasCls =
     plain === "Risk On" ? "text-[var(--color-bull)] bg-[var(--color-bull)]/10 border-[var(--color-bull)]/30"
     : plain === "Risk Off" ? "text-[var(--color-bear)] bg-[var(--color-bear)]/10 border-[var(--color-bear)]/30"
     : "text-amber-500 bg-amber-500/10 border-amber-500/30";
+  const fresh = freshness(updatedAt, nowTick || Date.now());
+  const aiLine = marketCommentary({
+    spy: { symbol: "SPY", changePct: spy.changePct },
+    qqq: { symbol: "QQQ", changePct: qqq.changePct },
+    smh: { symbol: "SMH", changePct: smh.changePct },
+    bias,
+  });
+  const tickerCell = (sym: string, q: RegimeQuote) => (
+    <div className="flex items-baseline justify-between gap-2 text-[11px]">
+      <span className="font-semibold text-muted-foreground">{sym}</span>
+      <span className="mono tabular-nums text-foreground/90">${q.price.toFixed(2)}</span>
+      <span className={cn(
+        "mono w-14 text-right tabular-nums",
+        q.changePct > 0 ? "text-[var(--color-bull)]"
+        : q.changePct < 0 ? "text-[var(--color-bear)]"
+        : "text-muted-foreground",
+      )}>
+        {q.changePct >= 0 ? "+" : ""}{q.changePct.toFixed(2)}%
+      </span>
+    </div>
+  );
   return (
-    <div className="rounded-xl border border-border bg-card p-4 min-w-[300px]">
+    <div className="rounded-xl border border-border bg-card p-4 min-w-[320px]">
       <div className="flex items-center justify-between gap-3">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Market Regime
@@ -67,9 +89,19 @@ function RegimeCard({
           {plain}
         </span>
       </div>
-      <p className="mt-3 text-[12px] leading-snug text-foreground/90">
-        {regimeSummary(bias, spy, qqq, smh)}
-      </p>
+      <div className="mt-3 grid grid-cols-1 gap-1">
+        {tickerCell("SPY", spy)}
+        {tickerCell("QQQ", qqq)}
+        {tickerCell("SMH", smh)}
+      </div>
+      <p className="mt-3 text-[11px] leading-snug text-foreground/80">{aiLine}</p>
+      <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-wider text-muted-foreground/70">
+        <span className={cn("flex items-center gap-1", live ? "text-[var(--color-bull)]" : "text-amber-500")}>
+          <Radio className={cn("h-2.5 w-2.5", live && "animate-pulse-dot")} />
+          {live ? "Live" : "Stale"}
+        </span>
+        <span>Updated {fresh}</span>
+      </div>
     </div>
   );
 }
@@ -97,10 +129,10 @@ function Dashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [devMode] = useDeveloperMode();
 
-  // Tick once per second so refresh-bar labels update.
-  const [, setNowTick] = useState(0);
+  // Tick once per second so refresh-bar / freshness labels update.
+  const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNowTick((n) => n + 1), 1_000);
+    const id = setInterval(() => setNowTick(Date.now()), 1_000);
     return () => clearInterval(id);
   }, []);
 
@@ -271,16 +303,37 @@ function Dashboard() {
       ? lastFullScanAt + fullScanIntervalMs
       : null;
 
-  const dataMode: "live" | "cached" | "delayed" =
-    chainData?.rateLimited ? "delayed"
-    : anyLive && (chainData?.enriched && Object.values(chainData.enriched).some((v) => v !== null)) ? "live"
-    : "cached";
-
-  type RQ = { price: number; changePct: number; sources?: Record<string, number>; agreement?: "verified" | "close" | "mismatch" | "single" };
-  const regimeData = qc.getQueryData<{ live: boolean; quotes?: { SPY?: RQ; QQQ?: RQ; SMH?: RQ } }>(["regime-quotes"]);
+  // Subscribe to the same regime-quotes query the sidebar drives. useQuery
+  // (vs getQueryData) ensures the dashboard re-renders on every refresh and
+  // shares its cache + cadence with the sidebar.
+  const fetchQuotes = useServerFn(getQuotes);
+  const { data: regimeData } = useQuery<QuotesResponse>({
+    queryKey: ["regime-quotes"],
+    queryFn: () => fetchQuotes({ data: { symbols: ["SPY", "QQQ", "SMH"] } }),
+    staleTime: 25_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
   const spyQ = regimeData?.quotes?.SPY ?? MOCK_REGIME.spy;
   const qqqQ = regimeData?.quotes?.QQQ ?? MOCK_REGIME.qqq;
   const smhQ = regimeData?.quotes?.SMH ?? MOCK_REGIME.smh;
+  const regimeUpdatedAt =
+    Math.max(
+      ("ts" in spyQ && spyQ.ts) || 0,
+      ("ts" in qqqQ && qqqQ.ts) || 0,
+      ("ts" in smhQ && smhQ.ts) || 0,
+    ) || null;
+  const regimeLive = Boolean(regimeData?.live);
+
+  // Unified freshness across SPY/QQQ/SMH regime quotes + per-ticker live quotes.
+  const marketDataUpdatedAt =
+    Math.max(regimeUpdatedAt ?? 0, liveQuoteUpdatedAt ?? 0) || null;
+
+  const dataMode: "live" | "cached" | "delayed" =
+    chainData?.rateLimited ? "delayed"
+    : (regimeLive || anyLive) && (chainData?.enriched && Object.values(chainData.enriched).some((v) => v !== null)) ? "live"
+    : (regimeLive || anyLive) ? "live"
+    : "cached";
 
   const onRunScanNow = () => { void refetchChain(); };
   const onRefreshQuotesOnly = () => {
@@ -347,13 +400,13 @@ function Dashboard() {
             </span>
           </div>
         </div>
-        <RegimeCard bias={MOCK_REGIME.bias} spy={spyQ} qqq={qqqQ} smh={smhQ} />
+        <RegimeCard bias={MOCK_REGIME.bias} spy={spyQ} qqq={qqqQ} smh={smhQ} updatedAt={regimeUpdatedAt} live={regimeLive} nowTick={nowTick} />
       </div>
 
       <RefreshBar
         lastFullScanAt={lastFullScanAt}
         nextFullScanAt={nextFullScanAt}
-        marketDataUpdatedAt={liveQuoteUpdatedAt}
+        marketDataUpdatedAt={marketDataUpdatedAt}
         optionQuoteUpdatedAt={lastFullScanAt}
         dataMode={dataMode}
         autoRefresh={autoRefresh && fullScanIntervalMs > 0}
