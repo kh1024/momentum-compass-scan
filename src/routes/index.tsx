@@ -235,7 +235,17 @@ function Dashboard() {
     () => picks.map((p) => `${p.ticker}:${p.direction}`).join(","),
     [picks],
   );
-  const cachedSnapshot = useMemo(() => loadScanSnapshot(pickKey), [pickKey]);
+  // Hydrate cached scan snapshot only on the client. SSR sees `null` so the
+  // server-rendered HTML matches the first client paint; the persisted
+  // snapshot streams in after mount and seeds react-query.
+  const [snapshotMounted, setSnapshotMounted] = useState(false);
+  useEffect(() => {
+    setSnapshotMounted(true);
+  }, []);
+  const cachedSnapshot = useMemo(
+    () => (snapshotMounted ? loadScanSnapshot(pickKey) : null),
+    [pickKey, snapshotMounted],
+  );
 
   const {
     data: chainData,
@@ -260,10 +270,11 @@ function Dashboard() {
 
   // Persist verified snapshots only. saveScanSnapshot refuses to overwrite
   // a good snapshot with empty/rate-limited/broken results internally.
+  // Guarded by `snapshotMounted` so SSR never invokes localStorage.
   useEffect(() => {
-    if (!chainData) return;
+    if (!snapshotMounted || !chainData) return;
     saveScanSnapshot(pickKey, chainData);
-  }, [chainData, pickKey]);
+  }, [chainData, pickKey, snapshotMounted]);
 
 
   useEffect(() => {
