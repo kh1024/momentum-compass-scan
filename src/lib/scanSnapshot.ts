@@ -227,6 +227,45 @@ function saveAtClient<T>(
   }
 }
 
+// ── Legacy / cross-version sweep ──────────────────────────────────────────
+// Purges any persisted snapshot key that:
+//   - matches the legacy (pre-versioned) name list, OR
+//   - parses cleanly but reports a schemaVersion ≠ SNAPSHOT_SCHEMA_VERSION.
+// Wrapped with createIsomorphicFn so a server import is a safe no-op.
+export const purgeLegacySnapshots = createIsomorphicFn()
+  .server((): number => 0)
+  .client((): number => {
+    let removed = 0;
+    try {
+      for (const k of LEGACY_KEYS) {
+        if (window.localStorage.getItem(k) !== null) {
+          window.localStorage.removeItem(k);
+          removed += 1;
+        }
+      }
+      // Also probe the active keys — if their version doesn't match we drop
+      // them now rather than waiting for the next load() call.
+      for (const k of [DASHBOARD_KEY, OPTIONS_KEY]) {
+        const raw = window.localStorage.getItem(k);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw) as { schemaVersion?: unknown };
+          if (parsed?.schemaVersion !== SNAPSHOT_SCHEMA_VERSION) {
+            window.localStorage.removeItem(k);
+            logSnapshot("warn", k, `purged on sweep: schema ${String(parsed?.schemaVersion)} ≠ ${SNAPSHOT_SCHEMA_VERSION}`);
+            removed += 1;
+          }
+        } catch {
+          window.localStorage.removeItem(k);
+          removed += 1;
+        }
+      }
+    } catch {
+      /* ignore quota / access errors */
+    }
+    return removed;
+  });
+
 // ── Public API (isomorphic-wrapped) ────────────────────────────────────────
 
 export const loadScanSnapshot = createIsomorphicFn()
