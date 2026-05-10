@@ -195,8 +195,10 @@ export function TradeTable({ rows, onOpen, isLoading, sectors }: TradeTableProps
             const moneyness = m.moneyness;
             const moneynessLabel = m.label;
             const watched = onWatchlist(t.id);
-            const labelText = PUBLIC_LABEL[t.label] ?? displayLabel(t.label);
-            const isElite = score >= 90;
+            const labelText = t.noQualityContract
+              ? "No quality contract"
+              : (PUBLIC_LABEL[t.label] ?? displayLabel(t.label));
+            const isElite = score >= 90 && !t.noQualityContract;
 
             const f = flash[t.id];
             return (
