@@ -46,10 +46,10 @@ export const getMarketNews = createServerFn({ method: "GET" }).handler(
         },
         body: JSON.stringify({
           query:
-            "stock market today S&P 500 Nasdaq sector movers options flow Federal Reserve",
-          limit: 8,
+            "site:reuters.com (markets OR stocks OR S&P OR Nasdaq OR Fed OR earnings)",
+          limit: 10,
           tbs: "qdr:d",
-          sources: ["web", "news"],
+          sources: ["news", "web"],
         }),
       });
 
