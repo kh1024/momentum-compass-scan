@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { scanIntervalMs, isMarketOpen } from "@/lib/marketHours";
 import { MOCK_CANDIDATES, MOCK_REGIME } from "@/lib/mockData";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
@@ -111,7 +112,15 @@ function Dashboard() {
     queryFn: () => fetchScannerSettings(),
     staleTime: 60_000,
   });
-  const fullScanIntervalMs = scannerSettings?.fullScanIntervalMs ?? 10 * 60_000;
+  // Cadence: 30 min during market hours, once per day off-hours.
+  // Server `fullScanIntervalMs` is honored only if it's smaller than the
+  // market-aware default (e.g. admin override).
+  const marketAwareIntervalMs = scanIntervalMs();
+  const serverInterval = scannerSettings?.fullScanIntervalMs ?? 0;
+  const fullScanIntervalMs =
+    serverInterval > 0 && serverInterval < marketAwareIntervalMs
+      ? serverInterval
+      : marketAwareIntervalMs;
 
   const picks = useMemo(
     () =>
@@ -329,6 +338,14 @@ function Dashboard() {
             </span>
             <span className="h-3 w-px bg-border" />
             <span>{counts.total} ideas · {counts.highConviction} high conviction</span>
+            <span className="h-3 w-px bg-border" />
+            <span title={isMarketOpen() ? "Market open — scanning every 30 minutes" : "Market closed — scanning once per day"}>
+              <span className={cn("font-semibold", isMarketOpen() ? "text-[var(--color-bull)]" : "text-muted-foreground")}>
+                {isMarketOpen() ? "Market Open" : "Market Closed"}
+              </span>
+              {" · "}
+              {isMarketOpen() ? "30 min" : "daily"} scan
+            </span>
           </div>
         </div>
         <RegimeCard bias={MOCK_REGIME.bias} spy={spyQ} qqq={qqqQ} smh={smhQ} />
