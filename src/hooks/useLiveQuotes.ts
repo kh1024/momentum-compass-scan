@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { getQuotes } from "@/lib/quote.functions";
 import type { ConsensusQuote } from "@/lib/providers.server";
+import { loadAllRecentQuotes, loadQuoteCache, saveQuoteCache } from "@/lib/quoteCache.client";
 
 interface UseLiveQuotesOptions {
   refetchIntervalMs?: number | false;
