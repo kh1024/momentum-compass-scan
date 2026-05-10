@@ -1,6 +1,7 @@
 import type { TradeCandidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { displayLabelFor, DISPLAY_LABEL_STYLES, badgesFor, aiThesis, holdTimeframe, riskLevel } from "@/lib/uiVocabulary";
+import { WatchlistButton } from "@/components/WatchlistButton";
 
 function fmtPct(n: number | undefined | null): string {
   if (n == null || !isFinite(n)) return "—";
@@ -72,16 +73,19 @@ export function CompactTradeCard({
               )}>{risk} risk</span>
             </div>
           </div>
-          <div className="text-right">
-            <div className={cn(
-              "font-mono text-lg font-bold tabular-nums leading-none",
-              score >= 85 ? "text-[var(--color-bull)]"
-              : score >= 70 ? "text-amber-500"
-              : "text-muted-foreground",
-            )}>
-              {score}
+          <div className="flex items-start gap-2">
+            <div className="text-right">
+              <div className={cn(
+                "font-mono text-lg font-bold tabular-nums leading-none",
+                score >= 85 ? "text-[var(--color-bull)]"
+                : score >= 70 ? "text-amber-500"
+                : "text-muted-foreground",
+              )}>
+                {score}
+              </div>
+              <div className="mt-0.5 text-[9px] uppercase tracking-wider text-muted-foreground/60">Confidence</div>
             </div>
-            <div className="mt-0.5 text-[9px] uppercase tracking-wider text-muted-foreground/60">Confidence</div>
+            <WatchlistButton t={t} />
           </div>
         </div>
 
