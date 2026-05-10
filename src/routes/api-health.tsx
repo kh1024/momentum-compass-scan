@@ -25,11 +25,11 @@ function ApiHealth() {
   const events = data?.events ?? [];
 
   return (
-    <div className="space-y-6 px-6 py-6">
+    <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">API Health</h1>
-          <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">Massive and chain request audit trail with cache, retry, and rate-limit status.</p>
+          <h1 className="text-xl font-bold tracking-tight">API Health</h1>
+          <p className="text-sm text-muted-foreground">Massive and chain request audit trail with cache, retry, and rate-limit status.</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => refetch()} className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted">
