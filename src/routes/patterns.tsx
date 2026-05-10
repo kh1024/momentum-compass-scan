@@ -56,15 +56,19 @@ function Patterns() {
   })();
 
   return (
-    <div className="space-y-6">
-      <header className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold tracking-tight">📊 Patterns</h1>
-          {headerState === "live" ? <LiveDataBadge /> : headerState === "stale" ? <StaleBadge /> : <DemoBadge />}
+    <div className="space-y-6 px-6 py-6">
+      <header>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight">Patterns</h1>
+              {headerState === "live" ? <LiveDataBadge /> : headerState === "stale" ? <StaleBadge /> : <DemoBadge />}
+            </div>
+            <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+              Daily chart-pattern detection + behavioral seasonality on 25 symbols. Updates every 10 min.
+            </p>
+          </div>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Daily chart-pattern detection + behavioral seasonality on 25 symbols. Updates every 10 min.
-        </p>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <input
             value={symbol}
@@ -87,8 +91,8 @@ function Patterns() {
           ))}
         </div>
         <div className="mt-3 flex items-center gap-1">
-          <Tab active={tab === "patterns"} onClick={() => setTab("patterns")}>📈 Chart Patterns</Tab>
-          <Tab active={tab === "seasonality"} onClick={() => setTab("seasonality")}>📅 Seasonality</Tab>
+          <Tab active={tab === "patterns"} onClick={() => setTab("patterns")}>Chart Patterns</Tab>
+          <Tab active={tab === "seasonality"} onClick={() => setTab("seasonality")}>Seasonality</Tab>
         </div>
       </header>
 
@@ -124,8 +128,8 @@ function Patterns() {
             </div>
           </section>
 
-          <BreakoutSection title="🚨 5-Day Breakout Alerts" subtitle="Symbols breaking above their 5-day high on volume ≥ 1.5× avg." rows={five} />
-          <BreakoutSection title="🚀 10-Day Breakout Alerts" subtitle="Symbols breaking above their 10-day high on volume ≥ 1.5× avg." rows={ten} />
+          <BreakoutSection title="5-Day Breakout Alerts" subtitle="Symbols breaking above their 5-day high on volume ≥ 1.5× avg." rows={five} />
+          <BreakoutSection title="10-Day Breakout Alerts" subtitle="Symbols breaking above their 10-day high on volume ≥ 1.5× avg." rows={ten} />
         </>
       ) : (
         <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
