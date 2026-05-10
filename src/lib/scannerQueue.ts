@@ -16,7 +16,7 @@ export interface ScannerRuntimeSettings {
 }
 
 const defaults: ScannerRuntimeSettings = {
-  maxConcurrentRequests: 5,
+  maxConcurrentRequests: 2,
   quoteTtlMs: 60_000,
   prevAggTtlMs: 15 * 60_000,
   optionChainTtlMs: 45_000,
