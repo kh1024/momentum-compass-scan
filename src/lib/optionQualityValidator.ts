@@ -63,25 +63,65 @@ const num = (v: unknown): v is number =>
 
 /**
  * Validate a contract against the disciplined-pick rule set.
- * - Returns missing/invalid required fields.
- * - Anything missing → brokerConfirmRequired.
- * - Spread > 15% → broker confirm.
+ *
+ * A contract is **only** considered valid for a disciplined pick when ALL of:
+ *  - strike is finite & positive
+ *  - expiration parses to a real future calendar date (not past, not garbage)
+ *  - bid is a finite NON-ZERO positive number (a zero-bid contract is unsellable)
+ *  - ask is a finite positive number, ask ≥ bid, ask ≤ 50 × bid (sanity)
+ *  - greeks (delta, theta) and iv are present and finite
+ *  - volume ≥ 10 AND openInterest ≥ 50 (true liquidity floor — picks below this
+ *    can't be exited cleanly even when the thesis is right)
+ *  - spreadPct present and ≤ 15% (over 15% → broker confirm, over 25% → fail)
+ *
+ * Any failure adds a reason to `missingFields` and forces
+ * `brokerConfirmRequired = true`, which downstream caps the label at Watchlist.
  */
 export function validateContract(c: OptionContract): ValidationResult {
   const missing: string[] = [];
 
-  if (!c.expiration || typeof c.expiration !== "string") missing.push("expiration");
+  // ---- Expiration ---------------------------------------------------------
+  if (!c.expiration || typeof c.expiration !== "string") {
+    missing.push("expiration");
+  } else {
+    const t = Date.parse(c.expiration);
+    if (!Number.isFinite(t)) missing.push("expiration:unparseable");
+    else {
+      // Allow today; reject anything before today (already expired).
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (t < today.getTime()) missing.push("expiration:past");
+    }
+  }
+
+  // ---- Strike -------------------------------------------------------------
   if (!num(c.strike) || c.strike <= 0) missing.push("strike");
-  if (!num(c.bid) || c.bid < 0) missing.push("bid");
+
+  // ---- Bid / Ask quoting --------------------------------------------------
+  // A 0-bid contract is effectively un-sellable; treat as missing.
+  if (!num(c.bid) || c.bid <= 0) missing.push("bid:zero-or-missing");
   if (!num(c.ask) || c.ask <= 0) missing.push("ask");
-  if (num(c.bid) && num(c.ask) && c.ask < c.bid) missing.push("ask<bid");
+  if (num(c.bid) && num(c.ask)) {
+    if (c.ask < c.bid) missing.push("ask<bid");
+    // Sanity: a quote where ask > 50× bid is almost certainly stale/garbage.
+    if (c.bid > 0 && c.ask > c.bid * 50) missing.push("quote:unrealistic");
+  }
+
+  // ---- Greeks / IV --------------------------------------------------------
   if (!num(c.delta)) missing.push("delta");
   if (!num(c.theta)) missing.push("theta");
   if (!num(c.iv) || c.iv <= 0) missing.push("iv");
+
+  // ---- Liquidity floor ----------------------------------------------------
   if (!num(c.volume) || c.volume < 0) missing.push("volume");
+  else if (c.volume < 10) missing.push("volume<10");
   if (!num(c.openInterest) || c.openInterest < 0) missing.push("openInterest");
+  else if (c.openInterest < 50) missing.push("oi<50");
+
+  // ---- Spread realism -----------------------------------------------------
   if (!num(c.spreadPct) || c.spreadPct < 0) missing.push("spreadPct");
-  if (num(c.spreadPct) && c.spreadPct > 0.15) missing.push("spread>15%");
+  else if (c.spreadPct > 0.25) missing.push("spread>25%");
+  else if (c.spreadPct > 0.15) missing.push("spread>15%");
 
   const dteBucket = dteBucketFor(c.dte);
   const brokerConfirmRequired = missing.length > 0;

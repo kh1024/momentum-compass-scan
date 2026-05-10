@@ -47,10 +47,28 @@ export function scoreContractQuality(c: OptionContract, opts: QualityOpts = {}):
   if (!num(c.delta)) missing.push("delta");
   if (!num(c.theta)) missing.push("theta");
   if (!num(c.iv) || c.iv <= 0) missing.push("iv");
-  if (!num(c.bid) || c.bid < 0) missing.push("bid");
+  if (!num(c.bid) || c.bid <= 0) missing.push("bid (zero/missing — unsellable)");
   if (!num(c.ask) || c.ask <= 0) missing.push("ask");
+  if (num(c.bid) && num(c.ask) && c.ask < c.bid) missing.push("ask<bid (crossed quote)");
+  if (num(c.bid) && num(c.ask) && c.bid > 0 && c.ask > c.bid * 50) {
+    missing.push("quote unrealistic (ask ≫ bid)");
+  }
   if (!num(c.openInterest)) missing.push("openInterest");
   if (!num(c.volume)) missing.push("volume");
+  // Expiration sanity — must parse and not be in the past.
+  if (!c.expiration || typeof c.expiration !== "string") {
+    missing.push("expiration");
+  } else {
+    const t = Date.parse(c.expiration);
+    if (!Number.isFinite(t)) missing.push("expiration unparseable");
+    else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (t < today.getTime()) missing.push("expiration in past");
+    }
+  }
+  // Strike sanity.
+  if (!num(c.strike) || c.strike <= 0) missing.push("strike");
   if (missing.length > 0) {
     for (const m of missing) blockers.push(`Missing ${m}`);
     downgradeTier("avoid");
@@ -137,31 +155,40 @@ export function scoreContractQuality(c: OptionContract, opts: QualityOpts = {}):
     downgradeTier("avoid");
   }
 
-  // ---- OI /4
+  // ---- OI /4 — floor 50 (validator), buy-now needs ≥ 500
   let oi = 0;
   if (c.openInterest >= 1000) oi = 4;
   else if (c.openInterest >= 500) oi = 3;
   else if (c.openInterest >= 300) {
     oi = 1;
-    if (!isLeaps) downgrades.push(`OI ${c.openInterest} weak`);
-  } else {
+    if (!isLeaps) {
+      downgrades.push(`OI ${c.openInterest} weak (<500)`);
+      downgradeTier("watchlistOnly");
+    }
+  } else if (c.openInterest >= 50) {
     oi = 0;
     if (!isLeaps) {
-      blockers.push(`OI ${c.openInterest} < 300 — avoid disciplined trade`);
-      downgradeTier("avoid");
-    } else {
-      downgrades.push(`OI ${c.openInterest} low for LEAPS`);
+      blockers.push(`OI ${c.openInterest} < 300 — no Buy Now`);
+      downgradeTier("watchlistOnly");
     }
+  } else {
+    oi = 0;
+    blockers.push(`OI ${c.openInterest} < 50 — illiquid, avoid`);
+    downgradeTier("avoid");
   }
 
-  // ---- Volume /4
+  // ---- Volume /4 — floor 10 (validator), disciplined needs ≥ 100
   let volume = 0;
   if (c.volume >= 1000) volume = 4;
   else if (c.volume >= 250) volume = 3;
   else if (c.volume >= 100) volume = 2;
-  else {
+  else if (c.volume >= 10) {
     volume = 0;
-    blockers.push(`Volume ${c.volume} < 100 — avoid disciplined trade`);
+    blockers.push(`Volume ${c.volume} < 100 — no Buy Now`);
+    downgradeTier("watchlistOnly");
+  } else {
+    volume = 0;
+    blockers.push(`Volume ${c.volume} < 10 — untradable, avoid`);
     downgradeTier("avoid");
   }
 
