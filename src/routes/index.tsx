@@ -308,11 +308,6 @@ function Dashboard() {
       ? lastFullScanAt + fullScanIntervalMs
       : null;
 
-  const dataMode: "live" | "cached" | "delayed" =
-    chainData?.rateLimited ? "delayed"
-    : anyLive && (chainData?.enriched && Object.values(chainData.enriched).some((v) => v !== null)) ? "live"
-    : "cached";
-
   // Subscribe to the same regime-quotes query the sidebar drives. useQuery
   // (vs getQueryData) ensures the dashboard re-renders on every refresh and
   // shares its cache + cadence with the sidebar.
