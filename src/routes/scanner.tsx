@@ -216,7 +216,7 @@ function Scanner() {
       toast.warning("Public.com rate limit hit", {
         description:
           chainMessage ??
-          `Backing off for ${Math.ceil(chainRetryInMs / 1000)}s. Showing demo data meanwhile.`,
+          `Backing off for ${Math.ceil(chainRetryInMs / 1000)}s. Showing last verified snapshot meanwhile.`,
         duration: 6000,
       });
     } else if (!now && lastRateLimitedRef.current) {

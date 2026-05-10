@@ -71,7 +71,7 @@ function CryptoCell({ label, q }: { label: string; q: RegimeQuote | null }) {
             </span>
           </div>
         ) : (
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60">unavailable</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60">awaiting feed</div>
         )}
       </div>
       <span className={cn(
