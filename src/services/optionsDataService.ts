@@ -60,6 +60,7 @@ function validateEnriched(e: EnrichedContract | null): e is EnrichedContract {
 
 export async function fetchOptionsChainEnvelopes(
   picks: OptionsPickInput[],
+  preference: OptionsChainPreference = {},
 ): Promise<OptionsChainResult> {
   const empty: EnrichmentResult = {
     enriched: {},
@@ -81,7 +82,13 @@ export async function fetchOptionsChainEnvelopes(
     };
   }
   try {
-    const res = await enrichWithPublicChain({ data: { picks } });
+    const res = await enrichWithPublicChain({
+      data: {
+        picks,
+        preferenceMode: preference.preferenceMode,
+        maxContractCost: preference.maxContractCost,
+      },
+    });
     const fetchedAt = Date.now();
     const envelopes: Record<string, TrustEnvelope<EnrichedContract>> = {};
     for (const [key, value] of Object.entries(res.enriched)) {
