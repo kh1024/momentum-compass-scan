@@ -230,6 +230,12 @@ function Dashboard() {
     [],
   );
 
+  const pickKey = useMemo(
+    () => picks.map((p) => `${p.ticker}:${p.direction}`).join(","),
+    [picks],
+  );
+  const cachedSnapshot = useMemo(() => loadScanSnapshot(pickKey), [pickKey]);
+
   const {
     data: chainData,
     isFetching: isScanning,
@@ -237,15 +243,27 @@ function Dashboard() {
     error: chainError,
     dataUpdatedAt,
   } = useQuery<EnrichmentResult>({
-    queryKey: ["dashboard-chain", picks.map((p) => `${p.ticker}:${p.direction}`).join(",")],
+    queryKey: ["dashboard-chain", pickKey],
     queryFn: () => enrichFn({ data: { picks } }),
     enabled: picks.length > 0,
+    initialData: cachedSnapshot?.result,
+    initialDataUpdatedAt: cachedSnapshot?.savedAt,
     refetchInterval: autoRefresh && fullScanIntervalMs > 0 ? fullScanIntervalMs : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
     staleTime: fullScanIntervalMs > 0 ? Math.max(fullScanIntervalMs - 10_000, 60_000) : 24 * 60 * 60_000,
-    placeholderData: (previousData) => previousData,
+    // Stale-while-revalidate: keep the previous payload visible while a new
+    // fetch is in flight so the scanner table never wipes during refresh.
+    placeholderData: (previousData) => previousData ?? cachedSnapshot?.result,
   });
+
+  // Persist verified snapshots only. saveScanSnapshot refuses to overwrite
+  // a good snapshot with empty/rate-limited/broken results internally.
+  useEffect(() => {
+    if (!chainData) return;
+    saveScanSnapshot(pickKey, chainData);
+  }, [chainData, pickKey]);
+
 
   useEffect(() => {
     if (chainError) {
