@@ -1,8 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { getQuotes } from "@/lib/quote.functions";
 import type { ConsensusQuote } from "@/lib/providers.server";
+
+interface UseLiveQuotesOptions {
+  refetchIntervalMs?: number | false;
+}
 
 /**
  * Live quote overlay across the app.
@@ -13,8 +17,10 @@ import type { ConsensusQuote } from "@/lib/providers.server";
  * - `get` and `anyLive` are STABLE references (closed over a ref) so consumers
  *   that depend on them don't re-render every tick.
  */
-export function useLiveQuotes(symbols: string[]) {
+export function useLiveQuotes(symbols: string[], options: UseLiveQuotesOptions = {}) {
   const fetchQuotes = useServerFn(getQuotes);
+  const queryClient = useQueryClient();
+  const refetchIntervalMs = options.refetchIntervalMs ?? 30_000;
   const unique = useMemo(
     () => Array.from(new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))).sort(),
     [symbols],
@@ -30,17 +36,20 @@ export function useLiveQuotes(symbols: string[]) {
     queryKey: ["live-quotes", key],
     queryFn: () => fetchQuotes({ data: { symbols: unique } }),
     enabled: unique.length > 0,
-    refetchInterval: (q) => {
+    refetchInterval: refetchIntervalMs === false ? false : (q) => {
       const d = q.state.data;
       if (d?.cooldownMs && d.cooldownMs > 0) {
         return Math.min(d.cooldownMs + 1_000, 10 * 60_000);
       }
-      return 30_000;
+      return refetchIntervalMs;
     },
     refetchOnWindowFocus: (q) =>
       !(q.state.data?.cooldownMs && q.state.data.cooldownMs > 0),
     refetchOnMount: false,
-    staleTime: 25_000,
+    staleTime:
+      typeof refetchIntervalMs === "number"
+        ? Math.max(Math.min(refetchIntervalMs - 5_000, refetchIntervalMs), 25_000)
+        : Infinity,
     retry: (count, err) => {
       const msg = err instanceof Error ? err.message : "";
       if (/rate.?limit|429/i.test(msg)) return false;
@@ -69,6 +78,22 @@ export function useLiveQuotes(symbols: string[]) {
 
   // Once we've ever seen live data, stay "live" — prevents Live/Stale flicker.
   const anyLive = everLive.current || (data?.live ?? false);
+
+  useEffect(() => {
+    const regimeSymbols = ["SPY", "QQQ", "SMH"] as const;
+    if (!regimeSymbols.every((sym) => unique.includes(sym))) return;
+
+    const quotes = Object.fromEntries(
+      regimeSymbols.map((sym) => [sym, lastGood.current[sym] ?? null]),
+    );
+
+    queryClient.setQueryData(["regime-quotes"], {
+      quotes,
+      live: regimeSymbols.some((sym) => Boolean(lastGood.current[sym])),
+      cooldownMs: data?.cooldownMs ?? 0,
+      massiveBlocked: data?.massiveBlocked ?? false,
+    });
+  }, [data?.cooldownMs, data?.massiveBlocked, queryClient, unique, anyLive]);
 
   return { get, quotes: fresh, isLoading, anyLive };
 }

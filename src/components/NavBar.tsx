@@ -1,10 +1,9 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { Sidebar } from "@/components/Sidebar";
 import { MOCK_REGIME } from "@/lib/mockData";
-import { getQuotes } from "@/lib/quote.functions";
 import { aiInsights } from "@/lib/aiCommentary";
+import { isMarketOpen } from "@/lib/marketHours";
+import { useLiveQuotes } from "@/hooks/useLiveQuotes";
 
 function trendOf(pct: number): "Up" | "Down" | "Flat" {
   if (pct > 0.1) return "Up";
@@ -17,24 +16,8 @@ function trendOf(pct: number): "Up" | "Down" | "Flat" {
 // This file is not overwritten by Lovable's sync so the sidebar persists
 // regardless of what __root.tsx contains.
 export function NavBar() {
-  const fetchQuotes = useServerFn(getQuotes);
-  const { data } = useQuery({
-    queryKey: ["regime-quotes"],
-    queryFn: () => fetchQuotes({ data: { symbols: ["SPY", "QQQ", "SMH"] } }),
-    refetchInterval: (q) => {
-      const d = q.state.data;
-      if (d?.cooldownMs && d.cooldownMs > 0) return Math.min(d.cooldownMs + 1_000, 10 * 60_000);
-      return 30_000;
-    },
-    refetchOnWindowFocus: (q) => !(q.state.data?.cooldownMs && q.state.data.cooldownMs > 0),
-    refetchOnMount: false,
-    staleTime: 25_000,
-    retry: (count, err) => {
-      const msg = err instanceof Error ? err.message : "";
-      if (/rate.?limit|429/i.test(msg)) return false;
-      return count < 1;
-    },
-  });
+  const quoteRefreshIntervalMs = isMarketOpen() ? 30_000 : 24 * 60 * 60_000;
+  const { get: getLive, anyLive } = useLiveQuotes(["SPY", "QQQ", "SMH"], { refetchIntervalMs: quoteRefreshIntervalMs });
 
   useEffect(() => {
     const id = "sidebar-layout-override";
@@ -195,10 +178,9 @@ export function NavBar() {
     document.head.appendChild(el);
   }, []);
 
-  const live = data?.live ?? false;
-  const spyQ = data?.quotes?.SPY;
-  const qqqQ = data?.quotes?.QQQ;
-  const smhQ = data?.quotes?.SMH;
+  const spyQ = getLive("SPY");
+  const qqqQ = getLive("QQQ");
+  const smhQ = getLive("SMH");
 
   const markets = [
     {
@@ -232,7 +214,7 @@ export function NavBar() {
   return (
     <Sidebar
       markets={markets}
-      live={live}
+      live={anyLive}
       updatedAt={updatedAt}
       regime={MOCK_REGIME.bias}
       insights={insights}

@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { scanIntervalMs, isMarketOpen } from "@/lib/marketHours";
 import { MOCK_CANDIDATES, MOCK_REGIME } from "@/lib/mockData";
 import { freshness, marketCommentary } from "@/lib/aiCommentary";
-import { getQuotes, type QuotesResponse } from "@/lib/quote.functions";
 import { Radio } from "lucide-react";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
@@ -211,7 +210,8 @@ function Dashboard() {
   }, [chainData]);
 
   const symbols = useMemo(() => Array.from(new Set(MOCK_CANDIDATES.map((c) => c.ticker))), []);
-  const { get: getLive, anyLive } = useLiveQuotes(symbols);
+  const quoteRefreshIntervalMs = isMarketOpen() ? 30_000 : 24 * 60 * 60_000;
+  const { get: getLive, anyLive } = useLiveQuotes(symbols, { refetchIntervalMs: quoteRefreshIntervalMs });
   const { get: getReddit } = useRedditSentiment(symbols);
   const { get: getEarnings } = useEarnings(symbols, 60);
   void getEarnings;
@@ -309,31 +309,23 @@ function Dashboard() {
       ? lastFullScanAt + fullScanIntervalMs
       : null;
 
-  // Subscribe to the same regime-quotes query the sidebar drives. useQuery
-  // (vs getQueryData) ensures the dashboard re-renders on every refresh and
-  // shares its cache + cadence with the sidebar.
-  const fetchQuotes = useServerFn(getQuotes);
-  const { data: regimeData } = useQuery<QuotesResponse>({
-    queryKey: ["regime-quotes"],
-    queryFn: () => fetchQuotes({ data: { symbols: ["SPY", "QQQ", "SMH"] } }),
-    staleTime: 25_000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-  });
-  const spyQ = regimeData?.quotes?.SPY ?? MOCK_REGIME.spy;
-  const qqqQ = regimeData?.quotes?.QQQ ?? MOCK_REGIME.qqq;
-  const smhQ = regimeData?.quotes?.SMH ?? MOCK_REGIME.smh;
+  const spyLive = getLive("SPY");
+  const qqqLive = getLive("QQQ");
+  const smhLive = getLive("SMH");
+  const spyQ = spyLive ?? MOCK_REGIME.spy;
+  const qqqQ = qqqLive ?? MOCK_REGIME.qqq;
+  const smhQ = smhLive ?? MOCK_REGIME.smh;
   const regimeUpdatedAt =
     Math.max(
-      ("ts" in spyQ && spyQ.ts) || 0,
-      ("ts" in qqqQ && qqqQ.ts) || 0,
-      ("ts" in smhQ && smhQ.ts) || 0,
+      spyLive?.ts ?? 0,
+      qqqLive?.ts ?? 0,
+      smhLive?.ts ?? 0,
     ) || null;
   // Sticky live flag — once we've ever seen live data, stay "Live" until an
   // explicit error. Prevents the Live ↔ Stale flicker on every refetch tick.
   const everLiveRef = useRef(false);
-  if (regimeData?.live) everLiveRef.current = true;
-  const regimeLive = everLiveRef.current || Boolean(regimeData?.live);
+  if (spyLive || qqqLive || smhLive) everLiveRef.current = true;
+  const regimeLive = everLiveRef.current || Boolean(spyLive || qqqLive || smhLive);
 
   // Unified freshness across SPY/QQQ/SMH regime quotes + per-ticker live quotes.
   const marketDataUpdatedAt =
@@ -346,7 +338,10 @@ function Dashboard() {
 
   const onRunScanNow = () => { void refetchChain(); };
   const onRefreshQuotesOnly = () => {
-    void qc.invalidateQueries({ queryKey: ["live-quotes"] });
+    void Promise.all([
+      qc.invalidateQueries({ queryKey: ["live-quotes"] }),
+      qc.invalidateQueries({ queryKey: ["reddit-sentiment"] }),
+    ]);
     toast.success("Refreshing quotes…");
   };
 
