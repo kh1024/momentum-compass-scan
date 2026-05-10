@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 import { isMarketOpen } from "@/lib/marketHours";
 import { useRiskFilters } from "@/hooks/useRiskFilters";
 import { passesRiskFilters } from "@/lib/riskFilters";
+import { useContractPreference } from "@/hooks/useContractPreference";
+import { ContractPreferenceToolbar } from "@/components/ContractPreferenceToolbar";
 
 export const Route = createFileRoute("/live")({
   head: () => ({ meta: [{ title: "Live Opportunities — Momentum Options Scanner" }] }),
@@ -42,9 +44,11 @@ function LiveOpportunities() {
     [],
   );
 
+  const { mode: preferenceMode, maxContractCost } = useContractPreference();
+
   const { data: chainData } = useQuery<EnrichmentResult>({
-    queryKey: ["dashboard-chain", picks.map((p) => `${p.ticker}:${p.direction}`).join(",")],
-    queryFn: () => enrichFn({ data: { picks } }),
+    queryKey: ["dashboard-chain", picks.map((p) => `${p.ticker}:${p.direction}`).join(","), preferenceMode, maxContractCost],
+    queryFn: () => enrichFn({ data: { picks, preferenceMode, maxContractCost } }),
     enabled: picks.length > 0,
     staleTime: 5 * 60_000,
   });
@@ -181,6 +185,8 @@ function LiveOpportunities() {
           <span className="text-muted-foreground">Updated {freshness(updatedAt)}</span>
         </div>
       </div>
+
+      <ContractPreferenceToolbar />
 
       {/* AI commentary banner */}
       <div className="rounded-xl border border-[var(--color-bull)]/20 bg-gradient-to-r from-[var(--color-bull)]/[0.06] to-transparent px-4 py-3">

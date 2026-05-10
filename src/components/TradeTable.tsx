@@ -195,8 +195,10 @@ export function TradeTable({ rows, onOpen, isLoading, sectors }: TradeTableProps
             const moneyness = m.moneyness;
             const moneynessLabel = m.label;
             const watched = onWatchlist(t.id);
-            const labelText = PUBLIC_LABEL[t.label] ?? displayLabel(t.label);
-            const isElite = score >= 90;
+            const labelText = t.noQualityContract
+              ? "No quality contract"
+              : (PUBLIC_LABEL[t.label] ?? displayLabel(t.label));
+            const isElite = score >= 90 && !t.noQualityContract;
 
             const f = flash[t.id];
             return (
@@ -232,8 +234,14 @@ export function TradeTable({ rows, onOpen, isLoading, sectors }: TradeTableProps
                   </Tip>
                 </td>
 
-                <td className={cn("px-2 py-1 font-semibold whitespace-nowrap", LABEL_COLOR[t.label])}>
-                  <Tip content={(TIPS.label as Record<string, React.ReactNode>)[displayLabel(t.label)] ?? <span>{labelText}</span>}>
+                <td className={cn(
+                  "px-2 py-1 font-semibold whitespace-nowrap",
+                  t.noQualityContract ? "text-muted-foreground italic" : LABEL_COLOR[t.label],
+                )}>
+                  <Tip content={t.noQualityContract
+                    ? <span>Ticker is worth watching, but no option on the chain passes quality / cost / liquidity filters right now ({t.noQualityReason ?? "no detail"}).</span>
+                    : ((TIPS.label as Record<string, React.ReactNode>)[displayLabel(t.label)] ?? <span>{labelText}</span>)
+                  }>
                     <span className="cursor-help">{labelText}</span>
                   </Tip>
                 </td>

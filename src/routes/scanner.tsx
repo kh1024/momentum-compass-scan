@@ -30,6 +30,8 @@ import type { ExpirationBucket } from "@/lib/types";
 import { useRiskFilters } from "@/hooks/useRiskFilters";
 import { useAdaptiveIntervals } from "@/hooks/useAdaptiveIntervals";
 import { applyRiskFilters } from "@/lib/riskFilters";
+import { useContractPreference } from "@/hooks/useContractPreference";
+import { ContractPreferenceToolbar } from "@/components/ContractPreferenceToolbar";
 
 export const Route = createFileRoute("/scanner")({
   head: () => ({ meta: [{ title: "Scanner Results — Momentum Options Scanner" }] }),
@@ -96,7 +98,10 @@ function Scanner() {
   const [dir, setDir] = useState<Direction | "ALL">("ALL");
   const [capFilter, setCapFilter] = useState<CapBucket | "ALL">("ALL");
   const [dteFilter, setDteFilter] = useState<DteBucketFilter>("ALL");
-  const [maxCost, setMaxCost] = useState(1000);
+  // Global contract preference (mode + max cost) — shared across pages.
+  const { mode: preferenceMode, maxContractCost, setMaxCost: setGlobalMaxCost } = useContractPreference();
+  const maxCost = maxContractCost;
+  const setMaxCost = setGlobalMaxCost;
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [hideTrueAvoids, setHideTrueAvoids] = useState(true);
   const [hiddenLabels, setHiddenLabels] = useState<Set<Label>>(new Set());
@@ -129,7 +134,7 @@ function Scanner() {
     setDir("ALL");
     setCapFilter("ALL");
     setDteFilter("ALL");
-    setMaxCost(5000);
+    // Preset reset must NOT clobber the user's global max-cost preference.
     if (p === "lottos") {
       setHiddenLabels(new Set<Label>(["Buy Now", "Watchlist", "Waiting on Trigger", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
       setDteFilter("weekly-lotto");
@@ -194,7 +199,10 @@ function Scanner() {
     refetch: refetchChain,
     error: chainError,
     dataUpdatedAt,
-  } = useOptionsChain(scanPicks, { staleTime: 60 * 60_000 });
+  } = useOptionsChain(scanPicks, {
+    staleTime: 60 * 60_000,
+    preference: { preferenceMode, maxContractCost },
+  });
 
   const lastFullScanAt = dataUpdatedAt || null;
 
@@ -239,6 +247,8 @@ function Scanner() {
 
   // ---- Core trace pipeline -------------------------------------------------
   const traces: { c: TradeCandidate; gate: DisciplineGateResult }[] = useMemo(() => {
+    const debug = chainData?.debug ?? {};
+    const chainAttempted = !!chainData && (chainData.live || Object.keys(chainData.enriched ?? {}).length > 0);
     return allMockCandidates.map((c) => {
       const isLeaps = c.setupType === "LEAPS";
       const isYolo = c.setupType === "Reddit YOLO";
@@ -255,6 +265,17 @@ function Scanner() {
       const finalized = finalizeCandidate(withChain);
       const gate = runDisciplineGate(finalized, { extendedSwingEnabled, mode: scannerMode });
 
+      const noQuality = chainAttempted && enrichedForChain === null;
+      const noQualityReason = noQuality
+        ? (() => {
+            const r = debug[key]?.errorReason ?? "no-contract-passed-filter";
+            if (r.includes("no-contract")) return "no contract passes quality/cost filters";
+            if (r.includes("underlying")) return "underlying price unavailable";
+            if (r.includes("rate")) return "chain rate-limited";
+            return r;
+          })()
+        : undefined;
+
       const merged: TradeCandidate = {
         ...finalized,
         score: gate.finalScore,
@@ -264,13 +285,19 @@ function Scanner() {
         sectionRouted: gate.routedSection === "hidden" ? expirationBucketFor(finalized.contract.dte) : gate.routedSection,
         dteBucketLabel: expirationBucketFor(finalized.contract.dte),
         validationOk: gate.visible && gate.finalLabel !== "Avoid",
-        validationReason: gate.reasons.join(" · "),
-        buyNowEligible: gate.buyNowEligible,
-        buyNowBlockers: gate.buyNowBlockers,
+        validationReason: noQuality
+          ? `No quality contract — ${noQualityReason}`
+          : gate.reasons.join(" · "),
+        buyNowEligible: noQuality ? false : gate.buyNowEligible,
+        buyNowBlockers: noQuality
+          ? [...(gate.buyNowBlockers ?? []), `no-quality-contract:${noQualityReason}`]
+          : gate.buyNowBlockers,
+        noQualityContract: noQuality || undefined,
+        noQualityReason,
       };
       return { c: merged, gate };
     });
-  }, [chainEnvelopes, getLive, getReddit, extendedSwingEnabled, scannerMode, allMockCandidates]);
+  }, [chainEnvelopes, chainData, getLive, getReddit, extendedSwingEnabled, scannerMode, allMockCandidates]);
 
   const { filters: riskFilters, auto: riskAuto } = useRiskFilters();
   const candidates = useMemo(
@@ -374,6 +401,8 @@ function Scanner() {
           </p>
         </div>
       </div>
+
+      <ContractPreferenceToolbar />
 
       <BackendHealthPanel />
 

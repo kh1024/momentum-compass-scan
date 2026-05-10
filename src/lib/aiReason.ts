@@ -31,6 +31,33 @@ export function aiReasonFor(t: TradeCandidate, ctx: AiReasonContext = {}): strin
   const dir = t.direction;
   const isCall = dir === "CALL";
 
+  // ---- Contract-driven explanations (highest priority — explains the pick) ----
+  if (t.noQualityContract) {
+    return `No quality contract — ${t.noQualityReason ?? "wide spread / poor liquidity / premium too high"}.`;
+  }
+  const blockers = t.buyNowBlockers ?? [];
+  if (blockers.some((b) => /premium-heavy|premium exceeds|cost mismatch/i.test(b))) {
+    return "Contract downgraded — premium exceeds the selected budget.";
+  }
+  if (blockers.some((b) => /breakeven|break.?even/i.test(b))) {
+    return "Contract downgraded — break-even move is unrealistic for this DTE.";
+  }
+  if (m === "Lottery OTM") {
+    return "Lottery contract — separated because probability is low; speculative only.";
+  }
+  if (m === "Far OTM") {
+    return "Far OTM — speculative reach, low delta, expect frequent losses.";
+  }
+  if (m === "Slightly OTM" && score >= 70) {
+    return "Slightly OTM strike selected — expected move supports leverage without excessive break-even.";
+  }
+  if (m === "ATM" && score >= 70) {
+    return "Balanced ATM strike — leverage without excessive break-even risk.";
+  }
+  if (m === "Deep ITM") {
+    return "Deep ITM — high delta, conservative exposure, lower upside leverage.";
+  }
+
   const semis = ctx.sectors?.find((s) => s.name === "Semis");
   const tech = ctx.sectors?.find((s) => s.name === "Mega Tech");
   const semisStrong = (semis?.changePct ?? 0) > 0.4;
@@ -91,6 +118,6 @@ export function aiReasonFor(t: TradeCandidate, ctx: AiReasonContext = {}): strin
   if (score >= 85) return "Elite setup — multi-factor confirmation aligned.";
   if (score >= 75) return "Strong setup — trend and structure aligned.";
   if (score >= 65) return "Moderate setup — selective entry on confirmation.";
-  if (m === "Lottery OTM") return "Speculative far-OTM lottery — low probability, asymmetric reward.";
+  // Lottery / Far-OTM handled earlier in the contract block.
   return "Speculative — wait for clearer confirmation.";
 }

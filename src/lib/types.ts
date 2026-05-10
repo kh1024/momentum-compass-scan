@@ -221,6 +221,15 @@ export interface TradeCandidate {
   validationOk?: boolean;
   /** Human-readable reason for current label (why it passed/failed). */
   validationReason?: string;
+  /**
+   * Set when the chain provider returned a successful response but no
+   * contract on the chain satisfied the active preference filters
+   * (cost / moneyness / spread / liquidity). The ticker idea is still
+   * worth watching but no tradable option exists right now.
+   */
+  noQualityContract?: boolean;
+  /** Concise reason for noQualityContract (e.g. "wide spread", "premium > $500"). */
+  noQualityReason?: string;
   brokerConfirmRequired: boolean;
   isDemo: boolean;
   /** UI hint: "live" current poll, "stale" sticky last-good, "demo" never seen live. */

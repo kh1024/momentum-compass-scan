@@ -8,6 +8,7 @@
 
 import { enrichWithPublicChain, type EnrichedContract, type EnrichmentResult } from "@/lib/chain.functions";
 import type { Direction, EntryMode } from "@/lib/types";
+import type { PreferenceMode } from "@/lib/contractPreference";
 import type { TrustEnvelope, DataSource } from "./trust";
 import { wrap, unavailable, errored } from "./trust";
 
@@ -20,6 +21,12 @@ export interface OptionsPickInput {
   isYolo?: boolean;
   entryMode?: EntryMode;
   targetStrike?: number;
+}
+
+/** Global contract-selection preference applied to ALL picks in a single scan. */
+export interface OptionsChainPreference {
+  preferenceMode?: PreferenceMode;
+  maxContractCost?: number;
 }
 
 export interface OptionsChainResult {
@@ -53,6 +60,7 @@ function validateEnriched(e: EnrichedContract | null): e is EnrichedContract {
 
 export async function fetchOptionsChainEnvelopes(
   picks: OptionsPickInput[],
+  preference: OptionsChainPreference = {},
 ): Promise<OptionsChainResult> {
   const empty: EnrichmentResult = {
     enriched: {},
@@ -74,7 +82,13 @@ export async function fetchOptionsChainEnvelopes(
     };
   }
   try {
-    const res = await enrichWithPublicChain({ data: { picks } });
+    const res = await enrichWithPublicChain({
+      data: {
+        picks,
+        preferenceMode: preference.preferenceMode,
+        maxContractCost: preference.maxContractCost,
+      },
+    });
     const fetchedAt = Date.now();
     const envelopes: Record<string, TrustEnvelope<EnrichedContract>> = {};
     for (const [key, value] of Object.entries(res.enriched)) {

@@ -15,6 +15,9 @@ import { entryModeFromSetup } from "@/lib/entryMode";
 import { chainPickKey } from "@/lib/chainKeys";
 import { runDisciplineGate, type DisciplineGateResult } from "@/lib/disciplineGate";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useContractPreference } from "@/hooks/useContractPreference";
+import { ContractPreferenceToolbar } from "@/components/ContractPreferenceToolbar";
+import { PREFERENCE_LABEL, deltaBandForMode, allowedMoneynessForMode } from "@/lib/contractPreference";
 
 export const Route = createFileRoute("/io-data")({
   head: () => ({ meta: [{ title: "Data Inspector — Momentum Options Scanner" }] }),
@@ -199,9 +202,11 @@ function IOData() {
     [],
   );
 
+  const { mode: preferenceMode, maxContractCost } = useContractPreference();
+
   const { data: chainData } = useQuery<EnrichmentResult>({
-    queryKey: ["dashboard-chain", picks.map(p => `${p.ticker}:${p.direction}`).join(",")],
-    queryFn: () => enrichFn({ data: { picks } }),
+    queryKey: ["dashboard-chain", picks.map(p => `${p.ticker}:${p.direction}`).join(","), preferenceMode, maxContractCost],
+    queryFn: () => enrichFn({ data: { picks, preferenceMode, maxContractCost } }),
     enabled: picks.length > 0,
     staleTime: 5 * 60_000,
     placeholderData: prev => prev,
@@ -299,6 +304,19 @@ function IOData() {
         <div className="flex flex-wrap gap-2">
           <CopyBtn data={scanInputsJson} label="Copy Scan JSON" />
           <CopyBtn data={traces.map(t => ({ ticker: t.c.ticker, gate: t.gate, rules: t.rules }))} label="Copy Full Trace" />
+        </div>
+      </div>
+
+      {/* Global contract preference — affects strike selection, ranking,
+          break-even ceiling, and premium ceiling on every page. */}
+      <div className="space-y-2">
+        <ContractPreferenceToolbar />
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] mono">
+          <span className="font-semibold uppercase tracking-wider text-muted-foreground">Active prefs:</span>{" "}
+          <span className="text-foreground">{PREFERENCE_LABEL[preferenceMode]}</span>
+          {" · "}Δ {deltaBandForMode(preferenceMode).min}-{deltaBandForMode(preferenceMode).max}
+          {" · "}Allowed: {allowedMoneynessForMode(preferenceMode).join(", ")}
+          {" · "}Max cost ${maxContractCost}
         </div>
       </div>
 
