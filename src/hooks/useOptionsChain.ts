@@ -6,7 +6,7 @@
  * should prefer reading envelopes via `getEnvelope(key)`.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchOptionsChainEnvelopes,
