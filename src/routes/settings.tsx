@@ -325,10 +325,6 @@ function Settings() {
 }
 
 function RiskFiltersPanel() {
-  // Lazy import-free local component keeps the route file self-contained.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { useRiskFilters } = require("@/hooks/useRiskFilters") as typeof import("@/hooks/useRiskFilters");
-  const { PRESET_ORDER } = require("@/lib/riskFilters") as typeof import("@/lib/riskFilters");
   const { filters, preset, applyPreset, setFilter, reset } = useRiskFilters();
 
   const presetTone: Record<string, string> = {
