@@ -222,9 +222,7 @@ function Scanner() {
     ? Object.values(chainData.enriched).filter((v) => v !== null).length
     : 0;
 
-  const symbolsForQuotes = symbols;
-  const { get: getLiveQuote, anyLive } = { get: getLive, anyLive: chainData ? !chainData.rateLimited : false };
-  void symbolsForQuotes; void getLiveQuote;
+  void getLive;
   const dataMode: "live" | "cached" | "delayed" | "demo" =
     chainData?.rateLimited ? "delayed"
     : chainData && Object.values(chainData.enriched).some((v) => v !== null) ? "live"
