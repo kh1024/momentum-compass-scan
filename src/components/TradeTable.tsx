@@ -1,8 +1,18 @@
 import type { TradeCandidate, Label } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Tip, TIPS } from "@/components/Tip";
+import { aiReasonFor } from "@/lib/aiReason";
+import type { SectorStrength } from "@/lib/aiCommentary";
+import { useWatchlist } from "@/hooks/useWatchlist";
+import { toast } from "sonner";
 
 const displayLabel = (label: Label): Label | "Watchlist" => (label === "Waiting on Trigger" ? "Watchlist" : label);
+
+// Replace internal "Avoid Ticker" wording with the friendlier product term.
+const PUBLIC_LABEL: Partial<Record<Label, string>> = {
+  "Avoid Ticker": "Low Quality Setup",
+  "Avoid Contract": "Rejected Contract",
+};
 
 const LABEL_COLOR: Record<Label, string> = {
   "Buy Now":            "text-[var(--color-buy-now)]",
@@ -44,15 +54,41 @@ function expShort(exp: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-export function TradeTable({
-  rows,
-  onOpen,
-  isLoading,
-}: {
+/** Score → tier styling. Stronger color scaling per spec:
+ *  90+ elite, 80–89 strong, 70–79 moderate, <70 speculative. */
+function scoreStyle(score: number): { color: string; bar: string; glow: string; tier: string } {
+  if (score >= 90) return {
+    color: "text-[var(--color-bull)]",
+    bar: "bg-[var(--color-bull)]",
+    glow: "shadow-[0_0_24px_-8px_var(--color-bull)]",
+    tier: "Elite",
+  };
+  if (score >= 80) return {
+    color: "text-[var(--color-bull)]/90",
+    bar: "bg-[var(--color-bull)]/80",
+    glow: "shadow-[0_0_18px_-10px_var(--color-bull)]",
+    tier: "Strong",
+  };
+  if (score >= 70) return {
+    color: "text-[var(--color-watch)]",
+    bar: "bg-[var(--color-watch)]",
+    glow: "",
+    tier: "Moderate",
+  };
+  return { color: "text-muted-foreground", bar: "bg-muted-foreground/40", glow: "", tier: "Speculative" };
+}
+
+export interface TradeTableProps {
   rows: TradeCandidate[];
   onOpen: (id: string) => void;
   isLoading?: boolean;
-}) {
+  /** Optional sector context used to enrich the AI Reason column. */
+  sectors?: SectorStrength[];
+}
+
+export function TradeTable({ rows, onOpen, isLoading, sectors }: TradeTableProps) {
+  const { has: onWatchlist, toggle: toggleWatchlist } = useWatchlist();
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center rounded-xl border border-border bg-card py-16">
@@ -74,6 +110,15 @@ export function TradeTable({
     );
   }
 
+  const handleCopyContract = (t: TradeCandidate) => {
+    const c = t.contract;
+    const txt = `${t.ticker} ${c.expiration} ${t.direction} $${c.strike} @ $${(c.cost ?? c.ask * 100).toFixed(0)}`;
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      void navigator.clipboard.writeText(txt);
+      toast.success("Contract copied", { description: txt });
+    }
+  };
+
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-card">
       <table className="w-full text-[11px] font-mono">
@@ -85,11 +130,12 @@ export function TradeTable({
                 ["Ticker", "min-w-[4rem]", null],
                 ["Dir", "w-12", null],
                 ["Label", "min-w-[9rem]", null],
-                ["Score", "text-right w-12", TIPS.score],
+                ["Score", "text-right w-24", TIPS.score],
+                ["AI Reason", "min-w-[16rem]", null],
+                ["Moneyness", "min-w-[9rem]", null],
                 ["Price", "text-right w-20", TIPS.price],
                 ["Exp", "w-16", null],
                 ["Strike", "text-right w-16", TIPS.strike],
-                ["Ask", "text-right w-14", TIPS.ask],
                 ["Cost", "text-right w-14", TIPS.cost],
                 ["Δ", "text-right w-10", TIPS.delta],
                 ["IV", "text-right w-12", TIPS.iv],
@@ -98,7 +144,7 @@ export function TradeTable({
                 ["Vol", "text-right w-14", TIPS.volume],
                 ["OI", "text-right w-14", TIPS.oi],
                 ["Sprd", "text-right w-12", TIPS.spread],
-                ["", "w-8", null],
+                ["Actions", "text-right w-24", null],
               ] as [string, string, React.ReactNode][]
             ).map(([h, cls, tip], i) => (
               <th key={i} className={cn("px-2 py-1.5 text-left whitespace-nowrap", cls)}>
@@ -114,24 +160,36 @@ export function TradeTable({
         <tbody className="divide-y divide-border/40">
           {rows.map((t) => {
             const c = t.contract;
-            const isDemo = c.source !== "chain";
             const score = t.finalScore ?? t.score;
-            const topBlocker = t.buyNowBlockers?.[0];
+            const ss = scoreStyle(score);
+            const reason = aiReasonFor(t, { sectors });
+            const moneyness = c.classification?.moneyness;
+            const moneynessLabel = c.classification?.label ?? "—";
+            const watched = onWatchlist(t.id);
+            const labelText = PUBLIC_LABEL[t.label] ?? displayLabel(t.label);
+            const isElite = score >= 90;
 
             return (
               <tr
                 key={t.id}
                 onClick={() => onOpen(t.id)}
-                className="cursor-pointer transition-colors hover:bg-muted/15 active:bg-muted/25"
+                className={cn(
+                  "cursor-pointer transition-colors hover:bg-muted/15 active:bg-muted/25",
+                  isElite && "bg-[var(--color-bull)]/[0.04]",
+                )}
               >
-                {/* Label accent bar */}
+                {/* Label accent bar — wider/glowing for elite rows */}
                 <td className="pl-1.5 pr-0 py-1 w-1">
-                  <div className={cn("h-full w-[3px] rounded-full min-h-[1.25rem]", LABEL_DOT[t.label])} />
+                  <div className={cn(
+                    "h-full rounded-full min-h-[1.5rem]",
+                    isElite ? "w-[4px]" : "w-[3px]",
+                    LABEL_DOT[t.label],
+                    isElite && ss.glow,
+                  )} />
                 </td>
 
                 <td className="px-2 py-1 font-bold tracking-tight text-foreground whitespace-nowrap">
                   {t.ticker}
-                  {isDemo && <span className="ml-1 text-[8px] font-normal text-muted-foreground/40">·</span>}
                 </td>
 
                 <td className={cn("px-2 py-1 font-bold text-[10px]",
@@ -143,25 +201,46 @@ export function TradeTable({
                 </td>
 
                 <td className={cn("px-2 py-1 font-semibold whitespace-nowrap", LABEL_COLOR[t.label])}>
-                  <Tip content={(TIPS.label as Record<string, React.ReactNode>)[displayLabel(t.label)] ?? <span>{displayLabel(t.label)}</span>}>
-                    <span className="cursor-help">{displayLabel(t.label)}</span>
+                  <Tip content={(TIPS.label as Record<string, React.ReactNode>)[displayLabel(t.label)] ?? <span>{labelText}</span>}>
+                    <span className="cursor-help">{labelText}</span>
                   </Tip>
                 </td>
 
-                <td className="px-2 py-1 text-right font-semibold tabular-nums">
+                {/* Score with confidence bar + numeric value */}
+                <td className="px-2 py-1 text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <div className="relative h-1.5 w-12 overflow-hidden rounded-full bg-muted/40">
+                      <div
+                        className={cn("absolute inset-y-0 left-0 rounded-full", ss.bar)}
+                        style={{ width: `${Math.min(100, Math.max(0, score))}%` }}
+                      />
+                    </div>
+                    <span className={cn("font-semibold tabular-nums w-6 text-right", ss.color)}>{score}</span>
+                  </div>
+                </td>
+
+                {/* AI Reason — concise, contextual */}
+                <td className="px-2 py-1 text-foreground/80">
+                  <span className="line-clamp-1" title={reason}>{reason}</span>
+                </td>
+
+                {/* Moneyness */}
+                <td className="px-2 py-1 whitespace-nowrap">
                   <span className={cn(
-                    score >= 85 ? "text-[var(--color-bull)]"
-                    : score >= 70 ? "text-[var(--color-watch)]"
-                    : "text-muted-foreground",
+                    "rounded-md border border-border/70 bg-background/60 px-1.5 py-0.5 text-[10px] font-medium",
+                    moneyness === "ATM" && "text-[var(--color-watch)] border-[var(--color-watch)]/40",
+                    (moneyness === "ITM" || moneyness === "Slightly ITM") && "text-[var(--color-bull)]/90 border-[var(--color-bull)]/40",
+                    moneyness === "Deep ITM" && "text-[var(--color-bull)] border-[var(--color-bull)]/60",
+                    (moneyness === "Slightly OTM" || moneyness === "OTM") && "text-amber-400 border-amber-500/40",
+                    (moneyness === "Far OTM" || moneyness === "Lottery OTM") && "text-purple-400 border-purple-400/40",
                   )}>
-                    {score}
+                    {moneynessLabel}
                   </span>
                 </td>
 
                 <td className="px-2 py-1 text-right tabular-nums">${t.price.toFixed(2)}</td>
                 <td className="px-2 py-1 tabular-nums whitespace-nowrap">{expShort(c.expiration)}</td>
                 <td className="px-2 py-1 text-right tabular-nums">${c.strike}</td>
-                <td className="px-2 py-1 text-right tabular-nums">${c.ask.toFixed(2)}</td>
                 <td className="px-2 py-1 text-right tabular-nums">${(c.cost ?? c.ask * 100).toFixed(0)}</td>
                 <td className="px-2 py-1 text-right tabular-nums">{Math.abs(c.delta).toFixed(2)}</td>
                 <td className="px-2 py-1 text-right tabular-nums">{fmtPct(c.iv)}</td>
@@ -183,14 +262,40 @@ export function TradeTable({
                   {fmtPct(c.spreadPct)}
                 </td>
 
-                <td className="px-2 py-1 text-right">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onOpen(t.id); }}
-                    className="rounded border border-border/50 px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors"
-                    aria-label="Open details"
-                  >
-                    →
-                  </button>
+                {/* Quick actions */}
+                <td className="px-2 py-1">
+                  <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                    <Tip content={watched ? "Remove from watchlist" : "Add to watchlist"} side="left">
+                      <button
+                        onClick={() => toggleWatchlist(t)}
+                        className={cn(
+                          "rounded border border-border/50 px-1.5 py-0.5 text-[11px] transition-colors hover:border-foreground/30",
+                          watched ? "text-[var(--color-watch)] border-[var(--color-watch)]/50" : "text-muted-foreground hover:text-foreground",
+                        )}
+                        aria-label={watched ? "Remove from watchlist" : "Add to watchlist"}
+                      >
+                        {watched ? "★" : "☆"}
+                      </button>
+                    </Tip>
+                    <Tip content="Copy contract" side="left">
+                      <button
+                        onClick={() => handleCopyContract(t)}
+                        className="rounded border border-border/50 px-1.5 py-0.5 text-[11px] text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors"
+                        aria-label="Copy contract"
+                      >
+                        ⎘
+                      </button>
+                    </Tip>
+                    <Tip content="Open AI thesis & details" side="left">
+                      <button
+                        onClick={() => onOpen(t.id)}
+                        className="rounded border border-border/50 px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors"
+                        aria-label="Open details"
+                      >
+                        →
+                      </button>
+                    </Tip>
+                  </div>
                 </td>
               </tr>
             );
