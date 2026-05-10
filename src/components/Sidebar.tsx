@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Zap, Star, Settings, ChevronRight, Wrench,
-  TrendingUp, Activity, ScanSearch, FlaskConical, Wifi, Radio, Sparkles,
+  TrendingUp, Activity, ScanSearch, FlaskConical, Wifi, Radio, Sparkles, MessageSquare,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { isMarketOpen } from "@/lib/marketHours";
 const NAV = [
   { to: "/", icon: LayoutDashboard, label: "Next-Day & Swing" },
   { to: "/watchlist", icon: Star, label: "Watchlist" },
+  { to: "/reddit-signals", icon: MessageSquare, label: "Reddit Signals" },
 ] as const;
 
 const NAV_LIVE = { to: "/live", icon: Zap, label: "Live (market hours)" } as const;
