@@ -12,7 +12,7 @@ import { RefreshBar } from "@/components/RefreshBar";
 import { StatusPill } from "@/components/trust/StatusPill";
 import { deriveLiveState, LIVE_STATE_EXPLAIN, formatAgo } from "@/lib/liveStatus";
 import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
-import { loadScanSnapshot, saveScanSnapshot } from "@/lib/scanSnapshot";
+import { loadScanSnapshot, saveScanSnapshot, purgeLegacySnapshots } from "@/lib/scanSnapshot";
 import { loadRegimeSnapshot, saveRegimeSnapshot } from "@/lib/marketSnapshots";
 import { getScannerSettingsFn } from "@/lib/massive.functions";
 import type { Direction, TradeCandidate } from "@/lib/types";
@@ -244,6 +244,8 @@ function Dashboard() {
   // hydration mismatches.
   const [snapshotMounted, setSnapshotMounted] = useState(false);
   useEffect(() => {
+    // Sweep stale-schema / legacy snapshot keys BEFORE we attempt to hydrate.
+    purgeLegacySnapshots();
     setSnapshotMounted(true);
   }, []);
   const cachedSnapshot = useMemo(

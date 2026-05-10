@@ -15,11 +15,34 @@
 import { createIsomorphicFn } from "@tanstack/react-start";
 import type { EnrichmentResult } from "@/lib/chain.functions";
 
+/**
+ * Snapshot schema version. BUMP THIS when any of the following change:
+ *   - shape of `EnrichmentResult` / `OptionsChainShape`
+ *   - shape of `TradeCandidate` / `OptionContract`
+ *   - format of `chainPickKey()` (the pick-key string layout)
+ *   - validation rules in `validateEnrichment` / `validateOptions`
+ *
+ * On bump, previously-persisted snapshots are automatically invalidated
+ * and purged on first load — the user sees a fresh scan instead of a
+ * stale row hydrated against an incompatible code path.
+ */
+export const SNAPSHOT_SCHEMA_VERSION = 3;
+
 const DASHBOARD_KEY = "scanner:dashboardSnapshot:v1";
 const OPTIONS_KEY = "scanner:optionsSnapshot:v1";
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+/** Legacy keys we sweep on cold start to free quota. */
+const LEGACY_KEYS = [
+  "scanner:dashboardSnapshot",
+  "scanner:optionsSnapshot",
+  "scanner:dashboardSnapshot:v0",
+  "scanner:optionsSnapshot:v0",
+];
+
 interface BaseSnapshot<T> {
+  /** Schema version this snapshot was written against. */
+  schemaVersion: number;
   pickKey: string;
   result: T;
   savedAt: number;
@@ -137,6 +160,16 @@ function loadAtClient<T>(
     purge(key, "envelope not an object");
     return null;
   }
+  // Schema-version gate: invalidate (and purge) snapshots written by an
+  // older code path. This runs BEFORE other checks so an incompatible
+  // payload can't trip the validators and confuse the logs.
+  if ((parsed as { schemaVersion?: unknown }).schemaVersion !== SNAPSHOT_SCHEMA_VERSION) {
+    purge(
+      key,
+      `schema version mismatch (got ${(parsed as { schemaVersion?: unknown }).schemaVersion ?? "none"}, expected ${SNAPSHOT_SCHEMA_VERSION})`,
+    );
+    return null;
+  }
   if (
     typeof parsed.savedAt !== "number" ||
     !Number.isFinite(parsed.savedAt)
@@ -180,6 +213,7 @@ function saveAtClient<T>(
   }
   try {
     const snap: BaseSnapshot<T> = {
+      schemaVersion: SNAPSHOT_SCHEMA_VERSION,
       pickKey,
       result,
       savedAt: Date.now(),
@@ -192,6 +226,45 @@ function saveAtClient<T>(
     return false;
   }
 }
+
+// ── Legacy / cross-version sweep ──────────────────────────────────────────
+// Purges any persisted snapshot key that:
+//   - matches the legacy (pre-versioned) name list, OR
+//   - parses cleanly but reports a schemaVersion ≠ SNAPSHOT_SCHEMA_VERSION.
+// Wrapped with createIsomorphicFn so a server import is a safe no-op.
+export const purgeLegacySnapshots = createIsomorphicFn()
+  .server((): number => 0)
+  .client((): number => {
+    let removed = 0;
+    try {
+      for (const k of LEGACY_KEYS) {
+        if (window.localStorage.getItem(k) !== null) {
+          window.localStorage.removeItem(k);
+          removed += 1;
+        }
+      }
+      // Also probe the active keys — if their version doesn't match we drop
+      // them now rather than waiting for the next load() call.
+      for (const k of [DASHBOARD_KEY, OPTIONS_KEY]) {
+        const raw = window.localStorage.getItem(k);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw) as { schemaVersion?: unknown };
+          if (parsed?.schemaVersion !== SNAPSHOT_SCHEMA_VERSION) {
+            window.localStorage.removeItem(k);
+            logSnapshot("warn", k, `purged on sweep: schema ${String(parsed?.schemaVersion)} ≠ ${SNAPSHOT_SCHEMA_VERSION}`);
+            removed += 1;
+          }
+        } catch {
+          window.localStorage.removeItem(k);
+          removed += 1;
+        }
+      }
+    } catch {
+      /* ignore quota / access errors */
+    }
+    return removed;
+  });
 
 // ── Public API (isomorphic-wrapped) ────────────────────────────────────────
 
