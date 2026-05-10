@@ -96,24 +96,31 @@ function LiveOpportunities() {
   const open = openId ? traceById.get(openId) ?? null : null;
 
   // ── Sidebar feeds ────────────────────────────────────────────────────────
-  const spyQ = getLive("SPY") ?? MOCK_REGIME.spy;
-  const qqqQ = getLive("QQQ") ?? MOCK_REGIME.qqq;
-  const smhQ = getLive("SMH") ?? MOCK_REGIME.smh;
-  const updatedAt = Math.max(
-    getLive("SPY")?.ts ?? 0,
-    getLive("QQQ")?.ts ?? 0,
-    getLive("SMH")?.ts ?? 0,
-  ) || null;
+  const spyQ = getLive("SPY");
+  const qqqQ = getLive("QQQ");
+  const smhQ = getLive("SMH");
+  const updatedAt = Math.max(spyQ?.ts ?? 0, qqqQ?.ts ?? 0, smhQ?.ts ?? 0) || null;
+
+  const liveQuotes = [spyQ, qqqQ, smhQ].filter((q): q is NonNullable<typeof q> => !!q);
+  const avgChange = liveQuotes.length > 0
+    ? liveQuotes.reduce((a, b) => a + b.changePct, 0) / liveQuotes.length
+    : 0;
+  const liveBias = liveQuotes.length === 0 ? undefined
+    : avgChange > 0.3 ? "Risk-on"
+    : avgChange < -0.3 ? "Risk-off"
+    : "Neutral";
 
   const commentaryInput = {
-    spy: { symbol: "SPY", changePct: spyQ.changePct },
-    qqq: { symbol: "QQQ", changePct: qqqQ.changePct },
-    smh: { symbol: "SMH", changePct: smhQ.changePct },
-    bias: MOCK_REGIME.bias,
+    spy: spyQ ? { symbol: "SPY", changePct: spyQ.changePct } : undefined,
+    qqq: qqqQ ? { symbol: "QQQ", changePct: qqqQ.changePct } : undefined,
+    smh: smhQ ? { symbol: "SMH", changePct: smhQ.changePct } : undefined,
+    bias: liveBias,
   };
-  const commentary = marketCommentary(commentaryInput);
-  const insights = aiInsights(commentaryInput);
-  const sectors = sectorStrength(commentaryInput);
+  const commentary = liveQuotes.length > 0
+    ? marketCommentary(commentaryInput)
+    : "Live market data unavailable — waiting on quote provider.";
+  const insights = liveQuotes.length > 0 ? aiInsights(commentaryInput) : ["Waiting for live market data…"];
+  const sectors = liveQuotes.length > 0 ? sectorStrength(commentaryInput) : [];
 
   // Top movers (by intraday changePct) — driven by the live quote feed.
   const movers = useMemo(() => {
