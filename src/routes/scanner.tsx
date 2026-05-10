@@ -199,7 +199,10 @@ function Scanner() {
     refetch: refetchChain,
     error: chainError,
     dataUpdatedAt,
-  } = useOptionsChain(scanPicks, { staleTime: 60 * 60_000 });
+  } = useOptionsChain(scanPicks, {
+    staleTime: 60 * 60_000,
+    preference: { preferenceMode, maxContractCost },
+  });
 
   const lastFullScanAt = dataUpdatedAt || null;
 
