@@ -4,24 +4,28 @@ export const UNIVERSE_GROUPS: Record<UniverseGroup, { label: string; tickers: st
   MEGA_LARGE: {
     label: "Mega/Large",
     tickers: [
-      "AAPL", "MSFT", "NVDA", "GOOGL", "META", "AMZN", "TSLA",
-      "AVGO", "AMD", "NFLX", "CRM", "ORCL", "ADBE", "QCOM",
+      "NVDA", "MSFT", "AAPL", "AMZN", "META", "GOOGL", "TSLA",
+      "AMD", "AVGO", "NFLX", "COST", "CRM", "ORCL", "QCOM",
+      "MU", "ARM", "ASML", "TSM",
     ],
   },
   ETFS: {
     label: "ETFs",
-    tickers: ["SPY", "QQQ", "IWM", "GLD", "XLK", "SMH", "TLT", "XLE", "XLF", "XBI"],
+    tickers: ["SPY", "QQQ", "IWM", "SMH", "SOXX", "XLE", "XLF", "XLK", "XBI", "ARKK"],
   },
   MID_MOMENTUM: {
     label: "Mid Momentum",
     tickers: [
-      "PLTR", "COIN", "SMCI", "CRWD", "SNOW", "DDOG", "NET",
-      "MSTR", "HOOD", "RIVN", "SOFI", "RBLX", "UBER", "LYFT", "ABNB",
+      "PLTR", "COIN", "HOOD", "RBLX", "SOFI", "UBER", "SHOP",
+      "NET", "DDOG", "CRWD", "SNOW", "AFRM", "UPST", "IONQ", "RKLB", "SMCI",
     ],
   },
   YOLO_REDDIT: {
     label: "YOLO/Reddit",
-    tickers: ["GME", "AMC", "BB", "MARA", "RIOT", "CLSK", "HIMS"],
+    tickers: [
+      "GME", "RIVN", "LCID", "MARA", "RIOT", "IREN", "WULF",
+      "ACHR", "JOBY", "OPEN", "HIMS", "ASTS", "OKLO", "QS",
+    ],
   },
 };
 

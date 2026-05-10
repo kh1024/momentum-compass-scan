@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { selectContractFromChain, type PublicOptionChain, type PublicOptionContract } from "../publicCom.server";
-import { buildExpirationMeta } from "../chain.functions";
+import { buildExpirationMeta } from "../expirationMeta";
 
 const mk = (over: Partial<PublicOptionContract>): PublicOptionContract => ({
   symbol: "NVDA", occSymbol: "NVDA-X", type: "CALL",

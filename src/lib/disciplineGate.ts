@@ -387,8 +387,8 @@ function checkInvariants(
       add(9, "Extended Swing disabled → not applicable here", true);
     } else {
       add(8, "Extended Swing enabled → not applicable here", true);
-      add(9, "Extended Swing disabled → Avoid + hidden",
-        r.finalLabel === "Avoid" && !r.visible,
+      add(9, "Extended Swing disabled → Avoid Ticker + hidden",
+        r.finalLabel === "Avoid Ticker" && !r.visible,
         `label=${r.finalLabel}, visible=${r.visible}`);
     }
   } else {

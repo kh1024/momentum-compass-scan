@@ -17,12 +17,12 @@ import {
   calculateBreakevenMove,
 } from "./scoringEngine";
 import type { OptionContract, Direction } from "./types";
-import { costValidationStatus, validateContract } from "./optionQualityValidator";
+import { costValidationStatus, validateContract, expirationBucketFor } from "./optionQualityValidator";
 import { marketListedVerification, verifyContract } from "./contractVerify.server";
 import { getScannerSettings } from "./scannerQueue";
 import { chainPickKey } from "./chainKeys";
 import { createScanRun, persistScanRun } from "./scanRunLogger.server";
-import { expirationBucketFor } from "./optionQualityValidator";
+import { buildExpirationMeta } from "./expirationMeta";
 import {
   validateOptionContract,
   findNearbyCompleteStrike,
@@ -45,13 +45,7 @@ export interface EnrichedContract {
   verification?: import("./contractVerify.types").ContractVerification;
 }
 
-export interface ExpirationMeta {
-  expiration: string;
-  dte: number;
-  bucket: import("./types").ExpirationBucket;
-  callCount: number;
-  putCount: number;
-}
+export type { ExpirationMeta } from "./expirationMeta";
 
 export interface ChainDebug {
   ticker: string;
@@ -443,34 +437,7 @@ export const enrichWithPublicChain = createServerFn({ method: "POST" })
     };
   });
 
-/**
- * Build an ExpirationMeta row per unique expiration in the chain.
- * Sorted by Date object (numeric ms), NOT alphabetical, so "2026-06-05" comes
- * before "2026-06-12" deterministically across locales.
- */
-export function buildExpirationMeta(
-  contracts: Array<{ expiration: string; dte: number; type: "CALL" | "PUT" }>,
-): ExpirationMeta[] {
-  const byExp = new Map<string, ExpirationMeta>();
-  for (const c of contracts) {
-    let row = byExp.get(c.expiration);
-    if (!row) {
-      row = {
-        expiration: c.expiration,
-        dte: c.dte,
-        bucket: expirationBucketFor(c.dte),
-        callCount: 0,
-        putCount: 0,
-      };
-      byExp.set(c.expiration, row);
-    }
-    if (c.type === "CALL") row.callCount += 1;
-    else if (c.type === "PUT") row.putCount += 1;
-  }
-  return Array.from(byExp.values()).sort(
-    (a, b) => Date.parse(`${a.expiration}T00:00:00Z`) - Date.parse(`${b.expiration}T00:00:00Z`),
-  );
-}
+export { buildExpirationMeta } from "./expirationMeta";
 
 // ---- Adapters between OptionContract and OptionContractData ----
 
