@@ -6,7 +6,7 @@
  * should prefer reading envelopes via `getEnvelope(key)`.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchOptionsChainEnvelopes,
@@ -55,9 +55,17 @@ export function useOptionsChain(
     [picks],
   );
 
+  // Hydrate snapshot only on the client to avoid SSR evaluating localStorage
+  // access paths. Server render sees `null`; the cached snapshot streams in
+  // after mount and seeds react-query via initialData.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const cachedSnapshot = useMemo(
-    () => loadOptionsSnapshot<OptionsChainResult>(queryKey),
-    [queryKey],
+    () => (mounted ? loadOptionsSnapshot<OptionsChainResult>(queryKey) : null),
+    [queryKey, mounted],
   );
 
   const q = useQuery({
@@ -78,11 +86,11 @@ export function useOptionsChain(
 
   // Persist verified results only. saveOptionsSnapshot internally rejects
   // empty / rate-limited payloads so a broken refresh can never overwrite
-  // the last good snapshot.
+  // the last good snapshot. Guarded by `mounted` so SSR never invokes it.
   useEffect(() => {
-    if (!q.data) return;
+    if (!mounted || !q.data) return;
     saveOptionsSnapshot<OptionsChainResult>(queryKey, q.data);
-  }, [q.data, queryKey]);
+  }, [q.data, queryKey, mounted]);
 
   const envelopes = q.data?.envelopes ?? {};
   const status = rollupStatus(Object.values(envelopes));
