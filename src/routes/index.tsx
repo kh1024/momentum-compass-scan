@@ -519,7 +519,7 @@ function Dashboard() {
             : quoteState === "error" ? "Quote provider reconnecting"
             : "Waiting for live quote provider"
           : !open ? "Tomorrow Preparation Mode"
-            : quoteState === "connecting" ? "Connecting to market data"
+            : quoteState === "connecting" ? "Loading latest verified data"
             : "Awaiting next refresh";
         const detail = !open
           ? "Market closed — showing latest verified scan · Live refresh paused outside market hours"
