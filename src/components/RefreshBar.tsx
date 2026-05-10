@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { type LiveState, formatAgo } from "@/lib/liveStatus";
 import { isMarketOpen } from "@/lib/marketHours";
+import { useStableValue } from "@/hooks/useStableValue";
 
 export interface RefreshBarProps {
   lastFullScanAt: number | null;
