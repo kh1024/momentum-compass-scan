@@ -230,14 +230,19 @@ function Scanner() {
 
   // ---- Core trace pipeline -------------------------------------------------
   const traces: { c: TradeCandidate; gate: DisciplineGateResult }[] = useMemo(() => {
-    const enriched = chainData?.enriched ?? {};
     return allMockCandidates.map((c) => {
       const isLeaps = c.setupType === "LEAPS";
       const isYolo = c.setupType === "Reddit YOLO";
       const base = applyRedditSignal(applyLiveQuote(c, getLive(c.ticker)), getReddit(c.ticker));
       const entryMode = entryModeFromSetup(c.setupType);
       const key = chainPickKey(c.ticker, c.direction, { isLeaps, isYolo, entryMode });
-      const withChain = applyLiveChain(base, enriched[key] ?? null);
+      // Read through TrustEnvelope so we never apply an unvalidated/stale chain.
+      const envelope = chainEnvelopes[key];
+      const enrichedForChain =
+        envelope && envelope.value && envelope.validated && envelope.status !== "stale"
+          ? envelope.value
+          : null;
+      const withChain = applyLiveChain(base, enrichedForChain);
       const finalized = finalizeCandidate(withChain);
       const gate = runDisciplineGate(finalized, { extendedSwingEnabled, mode: scannerMode });
 
@@ -256,7 +261,7 @@ function Scanner() {
       };
       return { c: merged, gate };
     });
-  }, [chainData, getLive, getReddit, extendedSwingEnabled, scannerMode, allMockCandidates]);
+  }, [chainEnvelopes, getLive, getReddit, extendedSwingEnabled, scannerMode, allMockCandidates]);
 
   const candidates = useMemo(
     () => traces.filter((t) => t.gate.visible).map((t) => t.c),
@@ -332,14 +337,16 @@ function Scanner() {
   }, [traces]);
   const open = openId ? traceById.get(openId) ?? null : null;
 
-  const liveCount = chainData
-    ? Object.values(chainData.enriched).filter((v) => v !== null).length
-    : 0;
+  const liveCount = Object.values(chainEnvelopes).filter(
+    (e) => e.value && e.validated && (e.status === "live" || e.status === "delayed"),
+  ).length;
 
   void getLive;
   const dataMode: "live" | "cached" | "delayed" | "demo" =
-    chainData?.rateLimited ? "delayed"
-    : chainData && Object.values(chainData.enriched).some((v) => v !== null) ? "live"
+    chainRateLimited ? "delayed"
+    : chainStatus === "live" ? "live"
+    : chainStatus === "delayed" ? "delayed"
+    : chainStatus === "stale" ? "cached"
     : anyLive ? "cached"
     : "demo";
 
