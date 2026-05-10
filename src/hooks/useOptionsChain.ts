@@ -6,7 +6,7 @@
  * should prefer reading envelopes via `getEnvelope(key)`.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchOptionsChainEnvelopes,
@@ -20,6 +20,7 @@ import {
   type DataStatus,
   type TrustEnvelope,
 } from "@/services/trust";
+import { loadOptionsSnapshot, saveOptionsSnapshot } from "@/lib/scanSnapshot.client";
 
 export interface UseOptionsChainResult {
   envelopes: Record<string, TrustEnvelope<EnrichedContract>>;
