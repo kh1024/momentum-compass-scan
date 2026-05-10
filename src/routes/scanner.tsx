@@ -351,6 +351,9 @@ function Scanner() {
     : anyLive ? "cached"
     : "demo";
 
+  const { data: backendHealth } = useBackendHealth();
+  const backendOffline = backendHealth?.status === "offline";
+
   return (
     <div className="space-y-4">
       {/* ---- Header -------------------------------------------------------- */}
