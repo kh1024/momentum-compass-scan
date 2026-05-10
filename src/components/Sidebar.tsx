@@ -114,8 +114,15 @@ export function Sidebar({
   // re-renders this whole sidebar every second and (via the parent) was
   // contributing to the trade-card flicker on the dashboard.
   const [, setTick] = useState(0);
+  // Market-open state is computed client-side after mount to keep SSR and
+  // first-render output identical (no hydration mismatch).
+  const [marketOpen, setMarketOpen] = useState(false);
   useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    setMarketOpen(isMarketOpen());
+    const id = setInterval(() => {
+      setTick((n) => n + 1);
+      setMarketOpen(isMarketOpen());
+    }, 30_000);
     return () => clearInterval(id);
   }, []);
 
