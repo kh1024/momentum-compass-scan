@@ -98,6 +98,10 @@ const Input = z.object({
     )
     .min(1)
     .max(25),
+  /** User-selected contract preference mode (defaults to Balanced when omitted). */
+  preferenceMode: z.enum(["Balanced", "Conservative", "Aggressive", "Lottery"]).optional(),
+  /** Max premium per contract in $ (defaults to 500). */
+  maxContractCost: z.number().positive().max(50_000).optional(),
 });
 
 
