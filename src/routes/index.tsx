@@ -441,6 +441,24 @@ function Dashboard() {
         onToggleAutoRefresh={() => setAutoRefresh((v) => !v)}
       />
 
+      {!regimeLive && !anyLive && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.04] px-4 py-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse-dot" />
+            <span className="font-semibold uppercase tracking-wider text-amber-500">Live market data unavailable</span>
+            <span className="text-muted-foreground">
+              {isMarketOpen() ? "Quote provider is not responding — retrying." : "Market closed — last verified scan shown below once available."}
+            </span>
+          </div>
+          <button
+            onClick={onRefreshQuotesOnly}
+            className="rounded-md border border-border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-foreground/80 hover:bg-muted"
+          >
+            Retry quotes
+          </button>
+        </div>
+      )}
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <Stat label="Total" value={counts.total} />
