@@ -172,7 +172,7 @@ function Scanner() {
     [allMockCandidates],
   );
 
-  const max = scannerSettings?.maxTickersPerScan ?? 12;
+  const max = Math.min(scanLimit, scannerSettings?.maxTickersPerScan ?? 50);
   const scanPicks = useMemo(() => picks.slice(0, max), [picks, max]);
 
   const {
