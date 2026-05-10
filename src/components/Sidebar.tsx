@@ -13,6 +13,7 @@ import { isMarketOpen } from "@/lib/marketHours";
 // secondary surface, only shown when the market is open or dev mode is on.
 const NAV = [
   { to: "/", icon: LayoutDashboard, label: "Next-Day & Swing" },
+  { to: "/scanner", icon: ScanSearch, label: "Scanner" },
   { to: "/watchlist", icon: Star, label: "Watchlist" },
   { to: "/reddit-signals", icon: MessageSquare, label: "Reddit Signals" },
 ] as const;
@@ -20,7 +21,6 @@ const NAV = [
 const NAV_LIVE = { to: "/live", icon: Zap, label: "Live (market hours)" } as const;
 
 const NAV_DEV = [
-  { to: "/scanner", icon: ScanSearch, label: "Scanner" },
   { to: "/performance", icon: TrendingUp, label: "Performance" },
   { to: "/patterns", icon: Activity, label: "Patterns" },
   { to: "/io-data", icon: FlaskConical, label: "Data Inspector" },
