@@ -32,52 +32,134 @@ function safeWindow(): Window | null {
   return typeof window === "undefined" ? null : window;
 }
 
-function isVerifiedEnrichment(r: EnrichmentResult | null | undefined): r is EnrichmentResult {
-  if (!r || typeof r !== "object") return false;
-  if (r.rateLimited) return false;
-  const enriched = r.enriched ?? {};
-  for (const v of Object.values(enriched)) {
-    if (v && v.contract) return true;
+/** Dev-mode logger. Production builds stay silent unless DEBUG flag is set. */
+function logSnapshot(level: "info" | "warn", key: string, reason: string, extra?: unknown) {
+  const w = safeWindow();
+  const debugOn =
+    !!w && (w.localStorage.getItem("debug:snapshots") === "1" || import.meta.env?.DEV);
+  if (!debugOn) return;
+  const tag = `[snapshot:${key}]`;
+  if (level === "warn") console.warn(tag, reason, extra ?? "");
+  else console.info(tag, reason, extra ?? "");
+}
+
+/** Purge a corrupt entry so it can't be re-evaluated on every paint. */
+function purge(key: string, reason: string) {
+  const w = safeWindow();
+  if (!w) return;
+  try {
+    w.localStorage.removeItem(key);
+    logSnapshot("warn", key, `purged: ${reason}`);
+  } catch {
+    /* ignore */
   }
-  return false;
+}
+
+/** Structural validation result with a human-readable reason. */
+type ValidationResult = { ok: true } | { ok: false; reason: string };
+
+function validateEnrichment(r: unknown): ValidationResult {
+  if (!r || typeof r !== "object") return { ok: false, reason: "result not an object" };
+  const er = r as Partial<EnrichmentResult>;
+  if (er.rateLimited) return { ok: false, reason: "rate-limited payload" };
+  const enriched = (er.enriched ?? {}) as Record<string, { contract?: unknown } | undefined>;
+  if (typeof enriched !== "object" || enriched === null)
+    return { ok: false, reason: "missing enriched map" };
+  let hasContract = false;
+  for (const v of Object.values(enriched)) {
+    if (v && typeof v === "object" && "contract" in v && v.contract) {
+      hasContract = true;
+      break;
+    }
+  }
+  if (!hasContract) return { ok: false, reason: "no enriched contracts in payload" };
+  return { ok: true };
+}
+
+function isVerifiedEnrichment(r: EnrichmentResult | null | undefined): r is EnrichmentResult {
+  return validateEnrichment(r).ok;
 }
 
 /**
  * Generic loader/saver. Validation predicate guards against overwriting good
  * data with broken refreshes — callers can pass their own shape check.
  */
-function loadAt<T>(key: string, pickKey: string, isValid: (r: T) => boolean): BaseSnapshot<T> | null {
+function loadAt<T>(
+  key: string,
+  pickKey: string,
+  validate: (r: unknown) => ValidationResult,
+): BaseSnapshot<T> | null {
   const w = safeWindow();
   if (!w) return null;
+  let raw: string | null = null;
   try {
-    const raw = w.localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as BaseSnapshot<T>;
-    if (!parsed || typeof parsed.savedAt !== "number") return null;
-    if (Date.now() - parsed.savedAt > MAX_AGE_MS) return null;
-    if (parsed.pickKey !== pickKey) return null;
-    if (!isValid(parsed.result)) return null;
-    return parsed;
-  } catch {
+    raw = w.localStorage.getItem(key);
+  } catch (e) {
+    logSnapshot("warn", key, "localStorage read failed", e);
     return null;
   }
+  if (!raw) return null;
+
+  let parsed: BaseSnapshot<T> | null = null;
+  try {
+    parsed = JSON.parse(raw) as BaseSnapshot<T>;
+  } catch (e) {
+    purge(key, "JSON parse failed");
+    logSnapshot("warn", key, "JSON parse failed", e);
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    purge(key, "envelope not an object");
+    return null;
+  }
+  if (typeof parsed.savedAt !== "number" || !Number.isFinite(parsed.savedAt)) {
+    purge(key, "missing/invalid savedAt");
+    return null;
+  }
+  if (typeof parsed.pickKey !== "string") {
+    purge(key, "missing pickKey");
+    return null;
+  }
+  const age = Date.now() - parsed.savedAt;
+  if (age > MAX_AGE_MS) {
+    purge(key, `expired (${Math.round(age / 3_600_000)}h old)`);
+    return null;
+  }
+  if (parsed.pickKey !== pickKey) {
+    // Normal case: user reordered picks. Don't purge — another mount may match.
+    logSnapshot("info", key, "pickKey mismatch (cache miss, kept)");
+    return null;
+  }
+  const check = validate(parsed.result);
+  if (!check.ok) {
+    purge(key, `invalid result: ${check.reason}`);
+    return null;
+  }
+  logSnapshot("info", key, `hydrated (age ${Math.round(age / 1000)}s)`);
+  return parsed;
 }
 
 function saveAt<T>(
   key: string,
   pickKey: string,
   result: T,
-  isValid: (r: T) => boolean,
+  validate: (r: unknown) => ValidationResult,
   marketSession?: string,
 ): boolean {
   const w = safeWindow();
   if (!w) return false;
-  if (!isValid(result)) return false;
+  const check = validate(result);
+  if (!check.ok) {
+    logSnapshot("info", key, `refused to save: ${check.reason}`);
+    return false;
+  }
   try {
     const snap: BaseSnapshot<T> = { pickKey, result, savedAt: Date.now(), marketSession };
     w.localStorage.setItem(key, JSON.stringify(snap));
     return true;
-  } catch {
+  } catch (e) {
+    logSnapshot("warn", key, "localStorage write failed", e);
     return false;
   }
 }
