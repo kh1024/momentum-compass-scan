@@ -209,19 +209,75 @@ function publicAdapter(q: PublicQuote): SourceQuote {
   };
 }
 
+// ── CoinGecko (free, no key — crypto only) ──
+// Public free tier: ~10–30 req/min from a given IP. We hit the simple-price
+// endpoint which is the cheapest and serves USD price + 24h change in one call.
+const COINGECKO_ID_MAP: Record<string, string> = {
+  "BTC-USD": "bitcoin",
+  "ETH-USD": "ethereum",
+  "SOL-USD": "solana",
+  "BNB-USD": "binancecoin",
+  "XRP-USD": "ripple",
+  "ADA-USD": "cardano",
+  "DOGE-USD": "dogecoin",
+  "AVAX-USD": "avalanche-2",
+  "LINK-USD": "chainlink",
+  "MATIC-USD": "matic-network",
+  "DOT-USD": "polkadot",
+  "LTC-USD": "litecoin",
+};
+
+function coingeckoId(symbol: string): string | null {
+  const upper = symbol.toUpperCase();
+  return COINGECKO_ID_MAP[upper] ?? null;
+}
+
+async function fetchCoinGecko(symbol: string): Promise<SourceQuote | null> {
+  const id = coingeckoId(symbol);
+  if (!id) return null;
+  const sym = symbol.toUpperCase();
+  try {
+    const url =
+      `https://api.coingecko.com/api/v3/simple/price?ids=${id}` +
+      `&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true`;
+    const r = await fetchWithRetry(url, {
+      headers: { Accept: "application/json", "User-Agent": "MomentumAI/1.0" },
+    });
+    if (!r.ok) return null;
+    const j = (await r.json()) as Record<
+      string,
+      { usd?: number; usd_24h_change?: number; usd_24h_vol?: number; last_updated_at?: number }
+    >;
+    const row = j[id];
+    const price = Number(row?.usd);
+    if (!isFinite(price) || price <= 0) return null;
+    const changePct = Number(row?.usd_24h_change ?? 0);
+    const change = isFinite(changePct) ? price * (changePct / 100) : 0;
+    const volume = Number(row?.usd_24h_vol ?? 0);
+    const ts = Number(row?.last_updated_at) > 0 ? Number(row?.last_updated_at) * 1000 : Date.now();
+    return { source: "coingecko", symbol: sym, price, change, changePct, volume, ts };
+  } catch (e) {
+    console.warn(`[coingecko] ${sym}`, e);
+    return null;
+  }
+}
+
 /**
- * Pull from every available source in parallel. Free sources (Yahoo, Stooq)
- * are ALWAYS queried so we degrade gracefully when Massive is disabled,
- * cooling down, or returning errors. Massive is only attempted when it is
- * configured, enabled in Settings, and not currently rate-limited.
+ * Pull from every available source in parallel. Free sources (Yahoo, Stooq,
+ * CoinGecko) are ALWAYS queried so we degrade gracefully when Massive is
+ * disabled, cooling down, or returning errors. Massive is only attempted when
+ * it is configured, enabled in Settings, and not currently rate-limited.
  */
 async function fetchAllSources(symbol: string): Promise<SourceQuote[]> {
-  // Crypto pairs (e.g. BTC-USD, SOL-USD) are only supported by Yahoo. Skip the
-  // equity-only providers to avoid burning rate limits on guaranteed errors.
+  // Crypto pairs (e.g. BTC-USD, SOL-USD) — query CoinGecko (primary, no key)
+  // and Yahoo (fallback). Stooq/Finnhub/Massive don't carry crypto.
   const isCrypto = /-USD$/i.test(symbol);
   if (isCrypto) {
-    const y = await fetchYahoo(symbol).catch(() => null);
-    return y ? [y] : [];
+    const [cg, y] = await Promise.all([
+      fetchCoinGecko(symbol).catch(() => null),
+      fetchYahoo(symbol).catch(() => null),
+    ]);
+    return [cg, y].filter((q): q is SourceQuote => q !== null);
   }
 
   // Free fallbacks first — these never depend on Massive's state.
