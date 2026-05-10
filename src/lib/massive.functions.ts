@@ -113,3 +113,14 @@ export const resetCacheStatsFn = createServerFn({ method: "POST" }).handler(
     return { ok: true };
   },
 );
+
+export const getThrottleStateFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ snapshots: ThrottleSnapshot[] }> => ({ snapshots: getAllThrottleSnapshots() }),
+);
+
+export const resetThrottleStateFn = createServerFn({ method: "POST" }).handler(
+  async (): Promise<{ ok: true }> => {
+    resetThrottle();
+    return { ok: true };
+  },
+);
