@@ -183,6 +183,14 @@ export function NavBar() {
       /* ── Pulse animation for live dot ── */
       @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
       .animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite !important; }
+
+      /* ── Fade-in for rotating insights ── */
+      @keyframes fadein { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+      .animate-fadein { animation: fadein 350ms ease-out !important; }
+
+      /* ── Marquee for live ticker ── */
+      @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+      .animate-marquee { animation: marquee 45s linear infinite; }
     `;
     document.head.appendChild(el);
   }, []);
@@ -198,28 +206,38 @@ export function NavBar() {
       price: spyQ?.price ?? MOCK_REGIME.spy.price,
       changePct: spyQ?.changePct ?? MOCK_REGIME.spy.changePct,
       trend: spyQ ? trendOf(spyQ.changePct) : MOCK_REGIME.spy.trend,
-      sources: spyQ ? Object.keys(spyQ.sources ?? {}) : [],
-      agreement: spyQ?.agreement,
     },
     {
       symbol: "QQQ",
       price: qqqQ?.price ?? MOCK_REGIME.qqq.price,
       changePct: qqqQ?.changePct ?? MOCK_REGIME.qqq.changePct,
       trend: qqqQ ? trendOf(qqqQ.changePct) : MOCK_REGIME.qqq.trend,
-      sources: qqqQ ? Object.keys(qqqQ.sources ?? {}) : [],
-      agreement: qqqQ?.agreement,
     },
     {
       symbol: "SMH",
       price: smhQ?.price ?? MOCK_REGIME.smh.price,
       changePct: smhQ?.changePct ?? MOCK_REGIME.smh.changePct,
       trend: smhQ ? trendOf(smhQ.changePct) : MOCK_REGIME.smh.trend,
-      sources: smhQ ? Object.keys(smhQ.sources ?? {}) : [],
-      agreement: smhQ?.agreement,
     },
   ];
 
-  return <Sidebar markets={markets} live={live} regime={MOCK_REGIME.bias} />;
+  const updatedAt = Math.max(spyQ?.ts ?? 0, qqqQ?.ts ?? 0, smhQ?.ts ?? 0) || null;
+  const insights = aiInsights({
+    spy: spyQ ? { symbol: "SPY", changePct: spyQ.changePct } : undefined,
+    qqq: qqqQ ? { symbol: "QQQ", changePct: qqqQ.changePct } : undefined,
+    smh: smhQ ? { symbol: "SMH", changePct: smhQ.changePct } : undefined,
+    bias: MOCK_REGIME.bias,
+  });
+
+  return (
+    <Sidebar
+      markets={markets}
+      live={live}
+      updatedAt={updatedAt}
+      regime={MOCK_REGIME.bias}
+      insights={insights}
+    />
+  );
 }
 
 export function Disclaimer() {
