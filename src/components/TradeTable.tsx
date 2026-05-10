@@ -1,5 +1,6 @@
 import type { TradeCandidate, Label } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Tip, TIPS } from "@/components/Tip";
 
 const LABEL_COLOR: Record<Label, string> = {
   "Buy Now":            "text-[var(--color-buy-now)]",
@@ -76,29 +77,37 @@ export function TradeTable({
       <table className="w-full text-[11px] font-mono">
         <thead className="sticky top-0 z-10 border-b border-border bg-muted/30 text-[9px] uppercase tracking-widest text-muted-foreground backdrop-blur">
           <tr>
-            {[
-              ["", "w-1"],
-              ["Ticker", "min-w-[4rem]"],
-              ["Dir", "w-12"],
-              ["Label", "min-w-[9rem]"],
-              ["Score", "text-right w-12"],
-              ["Price", "text-right w-20"],
-              ["Exp", "w-16"],
-              ["Strike", "text-right w-16"],
-              ["Ask", "text-right w-14"],
-              ["Cost", "text-right w-14"],
-              ["Δ", "text-right w-10"],
-              ["IV", "text-right w-12"],
-              ["DTE", "text-right w-10"],
-              ["BE+", "text-right w-12"],
-              ["Vol", "text-right w-14"],
-              ["OI", "text-right w-14"],
-              ["Sprd", "text-right w-12"],
-              ["Trigger", "min-w-[6rem]"],
-              ["Reason", "min-w-[12rem]"],
-              ["", "w-8"],
-            ].map(([h, cls], i) => (
-              <th key={i} className={cn("px-2 py-1.5 text-left whitespace-nowrap", cls)}>{h}</th>
+            {(
+              [
+                ["", "w-1", null],
+                ["Ticker", "min-w-[4rem]", null],
+                ["Dir", "w-12", null],
+                ["Label", "min-w-[9rem]", null],
+                ["Score", "text-right w-12", TIPS.score],
+                ["Price", "text-right w-20", TIPS.price],
+                ["Exp", "w-16", null],
+                ["Strike", "text-right w-16", TIPS.strike],
+                ["Ask", "text-right w-14", TIPS.ask],
+                ["Cost", "text-right w-14", TIPS.cost],
+                ["Δ", "text-right w-10", TIPS.delta],
+                ["IV", "text-right w-12", TIPS.iv],
+                ["DTE", "text-right w-10", TIPS.dte],
+                ["BE+", "text-right w-12", TIPS.breakeven],
+                ["Vol", "text-right w-14", TIPS.volume],
+                ["OI", "text-right w-14", TIPS.oi],
+                ["Sprd", "text-right w-12", TIPS.spread],
+                ["Trigger", "min-w-[6rem]", null],
+                ["Reason", "min-w-[12rem]", null],
+                ["", "w-8", null],
+              ] as [string, string, React.ReactNode][]
+            ).map(([h, cls, tip], i) => (
+              <th key={i} className={cn("px-2 py-1.5 text-left whitespace-nowrap", cls)}>
+                {tip ? (
+                  <Tip content={tip} side="bottom">
+                    <span className="cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-2">{h}</span>
+                  </Tip>
+                ) : h}
+              </th>
             ))}
           </tr>
         </thead>
@@ -130,11 +139,15 @@ export function TradeTable({
                 <td className={cn("px-2 py-1 font-bold text-[10px]",
                   t.direction === "CALL" ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]"
                 )}>
-                  {t.direction}
+                  <Tip content={TIPS.direction[t.direction as "CALL" | "PUT"] ?? TIPS.direction.CALL}>
+                    <span className="cursor-help">{t.direction}</span>
+                  </Tip>
                 </td>
 
                 <td className={cn("px-2 py-1 font-semibold whitespace-nowrap", LABEL_COLOR[t.label])}>
-                  {t.label}
+                  <Tip content={(TIPS.label as Record<string, React.ReactNode>)[t.label] ?? <span>{t.label}</span>}>
+                    <span className="cursor-help">{t.label}</span>
+                  </Tip>
                 </td>
 
                 <td className="px-2 py-1 text-right font-semibold tabular-nums">
