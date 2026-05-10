@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Sparkles, TrendingUp, TrendingDown, Activity, Zap, Radio } from "lucide-react";
-import { MOCK_CANDIDATES, MOCK_REGIME } from "@/lib/mockData";
+import { MOCK_CANDIDATES } from "@/lib/mockData";
 import { CompactTradeCard } from "@/components/CompactTradeCard";
 import { TradeDetailDrawer } from "@/components/TradeDetailDrawer";
 import { enrichWithPublicChain, type EnrichmentResult } from "@/lib/chain.functions";
