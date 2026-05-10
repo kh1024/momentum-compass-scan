@@ -284,9 +284,16 @@ function Scanner() {
   const activeGroupCount = ALL_GROUPS.filter((g) => universeEnabled[g]).length;
 
   // ---- DTE filter ----------------------------------------------------------
-  const matchesDte = (dte: number, f: DteBucketFilter): boolean => {
+  // Filter against the SAME bucket the row will be displayed in (sectionRouted)
+  // so the visible expiration range exactly matches the chosen filter.
+  const matchesDte = (c: TradeCandidate, f: DteBucketFilter): boolean => {
     if (f === "ALL") return true;
-    return expirationBucketFor(dte) === f;
+    if (f === "7day") {
+      // Custom 7-day swing window: raw DTE 4–10 inclusive.
+      return c.contract.dte >= 4 && c.contract.dte <= 10;
+    }
+    const bucket = (c.sectionRouted ?? expirationBucketFor(c.contract.dte)) as ExpirationBucket;
+    return bucket === f;
   };
 
   // ---- Filtered & sorted rows ----------------------------------------------
@@ -294,7 +301,7 @@ function Scanner() {
     const rows = candidates
       .filter((c) => dir === "ALL" || c.direction === dir)
       .filter((c) => capFilter === "ALL" || c.cap === capFilter)
-      .filter((c) => matchesDte(c.contract.dte, dteFilter))
+      .filter((c) => matchesDte(c, dteFilter))
       .filter((c) => c.contract.cost <= maxCost)
       .filter((c) => !verifiedOnly || c.contract.source === "chain")
       .filter((c) => !hideTrueAvoids || c.label !== "Avoid Ticker")
