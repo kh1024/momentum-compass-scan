@@ -1,4 +1,5 @@
 import { getScannerSettings } from "./scannerQueue";
+import { getThrottleAdjustment, type ThrottleChannel } from "./dynamicThrottle";
 
 export const MAX_CONCURRENT_REQUESTS = getScannerSettings().maxConcurrentRequests;
 
@@ -7,6 +8,9 @@ export const MAX_CONCURRENT_REQUESTS = getScannerSettings().maxConcurrentRequest
  * 600ms ≈ 100 req/min — well under Massive's 5 req/s soft limit and
  * keeps us out of 429 territory on hot tickers like RIVN.
  * Override via MASSIVE_MIN_SPACING_MS.
+ *
+ * Dynamic throttle adds extraSpacingMs on top of this when the channel is
+ * unhealthy (high latency / errors / 429s) and removes it as it recovers.
  */
 const MIN_SPACING_MS = Number(process.env.MASSIVE_MIN_SPACING_MS ?? 1400);
 
@@ -15,13 +19,19 @@ export class RequestLimiter {
   private queue: Array<() => void> = [];
   private nextSlot = 0;
 
-  async run<T>(task: () => Promise<T>, maxConcurrent = getScannerSettings().maxConcurrentRequests): Promise<T> {
-    await this.acquire(maxConcurrent);
+  constructor(private channel: ThrottleChannel = "massive") {}
+
+  async run<T>(task: () => Promise<T>, maxConcurrent?: number): Promise<T> {
+    const adj = getThrottleAdjustment(this.channel);
+    const configured = maxConcurrent ?? getScannerSettings().maxConcurrentRequests;
+    // Effective concurrency floor of 1 so we never fully stall.
+    const effective = Math.max(1, Math.floor(configured * adj.concurrencyMult));
+    await this.acquire(effective);
     try {
-      // Pace requests: never start a new one within MIN_SPACING_MS of the previous.
       const now = Date.now();
+      const spacing = MIN_SPACING_MS + adj.extraSpacingMs;
       const wait = Math.max(0, this.nextSlot - now);
-      this.nextSlot = Math.max(now, this.nextSlot) + MIN_SPACING_MS;
+      this.nextSlot = Math.max(now, this.nextSlot) + spacing;
       if (wait > 0) await new Promise((r) => setTimeout(r, wait));
       return await task();
     } finally {
@@ -49,4 +59,4 @@ export class RequestLimiter {
   }
 }
 
-export const massiveLimiter = new RequestLimiter();
+export const massiveLimiter = new RequestLimiter("massive");
