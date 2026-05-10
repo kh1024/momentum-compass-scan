@@ -134,7 +134,7 @@ function PerformancePage() {
   }
 
   return (
-    <div className="space-y-6 px-6 py-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -295,12 +295,12 @@ function PerformancePage() {
             <CardContent className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart>
-                  <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
-                  <XAxis type="number" dataKey="aiScore" name="Score" domain={[40, 100]} stroke="#71717a" />
-                  <YAxis type="number" dataKey="ret" name="Return" tickFormatter={(v: number) => `${(v*100).toFixed(0)}%`} stroke="#71717a" />
+                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                  <XAxis type="number" dataKey="aiScore" name="Score" domain={[40, 100]} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis type="number" dataKey="ret" name="Return" tickFormatter={(v: number) => `${(v*100).toFixed(0)}%`} stroke="hsl(var(--muted-foreground))" />
                   <ZAxis range={[60, 60]} />
-                  <Tooltip formatter={(v: number, n) => n === "ret" ? signed(v) : v} contentStyle={{ background: "#18181b", border: "1px solid #27272a" }} />
-                  <Scatter data={filtered.map(p => ({ aiScore: p.aiScore, ret: p.tracked.finalReturnPct, name: p.ticker }))} fill="#10b981" />
+                  <Tooltip formatter={(v: number, n) => n === "ret" ? signed(v) : v} contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))" }} />
+                  <Scatter data={filtered.map(p => ({ aiScore: p.aiScore, ret: p.tracked.finalReturnPct, name: p.ticker }))} fill="hsl(var(--primary))" />
                 </ScatterChart>
               </ResponsiveContainer>
             </CardContent>
@@ -464,14 +464,14 @@ function BucketCard({
       <CardContent className="h-60">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data}>
-            <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
-            <XAxis dataKey="bucket" stroke="#71717a" fontSize={11} />
-            <YAxis tickFormatter={(v: number) => `${(v*100).toFixed(0)}%`} stroke="#71717a" fontSize={11} />
+            <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
+            <XAxis dataKey="bucket" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+            <YAxis tickFormatter={(v: number) => `${(v*100).toFixed(0)}%`} stroke="hsl(var(--muted-foreground))" fontSize={11} />
             <Tooltip
               formatter={(v: number) => `${(v*100).toFixed(1)}%`}
-              contentStyle={{ background: "#18181b", border: "1px solid #27272a" }}
+              contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))" }}
             />
-            <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
