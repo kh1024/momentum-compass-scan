@@ -76,19 +76,28 @@ function validateEnrichment(r: unknown): ValidationResult {
   if (er.rateLimited) return { ok: false, reason: "rate-limited payload" };
   const enriched = (er.enriched ?? {}) as Record<
     string,
-    { contract?: unknown } | undefined
+    { contract?: unknown; underlyingPrice?: unknown } | undefined
   >;
   if (typeof enriched !== "object" || enriched === null)
     return { ok: false, reason: "missing enriched map" };
   let hasContract = false;
+  let hasValidPrice = false;
   for (const v of Object.values(enriched)) {
     if (v && typeof v === "object" && "contract" in v && v.contract) {
       hasContract = true;
-      break;
+      const up = (v as { underlyingPrice?: unknown }).underlyingPrice;
+      if (typeof up === "number" && Number.isFinite(up) && up > 0) {
+        hasValidPrice = true;
+      }
     }
   }
   if (!hasContract)
     return { ok: false, reason: "no enriched contracts in payload" };
+  // Refuse to persist a snapshot where every row has a missing / invalid
+  // underlying price — that snapshot would hydrate the scanner with bad
+  // data on next cold start.
+  if (!hasValidPrice)
+    return { ok: false, reason: "no row has a valid underlying price" };
   return { ok: true };
 }
 
