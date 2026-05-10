@@ -3,6 +3,7 @@ import { logApiHealth } from "./apiHealthLogger";
 import { massiveLimiter } from "./rateLimiter";
 import { getScannerSettings } from "./scannerQueue";
 import { parseRetryAfterMs, retryWithBackoff } from "./retryWithBackoff";
+import { recordThrottleSample } from "./dynamicThrottle";
 
 const BASE = "https://api.massive.com";
 
