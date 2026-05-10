@@ -27,6 +27,7 @@ import { useRiskFilters } from "@/hooks/useRiskFilters";
 import { applyRiskFilters } from "@/lib/riskFilters";
 import { sectionFor, SECTION_TITLES, type SectionKey } from "@/lib/uiVocabulary";
 import { useDeveloperMode } from "@/hooks/useDeveloperMode";
+import { MarketIntelPanel } from "@/components/MarketIntelPanel";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Daily AI Picks — Momentum Options Scanner" }] }),
@@ -482,6 +483,8 @@ function Dashboard() {
         </div>
         <RegimeCard spy={spyQ} qqq={qqqQ} smh={smhQ} updatedAt={regimeUpdatedAt} isFetching={isScanning} />
       </div>
+
+      <MarketIntelPanel />
 
       <RefreshBar
         lastFullScanAt={lastFullScanAt}
