@@ -4,6 +4,10 @@ import { useCallback, useMemo, useRef } from "react";
 import { getQuotes } from "@/lib/quote.functions";
 import type { ConsensusQuote } from "@/lib/providers.server";
 
+interface UseLiveQuotesOptions {
+  refetchIntervalMs?: number | false;
+}
+
 /**
  * Live quote overlay across the app.
  * - Pulls consensus quotes (Yahoo + Stooq + any keyed providers) every 30s.
@@ -13,8 +17,9 @@ import type { ConsensusQuote } from "@/lib/providers.server";
  * - `get` and `anyLive` are STABLE references (closed over a ref) so consumers
  *   that depend on them don't re-render every tick.
  */
-export function useLiveQuotes(symbols: string[]) {
+export function useLiveQuotes(symbols: string[], options: UseLiveQuotesOptions = {}) {
   const fetchQuotes = useServerFn(getQuotes);
+  const refetchIntervalMs = options.refetchIntervalMs ?? 30_000;
   const unique = useMemo(
     () => Array.from(new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))).sort(),
     [symbols],
@@ -30,17 +35,20 @@ export function useLiveQuotes(symbols: string[]) {
     queryKey: ["live-quotes", key],
     queryFn: () => fetchQuotes({ data: { symbols: unique } }),
     enabled: unique.length > 0,
-    refetchInterval: (q) => {
+    refetchInterval: refetchIntervalMs === false ? false : (q) => {
       const d = q.state.data;
       if (d?.cooldownMs && d.cooldownMs > 0) {
         return Math.min(d.cooldownMs + 1_000, 10 * 60_000);
       }
-      return 30_000;
+      return refetchIntervalMs;
     },
     refetchOnWindowFocus: (q) =>
       !(q.state.data?.cooldownMs && q.state.data.cooldownMs > 0),
     refetchOnMount: false,
-    staleTime: 25_000,
+    staleTime:
+      typeof refetchIntervalMs === "number"
+        ? Math.max(Math.min(refetchIntervalMs - 5_000, refetchIntervalMs), 25_000)
+        : Infinity,
     retry: (count, err) => {
       const msg = err instanceof Error ? err.message : "";
       if (/rate.?limit|429/i.test(msg)) return false;
