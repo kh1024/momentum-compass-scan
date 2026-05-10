@@ -328,6 +328,7 @@ export async function probeAllProviders(): Promise<ProviderHealth[]> {
       massiveConfigured(), "Real-time quotes — MASSIVE_API_KEY", getMassiveCooldownStatus()),
     probe("public", () => fetchPublicQuote("SPY").then(q => q ? publicAdapter(q) : null),
       publicConfigured(), "Brokerage quotes — PUBLIC_COM_API_KEY", getPublicCooldownStatus()),
+    probe("finnhub", () => fetchFinnhub("SPY"), finnhubConfigured(), "Real-time quotes — FINNHUB_API_KEY"),
     probe("yahoo", () => fetchYahoo("SPY"), true, "Quotes feed — free, no key required"),
     probe("stooq", () => fetchStooq("SPY"), true, "EOD quotes — free, no key required"),
   ]);
