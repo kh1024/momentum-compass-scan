@@ -1,79 +1,111 @@
-# Contract Quality Scoring — Plan
+# Plan — Better Scanner, Same Buy Now Discipline
 
-Goal: Greeks, IV, spread, OI, and volume become a required scoring category and a hard gate. A great chart cannot rescue a bad contract; a great contract cannot rescue an inactive trigger; a real contract is never auto–Buy Now.
+Goal: surface more useful daily candidates without softening Buy Now rules. Restructure labels and add a contract-repair pass so a weak strike doesn't kill a strong ticker.
 
-## 1. New module: `src/lib/contractQuality.ts`
+## 1. Universe groups (data + UI)
 
-Pure function `scoreContractQuality(contract, { isLeaps, isYolo })` returns:
+- Add `src/lib/universe.ts` exporting four groups with the requested tickers:
+  `MEGA_LARGE`, `ETFS`, `MID_MOMENTUM`, `YOLO_REDDIT`.
+- Add `getActiveUniverse()` that combines enabled groups (defaults: all 4 on).
+- Persist per-group toggles in `localStorage` (`scanner.universe.<group>`).
+- Replace mock-driven candidate generation in `mockData.ts`/scanner with: build candidates from the active universe (still using mock OHLC/setup heuristics for now since we don't have full historical scan logic). Each ticker gets a synthesized candidate per its setup-type heuristic so the scanner has more rows to triage.
+- Universe toggles render as a chip group in the Scanner filter bar.
 
+## 2. New tiers + label set
+
+Extend `Label` in `src/lib/types.ts`:
+
+```text
+"Buy Now" | "Watchlist" | "Waiting on Trigger" | "Aggressive" |
+"Lotto" | "Near Miss" | "Find Better Strike" |
+"Avoid Contract" | "Avoid Ticker"
 ```
-{
-  score: number,           // 0–35
-  parts: { delta, theta, iv, spread, oi, volume }, // sub-points
-  blockers: string[],      // e.g. "Spread 18% > 15%"
-  downgrades: string[],    // soft warnings
-  tier: "buyNowEligible" | "watchlistOnly" | "yoloOnly" | "avoid"
-}
+
+Map old `"Avoid"` → either `"Avoid Contract"` (chart OK, contract fails after repair) or `"Avoid Ticker"` (chart fails). Keep `"Avoid"` as a legacy alias internally for back-compat in `disciplineGate.ts` callers.
+
+## 3. Contract auto-repair (`Find Better Contract`)
+
+New module `src/lib/contractAutoRepair.ts`:
+
+- Input: ticker, direction, original chain pick, full chain (when available), failure reasons.
+- If failures match {strike-fit, OI low, volume low, spread wide, breakeven far, missing IV/greeks/quote}, search:
+  1. Same expiration: 3 strikes below / 5 above.
+  2. ATM / near-trigger strikes.
+  3. Next expiration in same DTE bucket.
+- Score candidates by liquidity + delta-fit + spread; pick best that passes thresholds.
+- Hook into `chain.functions.ts` enrichment: when initial pick fails quality gate, run repair before returning. The repair output adds `repaired: true` and `repairReason`.
+- If repair finds a contract → label `Watchlist` (or `Aggressive` if liquidity is on the warning band).
+- If repair fails → label `Find Better Strike` (chart still good) — never `Avoid Ticker`.
+
+## 4. Waiting on Trigger
+
+In `disciplineGate.ts`, when contract passes quality but `triggerStatus !== "active"`:
+- Route to new bucket `waitingOnTrigger`.
+- Display label `Waiting on Trigger`.
+- Surface trigger level + suggested contract on the card.
+- Excluded from Buy Now regardless.
+
+## 5. Scanner mode (Strict / Balanced / Discovery)
+
+Add `scannerMode` setting (UI toggle, persisted in localStorage; default `Balanced`). Wire into the gate's threshold pack:
+
+- Strict: current hard rules, no warning bands.
+- Balanced (default): Buy Now still strict; OI 100–299 → "thin liquidity" warning + Watchlist; volume 50–99 → low-volume warning + Watchlist; spread 15–20% caps at Aggressive.
+- Discovery: include YOLO/Reddit setups, allow Lotto/Aggressive on lower-liquidity contracts, but Buy Now hard rules unchanged.
+
+Implement as a `ModePack` consumed by `disciplineGate`.
+
+## 6. DTE buckets
+
+Update `expirationBucketFor` and `expirationDates.ts`:
+
+```text
+weeklyLotto    : 0–6
+weekly         : 7–13
+shortSwing     : 14–30
+extendedSwing  : 31–45
+swingPlus      : 46–60   ← NEW
+leaps          : 180+
 ```
 
-Point bands (exactly as specified):
+Render each as a separate section. Update filter pills to include `46–60`.
 
-- Delta /8: 0.35–0.50 → 8; 0.25–0.34 or 0.51–0.60 → 5; 0.15–0.24 → 2 (yoloOnly); <0.15 → 0 (yoloOnly); >0.75 → 2 unless LEAPS.
-- Theta burn % /day /7: <3% → 7; 3–5% → 5; 5–8% → 3; >8% → 0 + Buy Now blocker; >10% → yoloOnly.
-- IV /6: <45% → 6; 45–60% → 5; 60–70% → 3; 70–85% → 1; >85% → 0 + yoloOnly.
-- Spread /6: <5% → 6; 5–10% → 5; 10–15% → 3; >15% → 0 + Buy Now blocker; >20% → avoid tier.
-- OI /4: 1000+ → 4; 500–999 → 3; 300–499 → 1 + downgrade; <300 → 0 + avoid tier.
-- Volume /4: 1000+ → 4; 250–999 → 3; 100–249 → 2; <100 → 0 + avoid tier.
+## 7. Filters
 
-Hard blockers (set tier to `avoid` for missing data, otherwise to `watchlistOnly` or `yoloOnly`): missing delta/theta/iv/bid/ask/oi/volume; spread>15%; spread>20% (avoid); delta<0.25 non-yolo (watchlistOnly); theta>8% (watchlistOnly); OI<300 (avoid); volume<100 (avoid).
+Replace single "Hide Avoids" with:
+- `Hide True Avoids` (default ON) — hides only `Avoid Ticker`. Near Miss / Find Better Strike / Avoid Contract still visible.
+- Per-tier visibility chips: Buy Now / Watchlist / Waiting on Trigger / Aggressive / Near Miss / Find Better Strike / Avoid Contract.
 
-LEAPS exception: delta 0.60–0.80 ideal; OI 300+ acceptable; theta gate relaxed.
+## 8. Top-bar counts
 
-## 2. Wire into scoring engine (`src/lib/scoringEngine.ts`)
+Add aggregate stats: Buy Now, Watchlist, Waiting on Trigger, Aggressive, Near Miss, Avoid Contract, Avoid Ticker, **Total scanned**, **Passed chart setup**, **Failed contract quality**. Also add the universe-active indicator (`4/4 groups · 58 tickers`).
 
-- Replace the existing inline `scoreOptionQuality` body with a thin wrapper that calls `scoreContractQuality` and returns just the numeric score (keeps callers compiling).
-- Export new helper `evaluateContractQuality` returning the full object.
-- `disciplinePenalties` adds entries from `contractQuality.blockers` (each -15) so they show in the existing penalty list.
-- `assignLabel` accepts a new `contractTier` field on `OverrideContext`:
-  - `tier === "avoid"` → force `Avoid`
-  - `tier === "watchlistOnly"` → cap at `Watchlist`
-  - `tier === "yoloOnly"` → cap at `Lotto`
-  - Real contract alone never promotes; existing trigger/above200 gates still apply.
+## 9. Files touched
 
-## 3. Candidate type + finalize path (`src/lib/types.ts`, `src/lib/applyLiveQuote.ts`)
+- `src/lib/types.ts` — extend `Label`.
+- `src/lib/universe.ts` — new.
+- `src/lib/contractAutoRepair.ts` — new.
+- `src/lib/scannerMode.ts` — new.
+- `src/lib/disciplineGate.ts` — new buckets, new labels, mode-pack thresholds, trigger routing.
+- `src/lib/optionQualityValidator.ts` / `expirationDates.ts` — Swing+ bucket.
+- `src/lib/chain.functions.ts` — call repair on failure.
+- `src/lib/mockData.ts` — synthesize candidates from universe groups.
+- `src/routes/scanner.tsx` — universe chips, mode toggle, new filters, new counts, sections per DTE bucket.
+- `src/routes/index.tsx` — new label colors + counts.
+- `src/components/Badges.tsx` — chip styles for new labels.
 
-Add to `TradeCandidate`:
-```
-setupScore, contractQualityScore, triggerScore, riskRewardScore,
-dataQualityScore, validationPenalty, finalTradableScore,
-contractQualityParts, contractBlockers
-```
-`finalizeCandidate` in `applyLiveQuote.ts` computes all five sub-scores, sums them, applies penalties, then calls `assignLabel` with `contractTier`.
+## 10. Out of scope (this pass)
 
-## 4. UI (`src/components/TradeCard.tsx`)
+- True scanning over historical OHLC (still uses mocked setups; Massive provides quotes/chains).
+- Persisting mode/universe to backend (localStorage only).
 
-Add a Contract Quality block showing:
-- Score `xx / 35` with the six sub-scores (Δ 8/8, Θ 5/7, IV 6/6, Spread 3/6, OI 4/4, Vol 3/4).
-- Red chip per blocker, amber per downgrade.
-- Six-line score panel: Setup / Contract Quality / Trigger / Risk-Reward / Data Quality / Final Tradable.
+## 11. Verification
 
-No new routes, no design-token changes.
+After build, manually open Scanner with each mode, confirm:
+- Total scanned ≥ active universe size.
+- Buy Now count unchanged in Strict (vs current Buy Now logic on existing tickers).
+- Near Miss appears with repair suggestions.
+- Waiting on Trigger lists trigger levels.
+- Hide True Avoids hides only `Avoid Ticker`.
 
-## 5. Tests (`src/lib/__tests__/contractQuality.test.ts`)
-
-10 cases: ideal swing call full marks; delta 0.20 non-yolo → watchlistOnly; theta 9% → blocker + watchlistOnly; spread 18% → blocker; spread 22% → avoid; OI 250 → avoid; volume 80 → avoid; missing IV → avoid; LEAPS delta 0.7 → full delta points; YOLO delta 0.18 → tier yoloOnly with partial credit.
-
-Plus 2 integration cases in `scannerRules.test.ts`: bad-contract candidate cannot be Buy Now even with score 95; great-contract candidate with inactive trigger stays Watchlist.
-
-## Out of scope
-
-- No new routes, no broker-comparison panel, no provenance drawer.
-- No mock-data toggle changes.
-- No edge function or schema changes.
-
-## Order of work
-
-1. `contractQuality.ts` + tests green.
-2. Wire into `scoringEngine` + `applyLiveQuote` + types.
-3. TradeCard UI block.
-4. Integration tests green.
+This is a multi-pass refactor, so I'll commit it as one cohesive change. Approve to proceed.

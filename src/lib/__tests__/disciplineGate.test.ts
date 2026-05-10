@@ -104,7 +104,7 @@ describe("runDisciplineGate", () => {
       contract: mkContract({ dte: 100 }), // excluded-short-term
     });
     const r = runDisciplineGate(c, { extendedSwingEnabled: true });
-    expect(r.displayLabel).toBe("Avoid");
+    expect(r.displayLabel).toBe("Avoid Ticker");
     expect(r.buyNowEligible).toBe(false);
   });
 
@@ -128,6 +128,6 @@ describe("runDisciplineGate", () => {
   it("Extended Swing disabled → DTE 33 hidden + Avoid", () => {
     const r = runDisciplineGate(mkCandidate(), { extendedSwingEnabled: false });
     expect(r.visible).toBe(false);
-    expect(r.finalLabel).toBe("Avoid");
+    expect(r.finalLabel).toBe("Avoid Ticker");
   });
 });

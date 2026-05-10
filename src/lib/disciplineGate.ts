@@ -32,8 +32,13 @@ import {
 } from "./optionQualityValidator";
 import { strikeIsBreakoutOnlyBeforeTrigger } from "./entryMode";
 
+export type ScannerMode = "Strict" | "Balanced" | "Discovery";
+
 export interface DisciplineGateOptions {
   extendedSwingEnabled: boolean;
+  /** Scanner mode — controls warning bands for Watchlist/Aggressive without
+   *  loosening the hard Buy Now rules. Default: "Balanced". */
+  mode?: ScannerMode;
 }
 
 export interface InvariantCheck {
@@ -247,6 +252,48 @@ export function runDisciplineGate(
 
   // If hidden, force Avoid.
   if (!route.visible) finalLabel = "Avoid";
+
+  // ----- Refine generic "Avoid"/"Watchlist" into the new tier vocabulary -----
+  // Trigger-not-active but contract is otherwise OK → "Waiting on Trigger".
+  const triggerOnlyBlocker =
+    checklist.blockers.length > 0 &&
+    checklist.blockers.every((b) => /^trigger /i.test(b));
+  if (
+    (finalLabel === "Watchlist" || finalLabel === "Aggressive") &&
+    triggerOnlyBlocker &&
+    (c.triggerStatus ?? "not-active") !== "active" &&
+    route.visible
+  ) {
+    finalLabel = "Waiting on Trigger";
+  }
+
+  // Borderline contract quality (OI 100–299, vol 50–99, spread 15–20%) on a
+  // chain contract that didn't get downgraded to Avoid → "Near Miss".
+  if (
+    k.source === "chain" &&
+    finalLabel === "Watchlist" &&
+    (
+      (k.openInterest >= 100 && k.openInterest < 300) ||
+      (k.volume >= 50 && k.volume < 100) ||
+      (k.spreadPct > 0.15 && k.spreadPct <= 0.20) ||
+      (k.breakevenMovePct > 0.08 && k.breakevenMovePct <= 0.15)
+    )
+  ) {
+    finalLabel = "Near Miss";
+  }
+
+  // Translate legacy "Avoid" into ticker-vs-contract distinction.
+  if (finalLabel === "Avoid") {
+    const dteFails = bucket === "excluded" || bucket === "excluded-short-term" ||
+      (bucket === "leaps-only" && c.setupType !== "LEAPS");
+    const sectionDisabled = bucket === "extended-swing" && !opts.extendedSwingEnabled;
+    if (dteFails || sectionDisabled || !route.visible) {
+      finalLabel = "Avoid Ticker";
+    } else {
+      // Chart bucket OK but contract fails — repair already searched in chain.functions
+      finalLabel = "Avoid Contract";
+    }
+  }
 
   // Reasons — the checklist itself drives this. Never the "no explicit
   // downgrade" fallback.

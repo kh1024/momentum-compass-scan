@@ -6,12 +6,13 @@ import type { OptionContract, Label, ExpirationBucket, EntryMode, TriggerStatus,
  * compile). New code should prefer `expirationBucketFor()`.
  */
 export type DteBucket =
-  | "excluded"            // < 7 DTE — excluded from normal scanner
+  | "excluded"            // < 1 DTE — excluded
   | "weekly-lotto"        // 1–6 DTE — only in dedicated 0DTE/Weekly section
   | "lotto-only"          // 7–13 DTE — max label = Lotto/Aggressive
   | "swing-eligible"      // 14–30 DTE — eligible for Buy Now / Watchlist
   | "extended-swing"      // 31–45 DTE — only in Extended Swing section
-  | "excluded-short-term" // 46–179 DTE — outside any normal section
+  | "swing-plus"          // 46–60 DTE — Swing+ (separate section)
+  | "excluded-short-term" // 61–179 DTE — outside any normal section
   | "leaps-only";         // 180–730 DTE — LEAPS only
 
 export interface ValidationResult {
@@ -28,6 +29,7 @@ export function dteBucketFor(dte: number): DteBucket {
   if (dte <= 13) return "lotto-only";
   if (dte <= 30) return "swing-eligible";
   if (dte <= 45) return "extended-swing";
+  if (dte <= 60) return "swing-plus";
   if (dte < 180) return "excluded-short-term";
   if (dte <= 730) return "leaps-only";
   return "excluded";
@@ -40,6 +42,7 @@ export function expirationBucketFor(dte: number): ExpirationBucket {
   if (dte <= 13) return "lotto-aggressive";
   if (dte <= 30) return "short-term-swing";
   if (dte <= 45) return "extended-swing";
+  if (dte <= 60) return "swing-plus";
   if (dte < 180) return "excluded";
   if (dte <= 730) return "leaps";
   return "excluded";
@@ -50,6 +53,7 @@ export const EXPIRATION_BUCKET_LABEL: Record<ExpirationBucket, string> = {
   "lotto-aggressive": "7–13D Lotto/Aggressive",
   "short-term-swing": "14–30D Short-Term Swing",
   "extended-swing": "31–45D Extended Swing",
+  "swing-plus": "46–60D Swing+",
   "leaps": "180–730D LEAPS",
   "excluded": "Outside scanner buckets",
 };
@@ -172,6 +176,19 @@ export function gateLabel(
       if (k.volume < 100 || k.openInterest < 500) next = cap("Watchlist");
       if (absD < 0.35 || absD > 0.55) next = cap("Watchlist");
       if (k.thetaBurnPct > 0.05) next = cap("Watchlist");
+    }
+  }
+
+  // Swing+ (46–60D) — treat like extended swing but slightly looser delta band.
+  // Always allowed (no extendedSwingEnabled gate); routes to its own section.
+  if (opts.dteBucket === "swing-plus" && !opts.isLeaps) {
+    const k = opts.contract;
+    if (k) {
+      const absD = Math.abs(k.delta);
+      if (k.thetaBurnPct > 0.06) next = cap("Watchlist");
+      if (k.spreadPct > 0.15) next = cap("Watchlist");
+      if (k.volume < 100 || k.openInterest < 300) next = cap("Watchlist");
+      if (absD < 0.30 || absD > 0.60) next = cap("Watchlist");
     }
   }
 
