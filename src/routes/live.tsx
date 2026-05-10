@@ -186,6 +186,8 @@ function LiveOpportunities() {
         </div>
       </div>
 
+      <ContractPreferenceToolbar />
+
       {/* AI commentary banner */}
       <div className="rounded-xl border border-[var(--color-bull)]/20 bg-gradient-to-r from-[var(--color-bull)]/[0.06] to-transparent px-4 py-3">
         <div className="flex items-start gap-3">
