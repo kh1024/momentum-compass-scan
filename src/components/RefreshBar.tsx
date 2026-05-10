@@ -151,8 +151,10 @@ export function RefreshBar(props: RefreshBarProps) {
               tone.pill,
             )}
           >
-            <span className={cn("h-1.5 w-1.5 rounded-full", tone.dot)} />
-            {HEALTH_LABEL[health]}
+            <span className={cn("h-1.5 w-1.5 rounded-full transition-colors duration-500", tone.dot)} />
+            <span key={HEALTH_LABEL[health]} className="animate-fade-in">
+              {HEALTH_LABEL[health]}
+            </span>
           </span>
 
           {nextRefresh && (
