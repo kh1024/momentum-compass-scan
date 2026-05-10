@@ -110,6 +110,40 @@ function Scanner() {
   // ---- View ----------------------------------------------------------------
   const [view, setView] = useState<ViewMode>("table");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [scanLimit, setScanLimit] = useState(30);
+  type Preset = "all" | "lottos" | "reddit" | "leaps" | "buynow" | "aggressive" | "watchlist";
+  const [preset, setPreset] = useState<Preset>("all");
+
+  function applyPreset(p: Preset) {
+    setPreset(p);
+    // Reset narrow filters first
+    setHiddenLabels(new Set());
+    setIncludeLeaps(true);
+    setIncludeYolo(true);
+    setHideTrueAvoids(true);
+    setDir("ALL");
+    setCapFilter("ALL");
+    setDteFilter("ALL");
+    setMaxCost(5000);
+    if (p === "lottos") {
+      setHiddenLabels(new Set<Label>(["Buy Now", "Watchlist", "Waiting on Trigger", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
+      setDteFilter("weekly-lotto");
+    } else if (p === "reddit") {
+      setIncludeLeaps(false);
+      // YOLO universe must be on
+      if (!universeEnabled.YOLO_REDDIT) toggleGroup("YOLO_REDDIT");
+    } else if (p === "leaps") {
+      setIncludeYolo(false);
+      setDteFilter("leaps");
+    } else if (p === "buynow") {
+      setHiddenLabels(new Set<Label>(["Watchlist", "Waiting on Trigger", "Aggressive", "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
+    } else if (p === "aggressive") {
+      setHiddenLabels(new Set<Label>(["Buy Now", "Watchlist", "Waiting on Trigger", "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
+    } else if (p === "watchlist") {
+      setHiddenLabels(new Set<Label>(["Buy Now", "Aggressive", "Lotto", "Near Miss", "Find Better Strike", "Avoid Contract", "Avoid Ticker", "Avoid"]));
+    }
+  }
+
 
   // ---- Active universe → candidates ----------------------------------------
   const activeTickers = useMemo(() => getActiveUniverse(universeEnabled), [universeEnabled]);
@@ -138,7 +172,7 @@ function Scanner() {
     [allMockCandidates],
   );
 
-  const max = scannerSettings?.maxTickersPerScan ?? 12;
+  const max = Math.min(scanLimit, scannerSettings?.maxTickersPerScan ?? 50);
   const scanPicks = useMemo(() => picks.slice(0, max), [picks, max]);
 
   const {
@@ -340,6 +374,28 @@ function Scanner() {
           <Stat label="Find Better" value={labelCounts["Find Better Strike"] ?? 0} tone="amber" />
           <Stat label="Avoid Contract" value={labelCounts["Avoid Contract"] ?? 0} tone="orange" />
           <Stat label="Avoid Ticker" value={labelCounts["Avoid Ticker"] ?? 0} tone="bear" />
+        </div>
+      </div>
+
+      {/* ---- Quick presets ------------------------------------------------- */}
+      <div className="rounded-xl border border-border bg-card p-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+          <Group label="Quick picks">
+            <Chip active={preset === "all"} onClick={() => applyPreset("all")}>All</Chip>
+            <Chip active={preset === "buynow"} onClick={() => applyPreset("buynow")}>🔥 Buy Now</Chip>
+            <Chip active={preset === "watchlist"} onClick={() => applyPreset("watchlist")}>👀 Watchlist</Chip>
+            <Chip active={preset === "aggressive"} onClick={() => applyPreset("aggressive")}>⚡ Aggressive</Chip>
+            <Chip active={preset === "lottos"} onClick={() => applyPreset("lottos")}>🎰 Lottos</Chip>
+            <Chip active={preset === "reddit"} onClick={() => applyPreset("reddit")}>🚀 Reddit YOLO</Chip>
+            <Chip active={preset === "leaps"} onClick={() => applyPreset("leaps")}>📅 LEAPS</Chip>
+          </Group>
+          <Group label={`Scan size: ${max}`}>
+            <input
+              type="range" min={10} max={50} step={5} value={scanLimit}
+              onChange={(e) => setScanLimit(+e.target.value)}
+              className="w-32 accent-[var(--color-bull)]"
+            />
+          </Group>
         </div>
       </div>
 
