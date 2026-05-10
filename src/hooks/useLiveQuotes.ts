@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { getQuotes } from "@/lib/quote.functions";
 import type { ConsensusQuote } from "@/lib/providers.server";
 
@@ -19,6 +19,7 @@ interface UseLiveQuotesOptions {
  */
 export function useLiveQuotes(symbols: string[], options: UseLiveQuotesOptions = {}) {
   const fetchQuotes = useServerFn(getQuotes);
+  const queryClient = useQueryClient();
   const refetchIntervalMs = options.refetchIntervalMs ?? 30_000;
   const unique = useMemo(
     () => Array.from(new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))).sort(),
@@ -77,6 +78,22 @@ export function useLiveQuotes(symbols: string[], options: UseLiveQuotesOptions =
 
   // Once we've ever seen live data, stay "live" — prevents Live/Stale flicker.
   const anyLive = everLive.current || (data?.live ?? false);
+
+  useEffect(() => {
+    const regimeSymbols = ["SPY", "QQQ", "SMH"] as const;
+    if (!regimeSymbols.every((sym) => unique.includes(sym))) return;
+
+    const quotes = Object.fromEntries(
+      regimeSymbols.map((sym) => [sym, lastGood.current[sym] ?? null]),
+    );
+
+    queryClient.setQueryData(["regime-quotes"], {
+      quotes,
+      live: regimeSymbols.some((sym) => Boolean(lastGood.current[sym])),
+      cooldownMs: data?.cooldownMs ?? 0,
+      massiveBlocked: data?.massiveBlocked ?? false,
+    });
+  }, [data?.cooldownMs, data?.massiveBlocked, queryClient, unique, anyLive]);
 
   return { get, quotes: fresh, isLoading, anyLive };
 }
