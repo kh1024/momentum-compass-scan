@@ -71,28 +71,34 @@ export function RefreshBar(props: RefreshBarProps) {
     onRunScanNow, onToggleAutoRefresh,
   } = props;
 
-  // Self-tick so "Xm ago" stays fresh without re-rendering the dashboard.
-  const [now, setNow] = useState(() => Date.now());
+  // Defer all time-derived rendering until after hydration so SSR and the
+  // first client paint produce identical HTML (avoids React #418 mismatch).
+  const [mounted, setMounted] = useState(false);
+  const [now, setNow] = useState(0);
   useEffect(() => {
+    setMounted(true);
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
 
-  const marketOpen = isMarketOpen();
+  const marketOpen = mounted ? isMarketOpen() : false;
   const health = deriveHealth(quoteState, chainState, marketOpen);
   const tone = HEALTH_TONE[health];
 
-  const lastVerified = lastFullScanAt
-    ? `Verified ${formatAgo(lastFullScanAt, now)}`
-    : "Latest verified scan loading";
+  const lastVerified = !mounted
+    ? "Latest verified scan loading"
+    : lastFullScanAt
+      ? `Verified ${formatAgo(lastFullScanAt, now)}`
+      : "Latest verified scan loading";
 
-  const nextRefresh = !autoRefresh
+  const nextRefresh = !mounted || !autoRefresh
     ? null
     : nextFullScanAt
       ? `Next refresh ${formatAgo(nextFullScanAt, now).replace(" ago", "")}`
       : null;
 
-  const tooltip = [
+  const tooltip = !mounted ? "" : [
     marketDataUpdatedAt ? `Market data: ${new Date(marketDataUpdatedAt).toLocaleTimeString()}` : null,
     lastFullScanAt ? `Last scan: ${new Date(lastFullScanAt).toLocaleTimeString()}` : null,
     `Auto refresh: ${autoRefresh ? "on" : "off"}`,
@@ -104,7 +110,7 @@ export function RefreshBar(props: RefreshBarProps) {
         {/* LEFT: market + last verified scan */}
         <div className="flex flex-col">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            {marketOpen ? "Market Open" : "Market Closed"}
+            {!mounted ? "Market Status" : marketOpen ? "Market Open" : "Market Closed"}
           </span>
           <span className="text-xs text-foreground/80 transition-opacity duration-500">
             {lastVerified}
@@ -119,7 +125,7 @@ export function RefreshBar(props: RefreshBarProps) {
               isScanning ? "bg-sky-400 animate-pulse-dot" : "bg-[var(--color-bull)]/70",
             )} />
             <span className="transition-opacity duration-500">
-              {scanLabel(isScanning, lastFullScanAt, autoRefresh, marketOpen)}
+              {mounted ? scanLabel(isScanning, lastFullScanAt, autoRefresh, marketOpen) : "Initializing market intelligence"}
             </span>
           </div>
         </div>
