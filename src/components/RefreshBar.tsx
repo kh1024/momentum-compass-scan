@@ -125,7 +125,7 @@ export function RefreshBar(props: RefreshBarProps) {
               isScanning ? "bg-sky-400 animate-pulse-dot" : "bg-[var(--color-bull)]/70",
             )} />
             <span className="transition-opacity duration-500">
-              {scanLabel(isScanning, lastFullScanAt, autoRefresh, marketOpen)}
+              {mounted ? scanLabel(isScanning, lastFullScanAt, autoRefresh, marketOpen) : "Initializing market intelligence"}
             </span>
           </div>
         </div>
