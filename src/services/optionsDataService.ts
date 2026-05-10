@@ -7,8 +7,7 @@
  */
 
 import { enrichWithPublicChain, type EnrichedContract, type EnrichmentResult } from "@/lib/chain.functions";
-import type { Direction } from "@/lib/types";
-import type { EntryMode } from "@/lib/entryMode";
+import type { Direction, EntryMode } from "@/lib/types";
 import type { TrustEnvelope, DataSource } from "./trust";
 import { wrap, unavailable, errored } from "./trust";
 
