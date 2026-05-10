@@ -258,6 +258,7 @@ export function Sidebar({
                 <NavItem key={item.to} {...item} />
               ))}
             </div>
+            <SnapshotHealthPanel />
           </div>
         )}
       </nav>
