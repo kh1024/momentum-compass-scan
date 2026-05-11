@@ -99,6 +99,7 @@ export function applyLiveQuote(
     isDemo: false,
     liveState: liveStateFor(c.ticker),
     quoteValidation: validation,
+    consensusQuote: consensusSnap,
     target1: scale(c.target1),
     target2: scale(c.target2),
     levels: newLevels,
