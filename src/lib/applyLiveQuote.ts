@@ -70,6 +70,7 @@ export function applyLiveQuote(
       isDemo: false,
       liveState: liveStateFor(c.ticker),
       quoteValidation: validation,
+      consensusQuote: consensusSnap,
     };
   }
   const scale = (n: number) => +(n * r).toFixed(2);
