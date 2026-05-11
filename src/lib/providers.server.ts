@@ -411,10 +411,17 @@ export async function getConsensusQuote(symbol: string): Promise<ConsensusQuote 
 }
 
 export async function getConsensusQuotes(symbols: string[]): Promise<Record<string, ConsensusQuote | null>> {
-  const out: Record<string, ConsensusQuote | null> = {};
   const unique = normalizeTickers(symbols, 50);
-  for (const s of unique) out[s] = await getConsensusQuote(s);
-  return out;
+  // Fetch in parallel batches of 10 to stay within provider rate limits while
+  // avoiding the multi-second sequential penalty of 40+ tickers in a for loop.
+  const BATCH = 10;
+  const entries: Array<[string, ConsensusQuote | null]> = [];
+  for (let i = 0; i < unique.length; i += BATCH) {
+    const batch = unique.slice(i, i + BATCH);
+    const results = await Promise.all(batch.map((s) => getConsensusQuote(s)));
+    for (let j = 0; j < batch.length; j++) entries.push([batch[j], results[j]]);
+  }
+  return Object.fromEntries(entries);
 }
 
 // ── Per-provider health probe (used by Settings status panel) ──
