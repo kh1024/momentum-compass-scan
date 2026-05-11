@@ -51,6 +51,15 @@ export function applyLiveQuote(
   }
   markLive(c.ticker, "quote");
   const safePrice = validation.price;
+  const consensusSnap = live
+    ? {
+        sources: live.sources,
+        consensusSource: live.consensusSource,
+        agreement: live.agreement,
+        diffPct: live.diffPct,
+        ts: live.ts,
+      }
+    : undefined;
   const oldPrice = c.price > 0 ? c.price : safePrice;
   const r = safePrice / oldPrice;
   // Skip rescale if delta is trivial — avoids needless churn.
