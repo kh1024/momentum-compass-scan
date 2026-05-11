@@ -81,6 +81,7 @@ function mergeSnapshot(
 export async function fetchContractSnapshot(
   underlying: string,
   occSymbol: string,
+  signal?: AbortSignal,
 ): Promise<ContractSnapshotRow | null> {
   const sym = underlying.trim().toUpperCase();
   const path = `/v3/snapshot/options/${encodeURIComponent(sym)}/${encodeURIComponent(occSymbol)}`;
@@ -89,18 +90,21 @@ export async function fetchContractSnapshot(
     ticker: sym,
     cacheKey,
     ttlMs: getScannerSettings().optionChainTtlMs,
+    signal,
   });
   return r.data?.results ?? null;
 }
 
 export async function fetchOptionQuote(
   occSymbol: string,
+  signal?: AbortSignal,
 ): Promise<{ bid: number | null; ask: number | null } | null> {
   const path = `/v3/quotes/${encodeURIComponent(occSymbol)}?limit=1&sort=sip_timestamp&order=desc`;
   const cacheKey = buildCacheKey(["massive", "quote", occSymbol]);
   const r = await massiveClient<QuotesResponse>(path, {
     cacheKey,
     ttlMs: getScannerSettings().quoteTtlMs,
+    signal,
   });
   const row = r.data?.results?.[0];
   if (!row) return null;
@@ -110,42 +114,62 @@ export async function fetchOptionQuote(
   };
 }
 
+const REPAIR_TIMEOUT_MS = 6_000;
+
 /**
  * Run the full repair flow on a contract: contract snapshot first, then
  * quotes endpoint if bid/ask still missing. Returns the (possibly improved)
  * contract plus which endpoint(s) were used.
+ *
+ * Accepts an optional signal; always enforces an internal REPAIR_TIMEOUT_MS
+ * hard-stop so repair never blocks the Workers runtime past its time budget.
  */
 export async function repairContract(
   c: OptionContractData,
+  externalSignal?: AbortSignal,
 ): Promise<{ contract: OptionContractData; endpoint: "contract-snapshot" | "quotes" | "contract-snapshot+quotes" | null }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REPAIR_TIMEOUT_MS);
+  // If the caller provides a signal, propagate its abort into our controller.
+  externalSignal?.addEventListener("abort", () => controller.abort(), { once: true });
+  const signal = controller.signal;
+
   let contract = c;
   let endpoint: "contract-snapshot" | "quotes" | "contract-snapshot+quotes" | null = null;
   try {
-    const snap = await fetchContractSnapshot(c.underlyingTicker, c.optionTicker);
-    if (snap) {
-      contract = mergeSnapshot(contract, snap);
-      endpoint = "contract-snapshot";
-    }
-  } catch (e) {
-    console.warn(`[optionRepair] snapshot failed for ${c.optionTicker}`, e);
-  }
-  if (!contract.bid || !contract.ask) {
     try {
-      const q = await fetchOptionQuote(c.optionTicker);
-      if (q) {
-        contract = {
-          ...contract,
-          bid: contract.bid ?? q.bid,
-          ask: contract.ask ?? q.ask,
-        };
-        endpoint = endpoint ? "contract-snapshot+quotes" : "quotes";
-        if (contract.spreadPct == null && contract.ask && contract.bid && contract.ask > 0) {
-          contract.spreadPct = Math.max(0, (contract.ask - contract.bid) / contract.ask);
-        }
+      const snap = await fetchContractSnapshot(c.underlyingTicker, c.optionTicker, signal);
+      if (snap) {
+        contract = mergeSnapshot(contract, snap);
+        endpoint = "contract-snapshot";
       }
     } catch (e) {
-      console.warn(`[optionRepair] quote failed for ${c.optionTicker}`, e);
+      if ((e as { name?: string }).name !== "AbortError") {
+        console.warn(`[optionRepair] snapshot failed for ${c.optionTicker}`, e);
+      }
     }
+    if (!contract.bid || !contract.ask) {
+      try {
+        const q = await fetchOptionQuote(c.optionTicker, signal);
+        if (q) {
+          contract = {
+            ...contract,
+            bid: contract.bid ?? q.bid,
+            ask: contract.ask ?? q.ask,
+          };
+          endpoint = endpoint ? "contract-snapshot+quotes" : "quotes";
+          if (contract.spreadPct == null && contract.ask && contract.bid && contract.ask > 0) {
+            contract.spreadPct = Math.max(0, (contract.ask - contract.bid) / contract.ask);
+          }
+        }
+      } catch (e) {
+        if ((e as { name?: string }).name !== "AbortError") {
+          console.warn(`[optionRepair] quote failed for ${c.optionTicker}`, e);
+        }
+      }
+    }
+  } finally {
+    clearTimeout(timer);
   }
   return { contract, endpoint };
 }

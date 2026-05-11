@@ -46,23 +46,28 @@ export async function massiveClient<T>(
   let retryAfterMs: number | null = null;
   let retryCount = 0;
   try {
-    const result = await massiveLimiter.run(() => retryWithBackoff<Response>(async () => {
-      retryCount += statusCode === 429 ? 1 : 0;
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${keySecret}`, Accept: "application/json" },
-        signal: options.signal,
+    // retryWithBackoff wraps the limiter.run so that retry sleeps happen
+    // OUTSIDE the concurrent slot — preventing slot starvation when the API
+    // rate-limits and the sleep holds the slot for seconds at a time.
+    const result = await retryWithBackoff<Response>(async () => {
+      return massiveLimiter.run(async () => {
+        retryCount += statusCode === 429 ? 1 : 0;
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${keySecret}`, Accept: "application/json" },
+          signal: options.signal,
+        });
+        statusCode = response.status;
+        statusText = response.statusText;
+        if (response.status === 429) {
+          retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after")) ?? 0;
+          const dt429 = Date.now() - start;
+          recordThrottleSample("massive", dt429, { ok: false, rateLimited: true });
+          logApiHealth({ endpoint: path, url, method, ticker: options.ticker ?? null, statusCode: 429, statusText: response.statusText || "Too Many Requests", retryAfterMs, responseTimeMs: dt429, cached: false, retryCount, rateLimited: true, errorMessage: `429 Too Many Requests on ${method} ${path}${retryAfterMs ? ` (retry-after ${retryAfterMs}ms)` : ""}` });
+          throw new MassiveClientRateLimitError(retryAfterMs);
+        }
+        return response;
       });
-      statusCode = response.status;
-      statusText = response.statusText;
-      if (response.status === 429) {
-        retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after")) ?? 0;
-        const dt429 = Date.now() - start;
-        recordThrottleSample("massive", dt429, { ok: false, rateLimited: true });
-        logApiHealth({ endpoint: path, url, method, ticker: options.ticker ?? null, statusCode: 429, statusText: response.statusText || "Too Many Requests", retryAfterMs, responseTimeMs: dt429, cached: false, retryCount, rateLimited: true, errorMessage: `429 Too Many Requests on ${method} ${path}${retryAfterMs ? ` (retry-after ${retryAfterMs}ms)` : ""}` });
-        throw new MassiveClientRateLimitError(retryAfterMs);
-      }
-      return response;
-    }, { signal: options.signal }));
+    }, { signal: options.signal });
     retryCount = result.retryCount;
     const response = result.value;
     if (!response.ok) throw new Error(`Massive ${response.status} ${response.statusText} on ${method} ${path}`);
