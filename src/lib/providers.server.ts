@@ -297,35 +297,111 @@ async function fetchAllSources(symbol: string): Promise<SourceQuote[]> {
   return out.filter((q): q is SourceQuote => q !== null);
 }
 
-/** Build a consensus quote from one symbol's source list. Freshest ts wins. */
+// Tiered agreement thresholds (decimal fraction, not percent).
+// Per spec: 0.75% large-cap/ETF, 1.5% mid-cap, 3% high-beta/crypto.
+const LARGE_CAP = new Set([
+  "SPY","QQQ","IWM","DIA","SMH","XLK","XLF","XLE","XLV","XLY","XLI","XLP","XLU","XLB","XLRE","XLC",
+  "VOO","VTI","VEA","VWO","VXX","UVXY","TLT","HYG","LQD","GLD","SLV","USO",
+  "AAPL","MSFT","NVDA","AMZN","GOOGL","GOOG","META","TSLA","AVGO","BRK.B","JPM","V","MA","UNH","XOM",
+  "WMT","JNJ","PG","HD","COST","BAC","ORCL","CRM","ADBE","NFLX","AMD","INTC","CSCO","KO","PEP","ABBV",
+]);
+
+function thresholdFor(symbol: string): number {
+  const s = symbol.toUpperCase();
+  if (/-USD$/.test(s)) return 0.03;           // crypto: 3%
+  if (LARGE_CAP.has(s)) return 0.0075;        // mega/ETF: 0.75%
+  return 0.015;                                // default mid-cap: 1.5%
+}
+
+function median(nums: number[]): number {
+  const s = [...nums].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+/**
+ * Build a consensus quote.
+ * Strategy:
+ *   - Find the LARGEST cluster of sources whose prices agree within
+ *     the per-ticker threshold (cross-validation).
+ *   - The cluster's freshest source is the winner. Outliers are rejected
+ *     so a stale/split-mangled provider can never poison the price.
+ *   - If no two sources agree → agreement="mismatch" and we return the
+ *     freshest single source, but the validator downstream will refuse
+ *     to rank it.
+ */
 export function consensus(quotes: SourceQuote[]): ConsensusQuote | null {
   if (quotes.length === 0) return null;
-  const sorted = [...quotes].sort((a, b) => b.ts - a.ts);
-  const winner = sorted[0];
   const sources: Partial<Record<SourceName, number>> = {};
   for (const q of quotes) sources[q.source] = q.price;
 
-  let agreement: ConsensusQuote["agreement"] = "single";
-  let diffPct: number | null = null;
-  if (quotes.length >= 2) {
-    const prices = quotes.map(q => q.price);
-    const max = Math.max(...prices);
-    const min = Math.min(...prices);
-    diffPct = ((max - min) / winner.price) * 100;
-    agreement = diffPct < 0.25 ? "verified" : diffPct < 1 ? "close" : "mismatch";
+  if (quotes.length === 1) {
+    const w = quotes[0];
+    return {
+      symbol: w.symbol, price: w.price, change: w.change, changePct: w.changePct,
+      volume: w.volume, ts: w.ts, consensusSource: w.source, sources,
+      agreement: "single", diffPct: null,
+    };
   }
 
+  const threshold = thresholdFor(quotes[0].symbol);
+
+  // Find the largest cluster — pairs whose relative diff is within threshold.
+  // O(n²) over a tiny n (≤6).
+  let bestCluster: SourceQuote[] = [];
+  for (let i = 0; i < quotes.length; i++) {
+    const anchor = quotes[i];
+    const cluster = quotes.filter(
+      (q) => Math.abs(q.price - anchor.price) / anchor.price <= threshold,
+    );
+    if (cluster.length > bestCluster.length) bestCluster = cluster;
+  }
+
+  const prices = quotes.map((q) => q.price);
+  const maxAll = Math.max(...prices);
+  const minAll = Math.min(...prices);
+  const refForDiff = median(prices);
+  const diffPct = refForDiff > 0 ? ((maxAll - minAll) / refForDiff) * 100 : null;
+
+  // 2+ agreeing sources → trust the cluster, reject the outliers.
+  if (bestCluster.length >= 2) {
+    const winner = [...bestCluster].sort((a, b) => b.ts - a.ts)[0];
+    const clusterPrices = bestCluster.map((q) => q.price);
+    const clusterDiff =
+      winner.price > 0
+        ? ((Math.max(...clusterPrices) - Math.min(...clusterPrices)) / winner.price) * 100
+        : 0;
+    const outliers = quotes.length - bestCluster.length;
+    if (outliers > 0) {
+      const rejected = quotes
+        .filter((q) => !bestCluster.includes(q))
+        .map((q) => `${q.source}=$${q.price.toFixed(2)}`)
+        .join(", ");
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[consensus] ${winner.symbol}: rejected outlier(s) ${rejected} — cluster $${winner.price.toFixed(2)} (${bestCluster.length}/${quotes.length} agree within ${(threshold * 100).toFixed(2)}%)`,
+      );
+    }
+    const agreement: ConsensusQuote["agreement"] =
+      clusterDiff < (threshold * 100) / 3 ? "verified" : "close";
+    return {
+      symbol: winner.symbol, price: winner.price, change: winner.change,
+      changePct: winner.changePct, volume: winner.volume, ts: winner.ts,
+      consensusSource: winner.source, sources, agreement, diffPct,
+    };
+  }
+
+  // No agreeing cluster — providers disagree. Return freshest but flag mismatch.
+  const freshest = [...quotes].sort((a, b) => b.ts - a.ts)[0];
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[consensus] ${freshest.symbol}: MISMATCH — sources disagree (Δ ${diffPct?.toFixed(2)}% > ${(threshold * 100).toFixed(2)}%): ${quotes.map((q) => `${q.source}=$${q.price.toFixed(2)}`).join(", ")}`,
+  );
   return {
-    symbol: winner.symbol,
-    price: winner.price,
-    change: winner.change,
-    changePct: winner.changePct,
-    volume: winner.volume,
-    ts: winner.ts,
-    consensusSource: winner.source,
-    sources,
-    agreement,
-    diffPct,
+    symbol: freshest.symbol, price: freshest.price, change: freshest.change,
+    changePct: freshest.changePct, volume: freshest.volume, ts: freshest.ts,
+    consensusSource: freshest.source, sources,
+    agreement: "mismatch", diffPct,
   };
 }
 

@@ -39,18 +39,37 @@ export function applyLiveQuote(
       // eslint-disable-next-line no-console
       console.warn(`[quote-reject] ${c.ticker}: ${validation.status} — ${validation.reason}`);
     }
+    const consensusSnapReject = live
+      ? {
+          sources: live.sources,
+          consensusSource: live.consensusSource,
+          agreement: live.agreement,
+          diffPct: live.diffPct,
+          ts: live.ts,
+        }
+      : undefined;
     if (hasEverBeenLive(c.ticker)) {
       return {
         ...c,
         isDemo: false,
         liveState: liveStateFor(c.ticker),
         quoteValidation: validation,
+        consensusQuote: consensusSnapReject,
       };
     }
-    return { ...c, liveState: "demo", quoteValidation: validation };
+    return { ...c, liveState: "demo", quoteValidation: validation, consensusQuote: consensusSnapReject };
   }
   markLive(c.ticker, "quote");
   const safePrice = validation.price;
+  const consensusSnap = live
+    ? {
+        sources: live.sources,
+        consensusSource: live.consensusSource,
+        agreement: live.agreement,
+        diffPct: live.diffPct,
+        ts: live.ts,
+      }
+    : undefined;
   const oldPrice = c.price > 0 ? c.price : safePrice;
   const r = safePrice / oldPrice;
   // Skip rescale if delta is trivial — avoids needless churn.
@@ -61,6 +80,7 @@ export function applyLiveQuote(
       isDemo: false,
       liveState: liveStateFor(c.ticker),
       quoteValidation: validation,
+      consensusQuote: consensusSnap,
     };
   }
   const scale = (n: number) => +(n * r).toFixed(2);
@@ -89,6 +109,7 @@ export function applyLiveQuote(
     isDemo: false,
     liveState: liveStateFor(c.ticker),
     quoteValidation: validation,
+    consensusQuote: consensusSnap,
     target1: scale(c.target1),
     target2: scale(c.target2),
     levels: newLevels,

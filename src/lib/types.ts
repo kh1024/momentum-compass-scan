@@ -236,6 +236,14 @@ export interface TradeCandidate {
   liveState?: "live" | "stale" | "demo";
   /** Quote validation result — see quoteValidation.ts. */
   quoteValidation?: import("./quoteValidation").QuoteValidation;
+  /** Raw multi-source consensus snapshot — drives "Quote source" drawer section. */
+  consensusQuote?: {
+    sources: Partial<Record<string, number>>;
+    consensusSource: string;
+    agreement: "verified" | "close" | "mismatch" | "single";
+    diffPct: number | null;
+    ts: number;
+  };
   // YOLO extras
   whyExplode?: string;
   whyZero?: string;

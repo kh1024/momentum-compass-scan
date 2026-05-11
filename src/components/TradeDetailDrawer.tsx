@@ -150,6 +150,53 @@ export function TradeDetailDrawer({
             </Section>
           )}
 
+          {/* Quote provenance — multi-source consensus + validation */}
+          {(() => {
+            const qv = t.quoteValidation;
+            const cq = (t as unknown as { consensusQuote?: { sources?: Partial<Record<string, number>>; agreement?: string; diffPct?: number | null } }).consensusQuote;
+            const sources = cq?.sources;
+            if (!qv && !sources) return null;
+            const statusTone =
+              qv?.status === "verified" ? "text-[var(--color-bull)]"
+              : qv?.status === "cached" ? "text-foreground/80"
+              : qv?.status === "mismatch" || qv?.status === "suspicious" ? "text-[var(--color-bear)]"
+              : "text-amber-500";
+            const statusLabel =
+              qv?.status === "verified" ? "Quote Verified"
+              : qv?.status === "cached" ? "Using Latest Verified Price"
+              : qv?.status === "mismatch" ? "Provider Disagreement"
+              : qv?.status === "suspicious" ? "Quote Mismatch"
+              : qv?.status === "stale" ? "Price Needs Refresh"
+              : qv?.status === "unavailable" ? "Quote Unavailable"
+              : null;
+            return (
+              <Section title="Quote source">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+                  <KV k="Price used" v={`$${t.price.toFixed(2)}`} />
+                  {qv?.source && <KV k="Source" v={qv.source} />}
+                  {qv?.ts && <KV k="As of" v={new Date(qv.ts).toLocaleTimeString()} />}
+                  {qv?.ageMs != null && <KV k="Age" v={`${Math.round(qv.ageMs / 1000)}s`} />}
+                  {cq?.diffPct != null && <KV k="Source spread" v={`${cq.diffPct.toFixed(2)}%`} />}
+                  {cq?.agreement && <KV k="Agreement" v={cq.agreement} />}
+                </div>
+                {statusLabel && (
+                  <div className={cn("mt-2 text-[11px] font-semibold", statusTone)}>
+                    {statusLabel}{qv?.reason ? ` — ${qv.reason}` : ""}
+                  </div>
+                )}
+                {sources && Object.keys(sources).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+                    {Object.entries(sources).map(([src, price]) => (
+                      <span key={src} className="rounded-full border border-border bg-muted/30 px-2 py-0.5 font-mono">
+                        {src}: ${Number(price).toFixed(2)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </Section>
+            );
+          })()}
+
           {/* Badges */}
           {badges.length > 0 && (
             <Section title="Quick read">
