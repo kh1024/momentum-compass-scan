@@ -20,6 +20,7 @@ import { Route as IoDataRouteImport } from './routes/io-data'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TradeTickerRouteImport } from './routes/trade.$ticker'
 import { Route as ApiHealthCheckRouteImport } from './routes/api/health-check'
+import { Route as ApiDiagQuotesRouteImport } from './routes/api/diag/quotes'
 import { Route as ApiProvidersPublicStatusRouteImport } from './routes/api/providers/public.status'
 
 const WatchlistRoute = WatchlistRouteImport.update({
@@ -77,6 +78,11 @@ const ApiHealthCheckRoute = ApiHealthCheckRouteImport.update({
   path: '/api/health-check',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDiagQuotesRoute = ApiDiagQuotesRouteImport.update({
+  id: '/api/diag/quotes',
+  path: '/api/diag/quotes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiProvidersPublicStatusRoute =
   ApiProvidersPublicStatusRouteImport.update({
     id: '/api/providers/public/status',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/watchlist': typeof WatchlistRoute
   '/api/health-check': typeof ApiHealthCheckRoute
   '/trade/$ticker': typeof TradeTickerRoute
+  '/api/diag/quotes': typeof ApiDiagQuotesRoute
   '/api/providers/public/status': typeof ApiProvidersPublicStatusRoute
 }
 export interface FileRoutesByTo {
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/watchlist': typeof WatchlistRoute
   '/api/health-check': typeof ApiHealthCheckRoute
   '/trade/$ticker': typeof TradeTickerRoute
+  '/api/diag/quotes': typeof ApiDiagQuotesRoute
   '/api/providers/public/status': typeof ApiProvidersPublicStatusRoute
 }
 export interface FileRoutesById {
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/watchlist': typeof WatchlistRoute
   '/api/health-check': typeof ApiHealthCheckRoute
   '/trade/$ticker': typeof TradeTickerRoute
+  '/api/diag/quotes': typeof ApiDiagQuotesRoute
   '/api/providers/public/status': typeof ApiProvidersPublicStatusRoute
 }
 export interface FileRouteTypes {
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/api/health-check'
     | '/trade/$ticker'
+    | '/api/diag/quotes'
     | '/api/providers/public/status'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/api/health-check'
     | '/trade/$ticker'
+    | '/api/diag/quotes'
     | '/api/providers/public/status'
   id:
     | '__root__'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/api/health-check'
     | '/trade/$ticker'
+    | '/api/diag/quotes'
     | '/api/providers/public/status'
   fileRoutesById: FileRoutesById
 }
@@ -184,6 +196,7 @@ export interface RootRouteChildren {
   WatchlistRoute: typeof WatchlistRoute
   ApiHealthCheckRoute: typeof ApiHealthCheckRoute
   TradeTickerRoute: typeof TradeTickerRoute
+  ApiDiagQuotesRoute: typeof ApiDiagQuotesRoute
   ApiProvidersPublicStatusRoute: typeof ApiProvidersPublicStatusRoute
 }
 
@@ -266,6 +279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/diag/quotes': {
+      id: '/api/diag/quotes'
+      path: '/api/diag/quotes'
+      fullPath: '/api/diag/quotes'
+      preLoaderRoute: typeof ApiDiagQuotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/providers/public/status': {
       id: '/api/providers/public/status'
       path: '/api/providers/public/status'
@@ -288,8 +308,19 @@ const rootRouteChildren: RootRouteChildren = {
   WatchlistRoute: WatchlistRoute,
   ApiHealthCheckRoute: ApiHealthCheckRoute,
   TradeTickerRoute: TradeTickerRoute,
+  ApiDiagQuotesRoute: ApiDiagQuotesRoute,
   ApiProvidersPublicStatusRoute: ApiProvidersPublicStatusRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
