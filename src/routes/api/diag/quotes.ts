@@ -29,12 +29,7 @@ export const Route = createFileRoute("/api/diag/quotes")({
               diffPct: q.diffPct,
               ts: q.ts,
               ageMs: q.ts ? now - q.ts : null,
-              sources: q.sources?.map(s => ({
-                source: s.source,
-                price: s.price,
-                ts: s.ts,
-                ageMs: s.ts ? now - s.ts : null,
-              })) ?? [],
+              sources: Object.entries(q.sources ?? {}).map(([source, price]) => ({ source, price })),
             } : null,
             validation: {
               status: v.status,
