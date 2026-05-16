@@ -147,7 +147,9 @@ interface SnapshotResp {
 }
 
 export function massiveConfigured(): boolean {
-  return Boolean(process.env.MASSIVE_API_KEY);
+  // Massive provider is disabled app-wide. Always report unconfigured so
+  // every gate falls back to other providers.
+  return false;
 }
 
 async function callMassive(path: string): Promise<unknown> {
