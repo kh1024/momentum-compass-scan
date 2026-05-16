@@ -26,8 +26,10 @@ if (process.env.MASSIVE_ENABLE_SNAPSHOT === "1") {
 }
 
 // ---- runtime enable/disable toggle ---------------------------------
-// Default OFF to respect plan limits; user toggles ON from Settings.
-let massiveEnabled = process.env.MASSIVE_ENABLED !== "0";
+// Massive provider is hard-disabled app-wide. Other providers (Public.com,
+// Finnhub, etc.) handle quotes and option chains. setMassiveEnabled() is a
+// no-op so existing Settings UI doesn't crash.
+let massiveEnabled = false;
 const RATE_LIMIT_PER_MIN = Number(process.env.MASSIVE_RATE_LIMIT_PER_MIN ?? 113);
 const recentRequests: number[] = [];
 function noteRequest() {
@@ -40,8 +42,8 @@ export function getMassiveRequestsLastMinute(): number {
   while (recentRequests.length && recentRequests[0] < cutoff) recentRequests.shift();
   return recentRequests.length;
 }
-export function isMassiveEnabled(): boolean { return massiveEnabled; }
-export function setMassiveEnabled(v: boolean): void { massiveEnabled = v; }
+export function isMassiveEnabled(): boolean { return false; }
+export function setMassiveEnabled(_v: boolean): void { /* hard-disabled */ }
 export function getMassiveRateLimitPerMin(): number { return RATE_LIMIT_PER_MIN; }
 
 // ---- response cache --------------------------------------------------
@@ -145,7 +147,9 @@ interface SnapshotResp {
 }
 
 export function massiveConfigured(): boolean {
-  return Boolean(process.env.MASSIVE_API_KEY);
+  // Massive provider is disabled app-wide. Always report unconfigured so
+  // every gate falls back to other providers.
+  return false;
 }
 
 async function callMassive(path: string): Promise<unknown> {
