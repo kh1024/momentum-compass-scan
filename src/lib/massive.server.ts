@@ -42,8 +42,8 @@ export function getMassiveRequestsLastMinute(): number {
   while (recentRequests.length && recentRequests[0] < cutoff) recentRequests.shift();
   return recentRequests.length;
 }
-export function isMassiveEnabled(): boolean { return massiveEnabled; }
-export function setMassiveEnabled(v: boolean): void { massiveEnabled = v; }
+export function isMassiveEnabled(): boolean { return false; }
+export function setMassiveEnabled(_v: boolean): void { /* hard-disabled */ }
 export function getMassiveRateLimitPerMin(): number { return RATE_LIMIT_PER_MIN; }
 
 // ---- response cache --------------------------------------------------
