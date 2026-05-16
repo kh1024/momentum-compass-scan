@@ -26,8 +26,10 @@ if (process.env.MASSIVE_ENABLE_SNAPSHOT === "1") {
 }
 
 // ---- runtime enable/disable toggle ---------------------------------
-// Default OFF to respect plan limits; user toggles ON from Settings.
-let massiveEnabled = process.env.MASSIVE_ENABLED !== "0";
+// Massive provider is hard-disabled app-wide. Other providers (Public.com,
+// Finnhub, etc.) handle quotes and option chains. setMassiveEnabled() is a
+// no-op so existing Settings UI doesn't crash.
+let massiveEnabled = false;
 const RATE_LIMIT_PER_MIN = Number(process.env.MASSIVE_RATE_LIMIT_PER_MIN ?? 113);
 const recentRequests: number[] = [];
 function noteRequest() {
